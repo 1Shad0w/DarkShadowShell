@@ -19,6 +19,7 @@ Item {
     readonly property color bg: pre[0]
     readonly property color acc: pre[1]
     readonly property color ink: pre[2]
+    readonly property color cink: p && p.clock_ink ? p.clock_ink : ink
     readonly property bool minimal: !!(p && p.extra && p.extra.minimal && p.extra.minimal.on)
     readonly property real cs: minimal ? 0 : Math.max(0, th.corners !== undefined ? th.corners : 1)
     function r(x) { return M3.sq ? 0 : x * cs * s }
@@ -80,7 +81,7 @@ Item {
 
         // a window, with the preset's corners, gaps and border
         Rectangle {
-            x: pv.width * 0.56; y: desk.bt + 130 * pv.s
+            x: pv.width * 0.56 - (pv.barPos === "right" ? 70 * pv.s : 0); y: desk.bt + 130 * pv.s
             width: pv.width * 0.38
             height: Math.min(pv.height * 0.5, pv.height - y - desk.bb - desk.gap - (pv.dock.enabled ? 150 * pv.s : 30 * pv.s))
             opacity: 0.92
@@ -108,7 +109,7 @@ Item {
             Column {
                 visible: dclock.st === "expressive"
                 anchors.centerIn: parent; spacing: -60 * pv.s
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: pv.hh; color: pv.ink; font.family: dclock.ff; font.pixelSize: 200 * pv.s; font.weight: Font.Bold }
+                Text { anchors.horizontalCenter: parent.horizontalCenter; text: pv.hh; color: pv.cink; font.family: dclock.ff; font.pixelSize: 200 * pv.s; font.weight: Font.Bold }
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: pv.mm; color: pv.acc; font.family: dclock.ff; font.pixelSize: 200 * pv.s; font.weight: Font.Bold }
             }
             // stacked: the hours over the minutes, the date under them
@@ -116,8 +117,8 @@ Item {
                 visible: dclock.st === "stacked"
                 anchors.centerIn: parent; spacing: -40 * pv.s
                 Text { text: pv.hh; color: pv.acc; font.family: dclock.ff; font.pixelSize: 170 * pv.s; font.weight: Font.Black }
-                Text { text: pv.mm; color: pv.ink; font.family: dclock.ff; font.pixelSize: 170 * pv.s; font.weight: Font.Black }
-                Text { topPadding: 46 * pv.s; text: I18n.t("Tuesday") + ", 24"; color: pv.tint(pv.ink, 0.8); font.family: Fonts.family("main"); font.pixelSize: 30 * pv.s }
+                Text { text: pv.mm; color: pv.cink; font.family: dclock.ff; font.pixelSize: 170 * pv.s; font.weight: Font.Black }
+                Text { topPadding: 46 * pv.s; text: I18n.t("Tuesday") + ", 24"; color: pv.tint(pv.cink, 0.8); font.family: Fonts.family("main"); font.pixelSize: 30 * pv.s }
             }
             // shape / cookie: the time inside a shape
             Item {
@@ -132,12 +133,12 @@ Item {
             Item {
                 visible: dclock.st === "analog"
                 anchors.centerIn: parent; width: 320 * pv.s; height: width
-                Rectangle { anchors.fill: parent; radius: width / 2; color: pv.surf; border.width: 3 * pv.s; border.color: pv.tint(pv.ink, 0.2) }
+                Rectangle { anchors.fill: parent; radius: width / 2; color: pv.surf; border.width: 3 * pv.s; border.color: pv.tint(pv.cink, 0.2) }
                 Repeater { model: 12
                     delegate: Rectangle { x: parent.width / 2 - width / 2; y: 14 * pv.s; width: (index % 3 === 0 ? 8 : 4) * pv.s; height: (index % 3 === 0 ? 26 : 14) * pv.s
-                        radius: width / 2; color: index % 3 === 0 ? pv.ink : pv.tint(pv.ink, 0.4)
+                        radius: width / 2; color: index % 3 === 0 ? pv.cink : pv.tint(pv.cink, 0.4)
                         transform: Rotation { origin.x: width / 2; origin.y: 160 * pv.s - 14 * pv.s; angle: index * 30 } } }
-                Rectangle { x: parent.width / 2 - width / 2; y: parent.height / 2 - height + 6 * pv.s; width: 12 * pv.s; height: 90 * pv.s; radius: width / 2; color: pv.ink
+                Rectangle { x: parent.width / 2 - width / 2; y: parent.height / 2 - height + 6 * pv.s; width: 12 * pv.s; height: 90 * pv.s; radius: width / 2; color: pv.cink
                     transform: Rotation { origin.x: 6 * pv.s; origin.y: 84 * pv.s; angle: 252 } }
                 Rectangle { x: parent.width / 2 - width / 2; y: parent.height / 2 - height + 6 * pv.s; width: 8 * pv.s; height: 128 * pv.s; radius: width / 2; color: pv.acc
                     transform: Rotation { origin.x: 4 * pv.s; origin.y: 122 * pv.s; angle: 270 } }
@@ -147,16 +148,16 @@ Item {
             Column {
                 visible: dclock.st === "digital"
                 anchors.centerIn: parent; spacing: 4 * pv.s
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: pv.hh + ":" + pv.mm; color: pv.ink; font.family: dclock.ff; font.pixelSize: 190 * pv.s; font.weight: Font.Normal }
+                Text { anchors.horizontalCenter: parent.horizontalCenter; text: pv.hh + ":" + pv.mm; color: pv.cink; font.family: dclock.ff; font.pixelSize: 190 * pv.s; font.weight: Font.Normal }
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: I18n.t("Tuesday").toUpperCase() + "  ·  24"; color: pv.acc; font.family: Fonts.family("main"); font.pixelSize: 28 * pv.s; font.letterSpacing: 6 * pv.s }
             }
             // line: small, light, a line in your color
             Column {
                 visible: dclock.st === "line"
                 anchors.centerIn: parent; spacing: 14 * pv.s
-                Text { text: pv.hh + ":" + pv.mm; color: pv.ink; font.family: dclock.ff; font.pixelSize: 120 * pv.s; font.weight: Font.Light }
+                Text { text: pv.hh + ":" + pv.mm; color: pv.cink; font.family: dclock.ff; font.pixelSize: 120 * pv.s; font.weight: Font.Light }
                 Rectangle { width: 260 * pv.s; height: 4 * pv.s; color: pv.acc }
-                Text { text: I18n.t("Tuesday") + ", 24"; color: pv.tint(pv.ink, 0.7); font.family: Fonts.family("main"); font.pixelSize: 28 * pv.s }
+                Text { text: I18n.t("Tuesday") + ", 24"; color: pv.tint(pv.cink, 0.7); font.family: Fonts.family("main"); font.pixelSize: 28 * pv.s }
             }
             // pixel: the digits made of squares
             Row {
@@ -170,7 +171,7 @@ Item {
                         columns: 3; spacing: 4 * pv.s
                         Repeater { model: 15
                             delegate: Rectangle { width: 22 * pv.s; height: width; radius: M3.sq ? 0 : 4 * pv.s
-                                color: pg.bits.charAt(index) === "1" ? (pg.modelData === "4" || pg.modelData === "5" ? pv.acc : pv.ink) : "transparent" } } } }
+                                color: pg.bits.charAt(index) === "1" ? (pg.modelData === "4" || pg.modelData === "5" ? pv.acc : pv.cink) : "transparent" } } } }
             }
         }
 

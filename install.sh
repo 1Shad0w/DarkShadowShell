@@ -214,6 +214,20 @@ missing_cmds() {
 t() { timeout "${T:-25}" "$@"; }
 # start something in the background, detached from the installer
 detach() { setsid -f "$@" >/dev/null 2>&1 </dev/null || true; }
+# V5.06: the reboot at the end, one way after another: systemd (and with sudo when something blocks it, a program
+# holding a "do not reboot" lock or a second user logged in), elogind, then plain sudo. The terminal is there, so
+# sudo may ask for the password
+reboot_now() {
+  sync
+  if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+    systemctl reboot 2>>"$LOG" && return 0
+    sudo systemctl reboot -i 2>>"$LOG" && return 0
+  fi
+  if command -v loginctl >/dev/null 2>&1; then loginctl reboot 2>>"$LOG" && return 0; fi
+  bash "$ROOT/bin/rice-sys" reboot 2>>"$LOG" && return 0
+  sudo reboot 2>>"$LOG" && return 0
+  return 1
+}
 config_dirs() { local d; for d in "$ROOT"/config/*/; do [ -d "$d" ] && basename "$d"; done; }
 pretty_dir() {
   case "$1" in
@@ -651,12 +665,14 @@ put_wallpapers() {
     [ -f "$f" ] || continue
     [ -e "$dir/$(basename "$f")" ] || { cp "$f" "$dir/"; n=$((n + 1)); }
   done
-  # first start (or the wallpaper you had is gone): one of ours, the black hole when it is there
+  # first start (or the wallpaper you had is gone): one of ours, picked at random (V5.06)
   f="$(cat "$HOME/.cache/hyprquickpaper-current" 2>/dev/null)"
   if [ -z "$f" ] || [ ! -f "$f" ]; then
     mkdir -p "$HOME/.cache"
-    f="$dir/space-black-hole.jpg"
-    [ -f "$f" ] || f="$(find "$dir" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' \) | sort | head -n1)"
+    local ours=() w
+    for w in "$ROOT"/wallpapers/*; do [ -f "$dir/$(basename "$w")" ] && ours+=("$dir/$(basename "$w")"); done
+    if [ "${#ours[@]}" -gt 0 ]; then f="${ours[RANDOM % ${#ours[@]}]}"
+    else f="$(find "$dir" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' \) | sort | head -n1)"; fi
     [ -n "$f" ] && echo "$f" >"$HOME/.cache/hyprquickpaper-current"
   fi
   # in a running desktop with no wallpaper yet: put it on now, with its colors (at the next login rice-walls
@@ -1326,7 +1342,7 @@ if [ "$DRY_RUN" != 1 ]; then
     if [ "$ASSUME_YES" != 1 ] && [ "$IS_TTY" = 1 ] && confirm_no "Reboot now?"; then
       info "Rebooting..."
       sleep 1
-      "$ROOT/bin/rice-sys" reboot || warn "Could not reboot. Reboot yourself to finish."
+      reboot_now || warn "Could not reboot. Reboot yourself to finish (sudo reboot)."
     else
       note "Reboot (or log out and back in) when you are ready."
     fi

@@ -66,7 +66,8 @@ svc_enable() {
 }
 power() {
   local a="$1"
-  if [ "$(init)" = systemd ]; then exec systemctl "$a"; fi
+  # systemd; when it says no (a second user, a program holding a lock), the ways below still try (V5.06)
+  if [ "$(init)" = systemd ]; then systemctl "$a" && exit 0; fi
   # elogind (Void, Artix, Gentoo): loginctl does the same as systemctl, without root
   if command -v loginctl >/dev/null 2>&1 && loginctl "$a" 2>/dev/null; then exit 0; fi
   case "$a" in

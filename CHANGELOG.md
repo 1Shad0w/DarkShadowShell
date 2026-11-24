@@ -1,5 +1,11 @@
 # Changelog
 
+## V5.06: 14 new wallpapers, 15 presets, a different wallpaper at every login, a reboot that works
+- **14 new wallpapers** (installed to ~/Pictures/Wallpapers): Starfall Lake, Fuji Dusk, Manga, Torii, Blue Sakura, Plum Blossom, Black Beach, City Night, Evening Sky, Cloud Hill, Dark Forest, Purple Tree, Night Sakura and Teal Street
+- **Presets rebuilt around them**: DarkShadow stays, and every new wallpaper has its own preset (15 in all): **Starfall**, **Fuji**, **Blue Sakura**, **Plum Blossom**, **Evening**, **Cloud Hill**, **Lavender**, **Night Sakura**, **Teal Street**, **City Lights**, **Dark Forest** (a bar down the right edge), **Black Sand**, **Manga** and **Torii**. The colors come from each wallpaper. The old presets with the old wallpapers are gone (the old wallpapers stay in your folder)
+- **A different wallpaper at every login**, with its colors (on by default; Settings > Wallpaper > Slideshow: A different wallpaper at every login turns it off). It waits while the slideshow or a live wallpaper is on. A new install also starts with a random one of ours instead of always the black hole
+- Fixed: **Reboot now? y at the end of the install did not always reboot**: it tried systemctl once and gave up. Now it tries systemd, then the same with sudo (it asks for your password when another user is logged in or a program blocks the reboot), then elogind and a plain sudo reboot. The shell's own power buttons try the next way too when systemd says no
+
 ## V5.05: the terminal is see-through again, icons line up
 - Fixed: **the terminal stayed solid black with no blur after Minimal mode was turned off** (also after Light mode or gaming mode with "Solid windows"). Turning Minimal mode off now writes the terminal's transparency again, kitty can always change it while it runs, and the "every window opaque" rule of Minimal mode and Light mode no longer outlives a reload. A terminal that was already open before this update needs to be opened once more
 - **App icons line up** in the launcher, the dock and Edit mode: the signs of the Themed, Filled and Mono looks are centered on what they really draw and all have the same size (icon fonts put some a little high, low or wide), app pictures on a shape are as large as the signs, and the chosen row of the launcher no longer steps to the right

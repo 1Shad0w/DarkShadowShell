@@ -16,6 +16,7 @@
   rice-walls transition STYLE      ripple|wave|wipe|portal|fade|slide|pixel|random|none: how a new one comes in
   rice-walls transition speed X   0.4 (fast) .. 2.5 (slow)
   rice-walls awww-args            the awww options for that (commands.sh uses them)
+  rice-walls login-random on|off  a different wallpaper from your folders at every login (on by default, V5.06)
   rice-walls start                at login: a wallpaper when there is none yet, the live wallpaper again,
                                   and the slideshow when it is on
   rice-walls manage on|off        off: the shell sets no wallpaper at all (no awww, no live wallpaper, no
@@ -58,6 +59,8 @@ VIDEOS = ("mp4", "webm", "mkv", "mov", "avi", "m4v")
 DEFAULTS = {"folders": [], "waypaper": True, "waypaper_post": "", "manage": True, "picker": True,
             "slideshow": {"on": False, "minutes": 30, "order": "shuffle", "folder": ""},
             "live": {"sound": False},
+            # V5.06: a different wallpaper (and its colors) every time you log in
+            "login_random": True,
             # how a new wallpaper comes in (Settings > Wallpaper > Animation)
             "transition": {"style": "ripple", "speed": 1.0}}
 
@@ -516,8 +519,7 @@ def ensure_wallpaper():
         d = default_dir()
         if d:
             fs = [f for f in files_of(d) if not is_video(f)]
-            pref = [f for f in fs if os.path.basename(f) in ("space-black-hole.jpg", "night-peaks.jpg")]
-            p = (pref or sorted(fs) or [""])[0]
+            p = random.choice(fs) if fs else ""
     if p:
         apply_picture(p)
 
@@ -553,11 +555,35 @@ def manage(on):
         subprocess.run(["pkill", "-x", "swww-daemon"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def cmd_start():
+def login_random(c):
+    """at login: a different picture from your folders (not a live wallpaper, not while the slideshow runs)"""
+    if c.get("login_random") is False or live_now() or c["slideshow"].get("on"):
+        return False
+    # once a session: "rice-desktop start" may run again later in it (the runtime folder is new at every login)
+    mark = RUN + "/rice-walls-login"
+    if os.path.exists(mark):
+        return False
+    try:
+        open(mark, "w").write("1\n")
+    except OSError:
+        pass
+    fs = [f for f in all_files(c) if not is_video(f)]
+    cur = read(CURRENT).strip()
+    left = [f for f in fs if f != cur]
+    if not left:
+        return False
+    if shown_picture() is None:               # awww is not there: the old way (ensure_wallpaper) only
+        return False
+    cmd_set(random.choice(left))
+    return True
+
+
+def cmd_start(login=False):
     c = load()
     if not managed(c):
         return
-    ensure_wallpaper()
+    if not (login and login_random(c)):
+        ensure_wallpaper()
     v = live_now()
     if v and not subprocess.run(["pgrep", "-f", MPV_PAT], stdout=subprocess.DEVNULL).returncode == 0:
         start_live(v, c)
@@ -610,7 +636,7 @@ def state():
                       "waypaper": c["waypaper"], "waypaper_found": bool(waypaper_dirs()), "waypaper_hook": hook,
                       "slideshow": c["slideshow"], "live": dict(c["live"], now=live_now()),
                       "manage": managed(c), "picker": c.get("picker") is not False,
-                      "transition": c.get("transition") or {},
+                      "transition": c.get("transition") or {}, "login_random": c.get("login_random") is not False,
                       "have": {t: shutil.which(t) is not None for t in ("mpvpaper", "ffmpeg", "matugen", "awww")}
                       | {"magick": bool(shutil.which("magick") or shutil.which("convert"))},
                       "running": os.path.exists(PID)}))
@@ -636,7 +662,11 @@ def main(a):
     elif cmd == "next":
         cmd_next()
     elif cmd == "start":
-        cmd_start()
+        cmd_start(login=True)
+    elif cmd == "login-random" and arg in ("on", "off"):
+        c = load()
+        c["login_random"] = arg == "on"
+        save(c)
     elif cmd == "manage" and arg in ("on", "off"):
         manage(arg == "on")
     elif cmd == "picker" and arg in ("on", "off"):

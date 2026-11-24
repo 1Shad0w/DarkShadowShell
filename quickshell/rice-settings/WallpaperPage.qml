@@ -243,6 +243,13 @@ Item {
             // ---------- slideshow ----------
         SectionTitle { text: I18n.t("Slideshow"); sub: I18n.t("A new wallpaper from your folders every few minutes. The colors follow each one.") }
         ToggleRow {
+            label: I18n.t("A different wallpaper at every login")
+            desc: I18n.t("A random picture from your folders each time you log in, with its colors (not while the slideshow or a live wallpaper is on)")
+            checked: page.st.login_random !== false
+            onToggled: function(v) { const n = Object.assign({}, page.st); n.login_random = v; page.st = n
+                page.walls(["login-random", v ? "on" : "off"], v ? I18n.t("A new wallpaper at every login") : I18n.t("The wallpaper stays at login")) }
+        }
+        ToggleRow {
             label: I18n.t("Change the wallpaper by itself")
             desc: page.st.slideshow.on ? I18n.t("On: the next one comes in the time you chose below") : I18n.t("Off: the wallpaper stays until you pick another one")
             checked: page.st.slideshow.on === true
