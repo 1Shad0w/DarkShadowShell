@@ -18,8 +18,6 @@ V5.03, sharing:
                                ~/DarkShadow-themes by default); prints the file
   rice-theme import FILE       a .dstheme (or .json) file becomes one of your own themes; prints its key
   rice-theme files             JSON: .dstheme files in Downloads and ~/DarkShadow-themes (to import)
-  rice-theme gallery [--refresh]   JSON: the community themes (the gallery folder of the GitHub repo)
-  rice-theme gallery-get ID    download one of them, keep it as your own and use it
 """
 import fcntl
 import json
@@ -28,7 +26,6 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 import urllib.request
 import zipfile
 
@@ -678,8 +675,7 @@ SHARE_DIR = HOME + "/DarkShadow-themes"
 WALLS = HOME + "/.local/share/rice/theme-walls"
 PIC_EXT = (".jpg", ".jpeg", ".png", ".webp")
 MAX_FILE = 60 * 1024 * 1024
-GALLERY_RAW = "https://raw.githubusercontent.com/shadowww-dev/DarkShadowShell/main/"
-GALLERY_CACHE = HOME + "/.cache/rice/gallery.json"
+REPO_RAW = "https://raw.githubusercontent.com/shadowww-dev/DarkShadowShell/main/"
 
 
 def slug(name):
@@ -772,7 +768,7 @@ def repo_wallpaper(name):
     f = os.path.join(d, name)
     if os.path.isfile(f):
         return f
-    data = fetch(GALLERY_RAW + "wallpapers/" + name)
+    data = fetch(REPO_RAW + "wallpapers/" + name)
     if data and picture_ok(data):
         os.makedirs(d, exist_ok=True)
         open(f, "wb").write(data)
@@ -832,80 +828,15 @@ def theme_files():
 
 
 def fetch(url, limit=MAX_FILE):
-    if not url.startswith(GALLERY_RAW):
+    if not url.startswith(REPO_RAW):
         return None
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "DarkShadowShell-theme-gallery"})
+        req = urllib.request.Request(url, headers={"User-Agent": "DarkShadowShell"})
         with urllib.request.urlopen(req, timeout=15) as r:
             data = r.read(limit + 1)
         return data if len(data) <= limit else None
     except Exception:
         return None
-
-
-def gallery(refresh=False):
-    """the community themes: gallery/index.json in the repo (asked at most every 6 hours)"""
-    try:
-        age = time.time() - os.path.getmtime(GALLERY_CACHE)
-    except OSError:
-        age = 1e9
-    raw, err = None, ""
-    if refresh or age > 6 * 3600:
-        raw = fetch(GALLERY_RAW + "gallery/index.json", 2 * 1024 * 1024)
-        if raw:
-            try:
-                json.loads(raw.decode("utf-8"))
-                os.makedirs(os.path.dirname(GALLERY_CACHE), exist_ok=True)
-                open(GALLERY_CACHE, "wb").write(raw)
-            except Exception:
-                raw = None
-        if not raw:
-            err = "The gallery could not be reached (offline?)"
-    if not raw:
-        try:
-            raw = open(GALLERY_CACHE, "rb").read()
-        except OSError:
-            raw = b"{}"
-    try:
-        j = json.loads(raw.decode("utf-8"))
-    except Exception:
-        j = {}
-    out = []
-    for e in j.get("themes", []) if isinstance(j, dict) else []:
-        if not isinstance(e, dict) or not re.match(r"^[a-z0-9-]{1,40}$", str(e.get("id", ""))):
-            continue
-        if not re.match(r"^[a-z0-9-]{1,40}\.(json|dstheme)$", str(e.get("file", ""))):
-            continue
-        pv = e.get("preview") if isinstance(e.get("preview"), list) and len(e.get("preview")) == 3 and all(hexok(c) for c in e["preview"]) else ["#101014", "#c9b68a", "#e8e4dc"]
-        img = str(e.get("image", ""))
-        out.append({"id": e["id"], "name": str(e.get("name", e["id"]))[:40], "author": str(e.get("author", ""))[:40],
-                    "desc": str(e.get("desc", ""))[:140], "preview": pv,
-                    "image": GALLERY_RAW + "gallery/" + img if re.match(r"^[a-z0-9-]{1,40}\.(jpg|png|webp)$", img) else ""})
-    print(json.dumps({"themes": out, "error": err}))
-
-
-def gallery_get(gid):
-    try:
-        j = json.load(open(GALLERY_CACHE))
-    except Exception:
-        j = {}
-    e = next((x for x in j.get("themes", []) if isinstance(x, dict) and x.get("id") == gid), None)
-    if not e or not re.match(r"^[a-z0-9-]{1,40}\.(json|dstheme)$", str(e.get("file", ""))):
-        sys.exit("Not in the gallery: " + gid)
-    data = fetch(GALLERY_RAW + "gallery/" + e["file"])
-    if not data:
-        sys.exit("Could not download it (offline?)")
-    os.makedirs(HOME + "/.cache/rice", exist_ok=True)
-    tmp = HOME + "/.cache/rice/gallery-" + e["file"]
-    open(tmp, "wb").write(data)
-    try:
-        key = import_file(tmp)
-    finally:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
-    apply(key)
 
 
 def main(a):
@@ -944,10 +875,6 @@ def main(a):
         import_file(" ".join(a[2:]))
     elif cmd == "files":
         theme_files()
-    elif cmd == "gallery":
-        gallery("--refresh" in a)
-    elif cmd == "gallery-get" and arg:
-        gallery_get(arg)
     elif cmd == "sync":
         v, bad, d = sync()
         print("VSCodium / VS Code: %d, Discord: %d%s" % (len(v), len(d), (" (could not read: " + ", ".join(bad) + ")") if bad else ""))

@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+"""rice-preset: whole-desktop presets (Settings > Appearance > Presets), V5.04.
+
+A preset is the whole desktop at once: the wallpaper and its colors, corners and shapes, the bar (its style, its
+edge, its workspaces and modules), the launcher, the desktop clock, the dock, notifications, the lock screen, the
+login screen (SDDM), the window corners and gaps and how windows move. The first time one is used, how your
+desktop looks is kept ("My setup"), so you can always go back.
+
+  rice-preset list            JSON: the presets (with the wallpaper file), the one in use, and whether My setup is kept
+  rice-preset apply KEY       use a preset (KEY "before": back to My setup)
+  rice-preset forget          drop My setup (the next preset keeps a new one)
+"""
+import fcntl
+import importlib.machinery
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import time
+
+HOME = os.path.expanduser("~")
+DIR = HOME + "/.config/rice"
+BIN = HOME + "/.local/bin/"
+STATE = DIR + "/preset.json"
+BEFORE = DIR + "/preset-before.json"
+LIVE = HOME + "/.cache/rice/preset-live.json"
+UI = "Google Sans Flex"
+
+
+def P(name, desc, wall, theme, extra, bar, launcher, clock, dock, lock, sddm, tags):
+    return {"name": name, "desc": desc, "wallpaper": wall, "theme": theme, "extra": extra, "bar": bar,
+            "launcher": launcher, "clock": clock, "dock": dock, "lock": lock, "sddm": sddm, "tags": tags}
+
+
+def T(colors, corners, shape, wavy, motion, bounce, bar, bar_op, widgets, notify, nr, rounding, gi, go, border, preview):
+    return {"colors": colors, "corners": corners, "shape": shape, "wavy": wavy, "motion": motion, "bounce": bounce,
+            "bar": bar, "bar_opacity": bar_op, "widgets": widgets, "notify": notify, "notify_radius": nr,
+            "rounding": rounding, "gaps_in": gi, "gaps_out": go, "border": border, "font": UI, "preview": preview}
+
+
+FULL = {"left": ["launcher", "workspaces", "title"], "center": ["island"],
+        "right": ["music", "tray", "volume", "bluetooth", "network", "battery", "notifications", "power"]}
+CLEAN = {"left": ["workspaces", "title"], "center": ["island"], "right": ["tray", "volume", "network", "battery", "power"]}
+MAC = {"left": ["launcher", "title"], "center": ["island"], "right": ["tray", "volume", "network", "battery", "notifications"]}
+GAMER = {"left": ["launcher", "workspaces", "sysmon"], "center": ["island"],
+         "right": ["visualizer", "tray", "volume", "network", "battery", "notifications", "power"]}
+ZEN = {"left": ["workspaces"], "center": ["island"], "right": ["volume", "battery", "power"]}
+
+PRESETS = {
+    "shadow": P("DarkShadow", "The shell as it comes: the black hole, gold light from your wallpaper, the living island",
+                "space-black-hole.jpg",
+                T("auto", 1.0, "verysunny", True, "expressive", 1.0, "dynamic", 0.72, "google", "glass", 18, 12, 4, 8, 2,
+                  ["#0d0b09", "#e3b770", "#f3ece0"]),
+                {"anim_style": "expressive", "minimal": {"on": False, "frame": "double"}, "notify_colors": "shell", "lock_style": "glance"},
+                {"position": "top", "autohide": False, "ws_style": "dots", "layout": FULL},
+                {"layout": "drawer", "position": "center"},
+                {"enabled": True, "style": "expressive", "font": "outfit"},
+                {"enabled": False, "style": "floating", "magnify": 0},
+                {"clock": "big", "clock_font": "default", "input": "pill"},
+                "stacked", ["Dynamic island", "Drawer", "Glance"]),
+    "material": P("Material", "Material You everywhere: a full-width bar, a Spotlight launcher, big round corners and soft motion",
+                  "aurora.jpg",
+                  T("teal", 1.25, "cookie12", True, "expressive", 0.9, "edge", 0.9, "google", "google", 24, 18, 5, 12, 1,
+                    ["#0b1a1a", "#6fd6c2", "#e2f6f1"]),
+                  {"anim_style": "emphasized", "minimal": {"on": False, "frame": "double"}, "notify_colors": "tinted", "lock_style": "cards"},
+                  {"position": "top", "autohide": False, "ws_style": "numbers", "layout": FULL},
+                  {"layout": "spotlight", "position": "center"},
+                  {"enabled": True, "style": "stacked", "font": "grotesk"},
+                  {"enabled": False, "style": "floating", "magnify": 0},
+                  {"clock": "stacked", "clock_font": "grotesk", "input": "pill"},
+                  "center", ["Edge bar", "Spotlight", "Cards"]),
+    "sidebar": P("Sidebar", "A bar down the left edge, a side sheet launcher and a violet nebula: everything one glance away",
+                 "space-nebula.jpg",
+                 T("lavender", 1.1, "clover", True, "expressive", 1.1, "edge", 0.85, "google", "glass", 20, 14, 6, 12, 2,
+                   ["#140f1f", "#c4a8ff", "#efe8ff"]),
+                 {"anim_style": "expressive", "minimal": {"on": False, "frame": "double"}, "notify_colors": "tinted", "lock_style": "glance"},
+                 {"position": "left", "autohide": False, "ws_style": "dots", "layout": FULL},
+                 {"layout": "side", "position": "center"},
+                 {"enabled": True, "style": "shape", "font": "unbounded"},
+                 {"enabled": False, "style": "floating", "magnify": 0},
+                 {"clock": "shape", "clock_font": "unbounded", "input": "pill"},
+                 "shapes", ["Left bar", "Side sheet", "Glance"]),
+    "ink": P("Ink", "Black and white, square corners everywhere, a thin frame and calm motion: nothing but your work",
+             "mono-peaks.jpg",
+             T("mono", 0.3, "square", False, "standard", 0.0, "flat", 0.95, "outline", "outline", 4, 0, 3, 6, 1,
+               ["#0e0e0e", "#d4d4d4", "#ffffff"]),
+             {"anim_style": "calm", "minimal": {"on": True, "frame": "thin"}, "notify_colors": "black", "lock_style": "classic"},
+             {"position": "top", "autohide": False, "ws_style": "numbers", "layout": CLEAN},
+             {"layout": "spotlight", "position": "top"},
+             {"enabled": True, "style": "line", "font": "grotesk"},
+             {"enabled": False, "style": "floating", "magnify": 0},
+             {"clock": "minimal", "clock_font": "grotesk", "input": "line"},
+             "classic", ["Minimal mode", "Flat bar", "Classic lock"]),
+    "islands": P("Islands", "A peach sunrise, floating islands on the bar, a dock of pills and windows that glide in",
+                 "dawn-ridge.jpg",
+                 T("peach", 1.35, "flower", True, "expressive", 1.2, "islands", 0.55, "google", "glass", 24, 16, 6, 14, 1,
+                   ["#1d1210", "#ffb38f", "#ffe9df"]),
+                 {"anim_style": "glide", "minimal": {"on": False, "frame": "double"}, "notify_colors": "shell", "lock_style": "cards"},
+                 {"position": "top", "autohide": False, "ws_style": "dots", "layout": FULL},
+                 {"layout": "drawer", "position": "center"},
+                 {"enabled": True, "style": "cookie", "font": "outfit"},
+                 {"enabled": True, "style": "pills", "magnify": 0},
+                 {"clock": "big", "clock_font": "outfit", "input": "pill"},
+                 "pill", ["Islands", "Dock", "Cards"]),
+    "neon": P("Neon", "A galaxy in neon, pills on the bar, a pixel clock and windows that pop up: made for gaming",
+              "space-galaxy.jpg",
+              T("neon", 0.6, "diamond", False, "expressive", 0.8, "pills", 0.8, "outline", "outline", 10, 8, 5, 10, 2,
+                ["#0a0f1c", "#59f0ff", "#e4fbff"]),
+              {"anim_style": "pop", "minimal": {"on": False, "frame": "double"}, "notify_colors": "tinted", "lock_style": "glance"},
+              {"position": "top", "autohide": False, "ws_style": "pacman", "layout": GAMER},
+              {"layout": "spotlight", "position": "center"},
+              {"enabled": True, "style": "pixel", "font": "orbitron"},
+              {"enabled": True, "style": "floating", "magnify": 40},
+              {"clock": "big", "clock_font": "orbitron", "input": "box"},
+              "shapes", ["Pills", "Pixel clock", "Pop motion"]),
+    "dock": P("Dock", "Night peaks, a notch at the top and a full dock that grows under the pointer",
+              "night-peaks.jpg",
+              T("cobalt", 1.0, "cookie6", True, "standard", 0.4, "notch", 0.85, "google", "solid", 16, 12, 5, 10, 1,
+                ["#0b1224", "#7ea6ff", "#e6edff"]),
+              {"anim_style": "emphasized", "minimal": {"on": False, "frame": "double"}, "notify_colors": "graphite", "lock_style": "classic"},
+              {"position": "top", "autohide": False, "ws_style": "numbers", "layout": MAC},
+              {"layout": "spotlight", "position": "center"},
+              {"enabled": True, "style": "analog", "font": "default"},
+              {"enabled": True, "style": "full", "magnify": 60},
+              {"clock": "big", "clock_font": "default", "input": "pill"},
+              "center", ["Notch", "Full dock", "Analog clock"]),
+    "zen": P("Zen", "Quiet grey waves, a bar at the bottom that hides itself and calm motion: the desktop steps back",
+             "grey-waves.jpg",
+             T("grey", 0.9, "pill", True, "standard", 0.3, "dynamic", 0.6, "google", "solid", 14, 10, 4, 8, 1,
+               ["#141414", "#a8a8a8", "#ececec"]),
+             {"anim_style": "calm", "minimal": {"on": False, "frame": "double"}, "notify_colors": "graphite", "lock_style": "glance"},
+             {"position": "bottom", "autohide": True, "ws_style": "dots", "layout": ZEN},
+             {"layout": "drawer", "position": "bottom"},
+             {"enabled": True, "style": "digital", "font": "bebas"},
+             {"enabled": False, "style": "floating", "magnify": 0},
+             {"clock": "big", "clock_font": "bebas", "input": "pill"},
+             "stacked", ["Bottom bar", "Hides itself", "Digital clock"]),
+}
+ORDER = ["shadow", "material", "sidebar", "ink", "islands", "neon", "dock", "zen"]
+
+
+def jread(p):
+    try:
+        return json.load(open(p))
+    except Exception:
+        return {}
+
+
+def jwrite(p, d):
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    json.dump(d, open(p + ".tmp", "w"), indent=1)
+    os.replace(p + ".tmp", p)
+
+
+def tool(name, *args, t=60):
+    p = BIN + name
+    if not os.access(p, os.X_OK):
+        return False
+    try:
+        return subprocess.run([p] + [str(a) for a in args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=t).returncode == 0
+    except Exception:
+        return False
+
+
+def out_of(name, *args, t=20):
+    try:
+        return subprocess.run([BIN + name] + list(args), capture_output=True, text=True, timeout=t).stdout
+    except Exception:
+        return ""
+
+
+def rice_theme():
+    """rice-theme as a module: a preset's look goes through the same code as a theme"""
+    loader = importlib.machinery.SourceFileLoader("rice_theme", BIN + "rice-theme")
+    spec = importlib.util.spec_from_loader("rice_theme", loader)
+    m = importlib.util.module_from_spec(spec)
+    loader.exec_module(m)
+    return m
+
+
+def wallpaper(name):
+    """the installed copy (~/Pictures/Wallpapers), else the one in the repo"""
+    try:
+        pics = subprocess.run(["xdg-user-dir", "PICTURES"], capture_output=True, text=True, timeout=3).stdout.strip()
+    except Exception:
+        pics = ""
+    for d in ((pics if pics and pics != HOME else HOME + "/Pictures") + "/Wallpapers", HOME + "/Pictures/Wallpapers"):
+        if os.path.isfile(os.path.join(d, name)):
+            return os.path.join(d, name)
+    try:
+        repo = open(DIR + "/repo").read().strip()
+    except OSError:
+        repo = HOME + "/shadows-shell"
+    f = os.path.join(repo, "wallpapers", name)
+    return f if os.path.isfile(f) else ""
+
+
+# ---------------- My setup: how the desktop looks before the first preset ----------------
+def capture():
+    rt = rice_theme()
+    t = rt.capture("My setup")
+    wall = t.pop("wallpaper", "")
+    extra = t.pop("extra", {})
+    bar = jread(DIR + "/bar.json")
+    try:
+        rofi = json.loads(out_of("rice-rofi", "state") or "{}")
+    except ValueError:
+        rofi = {}
+    desk = jread(DIR + "/desktop.json")
+    clk = desk.get("clock") or {}
+    dk = desk.get("dock") or {}
+    lk = jread(DIR + "/lock.json")
+    try:
+        sddm = open(DIR + "/sddm-clock").read().strip() or "classic"
+    except OSError:
+        sddm = "classic"
+    lay = bar.get("layout")
+    return {"name": "My setup", "desc": "How your desktop looked before the first preset", "wallpaper_path": wall,
+            "theme": t, "extra": extra,
+            "bar": {"position": bar.get("position", "top"), "autohide": bar.get("autohide", False) is True,
+                    "ws_style": bar.get("ws_style", "dots"), "layout": lay if isinstance(lay, dict) else None},
+            "launcher": {"layout": rofi.get("layout", "drawer"), "position": rofi.get("position", "center")},
+            "clock": {"enabled": clk.get("enabled", True) is not False, "style": clk.get("style", "expressive"), "font": clk.get("font", "outfit")},
+            "dock": {"enabled": dk.get("enabled", False) is True, "style": dk.get("style", "floating"), "magnify": dk.get("magnify", 0)},
+            "lock": {"clock": lk.get("clock", "big"), "clock_font": lk.get("clock_font", "default"), "input": lk.get("input", "pill")},
+            "sddm": sddm, "tags": []}
+
+
+# ---------------- using one ----------------
+def live(key, step, n, total, done=False, ok=True):
+    try:
+        jwrite(LIVE, {"key": key, "step": step, "n": n, "total": total, "done": done, "ok": ok, "time": time.time()})
+    except OSError:
+        pass
+
+
+def apply(key):
+    if key == "before":
+        p = jread(BEFORE)
+        if not p.get("theme"):
+            sys.exit("My setup was not kept")
+    elif key in PRESETS:
+        p = PRESETS[key]
+        if not os.path.exists(BEFORE):
+            try:
+                jwrite(BEFORE, capture())
+            except Exception as e:
+                sys.stderr.write("could not keep My setup: %s\n" % e)
+    else:
+        sys.exit("no preset " + key)
+    steps = 8
+    b = p.get("bar") or {}
+    live(key, "The bar", 1, steps)
+    if b.get("position"):
+        tool("rice-bar", "set", "position", b["position"])
+    tool("rice-bar", "set", "autohide", "on" if b.get("autohide") else "off")
+    if b.get("ws_style"):
+        tool("rice-bar", "set", "ws_style", b["ws_style"])
+    if isinstance(b.get("layout"), dict):
+        tool("rice-bar", "layout-set", json.dumps(b["layout"]))
+    live(key, "The launcher", 2, steps)
+    ln = p.get("launcher") or {}
+    for k in ("layout", "position"):
+        if ln.get(k):
+            tool("rice-rofi", "set", k, ln[k])
+    live(key, "The clock and the dock", 3, steps)
+    c = p.get("clock") or {}
+    tool("desktop-set", "clock", "enabled", "on" if c.get("enabled", True) else "off")
+    if c.get("style"):
+        tool("desktop-set", "wset", "clock", "style", c["style"])
+    if c.get("font"):
+        tool("desktop-set", "clock", "font", c["font"])
+    d = p.get("dock") or {}
+    if d.get("style"):
+        tool("desktop-set", "dock", "style", d["style"])
+    tool("desktop-set", "dock", "magnify", int(d.get("magnify", 0) or 0))
+    tool("desktop-set", "dock", "enabled", "on" if d.get("enabled") else "off")
+    live(key, "The lock and login screens", 4, steps)
+    lk = p.get("lock") or {}
+    for k in ("clock", "clock_font", "input"):
+        if lk.get(k):
+            tool("rice-lock", "set", k, lk[k])
+    if p.get("sddm"):
+        tool("rice-sddm", "clock", p["sddm"], t=60)
+    # the look last (its colors come from the wallpaper, once): rice-theme's own code, as a theme of its own
+    live(key, "Colors from the wallpaper", 5, steps)
+    os.makedirs(DIR, exist_ok=True)
+    lk_file = open(DIR + "/.theme.lock", "w")
+    fcntl.flock(lk_file, fcntl.LOCK_EX)
+    rt = rice_theme()
+    th = dict(rt.THEMES["darkshadow"])
+    th.update(p.get("theme") or {})
+    th["name"] = p.get("name", key)
+    th["desc"] = p.get("desc", "")
+    th["user"] = True
+    th["extra"] = rt.clean_extra(p.get("extra"))
+    wall = p.get("wallpaper_path") or wallpaper(p.get("wallpaper", ""))
+    if wall:
+        th["wallpaper"] = wall
+    tkey = "preset-" + key
+    rt.THEMES[tkey] = th
+    try:
+        rt.apply(tkey)
+    finally:
+        fcntl.flock(lk_file, fcntl.LOCK_UN)
+    st = jread(STATE)
+    st["current"] = key
+    jwrite(STATE, st)
+    live(key, "Done", steps, steps, done=True)
+    print(p.get("name", key))
+
+
+def listing():
+    st = jread(STATE)
+    out = []
+    for k in ORDER:
+        p = dict(PRESETS[k])
+        p["key"] = k
+        p["wallpaper_path"] = wallpaper(p["wallpaper"])
+        out.append(p)
+    b = jread(BEFORE)
+    print(json.dumps({"current": st.get("current", ""), "presets": out,
+                      "before": {"name": "My setup", "wallpaper_path": b.get("wallpaper_path", ""),
+                                 "preview": (b.get("theme") or {}).get("preview")} if b.get("theme") else None}))
+
+
+def main(a):
+    cmd = a[1] if len(a) > 1 else ""
+    if cmd == "list":
+        listing()
+    elif cmd == "apply" and len(a) > 2:
+        os.makedirs(DIR, exist_ok=True)
+        lk = open(DIR + "/.preset.lock", "w")
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        try:
+            apply(a[2])
+        except SystemExit:
+            raise
+        except Exception as e:
+            live(a[2], "It did not work: %s" % e, 0, 8, done=True, ok=False)
+            sys.exit("rice-preset: %s" % e)
+    elif cmd == "forget":
+        try:
+            os.remove(BEFORE)
+        except OSError:
+            pass
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

@@ -1,5 +1,13 @@
 # Changelog
 
+## V5.04: Presets, a whole desktop in one click
+- **New: Presets** (Settings > Appearance > Presets, the first tab): eight whole desktops, each in one click: the wallpaper and its colors, corners and shapes, the bar (its style, its edge, its workspaces and modules), the launcher, the desktop clock, the dock, notifications, the lock screen, the login screen (SDDM), the window corners and gaps and how windows move
+  - **DarkShadow** (the shell as it comes), **Material** (an edge bar, Spotlight, big round corners), **Sidebar** (the bar down the left edge, a side sheet launcher), **Ink** (black and white, Minimal mode, square), **Islands** (floating islands, a dock of pills, windows that glide in), **Neon** (pills, a pixel clock, pop motion, for gaming), **Dock** (a notch and a full dock that grows under the pointer) and **Zen** (a bar at the bottom that hides itself)
+  - Each one is shown as a picture of the desktop in its wallpaper, and also as its launcher, its lock screen and its login screen; under it what it sets. A double click on a small one uses it at once
+  - The first preset you use keeps how your desktop looked (**My setup**): Go back puts it back. Widgets you placed stay where they are (`rice-preset`)
+- The theme gallery is gone from Themes (Presets take its place); sharing a theme as a file and Import stay
+- Polish translations for the new texts
+
 ## V5.03: a new lock screen, theme sharing and a gallery, emoji, grouped notifications
 - **New lock screen style: Glance** (Settings > Desktop > Idle & Lockscreen > Style), in Material 3 Expressive: a very large clock on the left (the hours in your accent over the minutes, each digit rolls up when it changes) with your shape turning slowly behind it, the day and the weather above it, and the apps that left notifications under it (only their icons and how many, never what they say). On the right your music on a wide card and the week with today in your shape. On a screen turned upright everything stacks in one column
 - **Unlock with your fingerprint** (Idle & Lockscreen > Fingerprint): touch the reader or type the password, whichever comes first. Needs fprintd and a finger enrolled (`fprintd-enroll`); Settings says what is missing. The password always works, and after a few unrecognized touches only the password is asked

@@ -410,7 +410,8 @@ FloatingWindow {
         { name: "Update Center", icon: "\uf021" },
         { name: "Window rules", icon: "\uf2d2" },
         { name: "", icon: "" },          // 37: the toolbox, gone in V4.92 (the number stays: the pages after it keep theirs)
-        { name: "Account", icon: "\uf007" }
+        { name: "Account", icon: "\uf007" },
+        { name: "Presets", icon: "\uf0d0" }        // 39 (V5.04)
     ]
 
 
@@ -419,7 +420,7 @@ FloatingWindow {
         { page: 0 },
         { sep: true },
         { group: "wall", name: "Wallpaper", icon: "\uf03e", sym: "wallpaper", pages: [18], caption: I18n.t("Wallpaper and the colors it gives") },
-        { group: "look", name: "Appearance", icon: "\udb80\udfd8", sym: "palette", pages: [34, 8, 21, 19, 24, 22, 9, 14], caption: I18n.t("Themes, colors, fonts, shapes, components, cursors and the dock") },
+        { group: "look", name: "Appearance", icon: "\udb80\udfd8", sym: "palette", pages: [39, 34, 8, 21, 19, 24, 22, 9, 14], caption: I18n.t("Presets, themes, colors, fonts, shapes, components, cursors and the dock") },
         { group: "motion", name: "Motion", icon: "\uf1e6", sym: "animation", pages: [20], caption: I18n.t("How windows and Settings move") },
         { group: "desk", name: "Desktop", icon: "\uf108", sym: "desktop_windows", pages: niri ? [29, 12, 25, 36, 4, 11] : [29, 33, 12, 25, 36, 4, 11], caption: I18n.t("Look & feel, widgets, windows, window rules, %1 and the lock screen", wmLabel) },
         { group: "bar", name: "Bar & launcher", icon: "\uf0c9", sym: "toolbar", pages: [2, 3, 6, 7], caption: I18n.t("The bar, the dynamic island and the launcher") },
@@ -1073,6 +1074,7 @@ FloatingWindow {
             PageSlot { nav: win; idx: 32; cur: win.page; page: Component { SecurityPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 33; cur: win.page; page: Component { InfinitePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 34; cur: win.page; page: Component { ThemesPage { anchors.fill: parent; ctl: win } } }
+            PageSlot { nav: win; idx: 39; cur: win.page; page: Component { PresetsPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 35; cur: win.page; page: Component { UpdatePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 36; cur: win.page; page: Component { WindowRulesPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 38; cur: win.page; page: Component { AccountPage { anchors.fill: parent; ctl: win } } }

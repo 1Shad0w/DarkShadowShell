@@ -4,8 +4,7 @@ import QtQuick
 
 // Settings > Appearance > Themes: a whole look in one click (colors, corners, shapes, the bar, widgets, notifications,
 // window corners and gaps, motion, the font), and your colors in your apps (VSCodium / VS Code, Discord). rice-theme.
-// V5.03: a theme to share (Export: one .dstheme file with its wallpaper), Import one, and the Gallery: themes from
-// the community, kept in the gallery folder of the GitHub repo.
+// V5.03: a theme to share (Export: one .dstheme file with its wallpaper) and Import one. Whole desktops are Presets.
 Item {
     id: page
     property var ctl
@@ -24,12 +23,9 @@ Item {
         running: true
         stdout: StdioCollector { onStreamFinished: { try { page.st = JSON.parse(text) } catch (e) { } } }
     }
-    onVisibleChanged: if (visible) { listP.running = true; stP.running = true; filesP.running = true; if (!galP.running) galP.running = true }
-    // ---------- V5.03: files to import, the gallery ----------
+    onVisibleChanged: if (visible) { listP.running = true; stP.running = true; filesP.running = true }
+    // ---------- V5.03: files to import ----------
     property var files: []
-    property var gal: ({ themes: [], error: "" })
-    property bool galLoaded: false
-    property string galBusy: ""
     Process {
         id: filesP
         command: ["bash", "-c", "\"$HOME/.local/bin/rice-theme\" files 2>/dev/null"]
@@ -37,18 +33,11 @@ Item {
         stdout: StdioCollector { onStreamFinished: { try { page.files = JSON.parse(text) } catch (e) { page.files = [] } } }
     }
     Process {
-        id: galP
-        property bool fresh: false
-        command: ["bash", "-c", "\"$HOME/.local/bin/rice-theme\" gallery " + (galP.fresh ? "--refresh" : "") + " 2>/dev/null"]
-        running: true
-        stdout: StdioCollector { onStreamFinished: { try { page.gal = JSON.parse(text) } catch (e) { page.gal = { themes: [], error: I18n.t("The gallery could not be read") } } page.galLoaded = true; galP.fresh = false } }
-    }
-    Process {
         id: run
         property string msg: ""
         stderr: StdioCollector { id: runErr }
         onExited: function(code) {
-            page.busyKey = ""; page.galBusy = ""
+            page.busyKey = ""
             const why = runErr.text.trim().split("\n").pop()
             if (page.ctl) page.ctl.status = code === 0 ? run.msg : (why !== "" ? I18n.t(why) : I18n.t("That did not work"))
             listP.running = true; stP.running = true; filesP.running = true
@@ -77,7 +66,6 @@ Item {
         theme(["import", pth], I18n.t("Imported: it is with your themes above"))
         pathF.text = ""
     }
-    function getGal(g) { galBusy = g.id; theme(["gallery-get", g.id], I18n.t("Theme: %1").replace("%1", g.name)) }
     function saveMine() {
         const n = nameF.text.trim()
         if (n === "") { nameF.forceActiveFocus(); return }
@@ -261,72 +249,6 @@ Item {
             Btn { anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
                 text: I18n.t("Open folder"); sym: "folder_open"; icon: ""
                 onClicked: Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/DarkShadow-themes\"; exec \"$HOME/.local/bin/rice-files\" \"$HOME/DarkShadow-themes\""]) }
-        }
-
-        // ---------- V5.03: the gallery ----------
-        SectionTitle { text: I18n.t("Gallery"); sub: I18n.t("Themes from the community. Get one and it becomes yours: use it as it is or change it.") }
-        Row {
-            spacing: 8
-            Btn { text: I18n.t("Refresh"); sym: "refresh"; icon: ""; onClicked: { galP.fresh = true; galP.running = true } }
-            Btn { text: I18n.t("Add yours"); sym: "add"; icon: ""
-                onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/shadowww-dev/DarkShadowShell/tree/main/gallery"]) }
-            T { visible: (page.gal.error || "") !== ""; anchors.verticalCenter: parent.verticalCenter; text: I18n.t(page.gal.error || ""); font.pixelSize: 12; color: M3.inkDim }
-        }
-        T { visible: page.galLoaded && (page.gal.themes || []).length === 0; text: I18n.t("Nothing here yet (or no connection)."); font.pixelSize: 12; color: M3.inkDim }
-        Grid {
-            id: ggrid
-            width: parent.width
-            columns: width > 720 ? 3 : 2
-            spacing: 12
-            Repeater {
-                model: page.gal.themes || []
-                delegate: Item {
-                    id: gcard
-                    readonly property color acc: modelData.preview[1]
-                    readonly property color bg: modelData.preview[0]
-                    readonly property bool busy: page.galBusy === modelData.id
-                    width: (ggrid.width - (ggrid.columns - 1) * ggrid.spacing) / ggrid.columns
-                    height: width * 0.5625 + 104
-                    Rectangle { anchors.fill: parent; radius: M3.sq ? 0 : (M3.rL); color: gm.containsMouse ? M3.surfaceHigh : M3.surfaceC
-                        Behavior on color { ColorAnimation { duration: 160 } } }
-                    // the wallpaper (a small picture from the repo), else the theme's colors
-                    Rectangle {
-                        id: gimg
-                        x: 10; y: 10; width: parent.width - 20; height: (parent.width - 20) * 0.5625
-                        radius: M3.sq ? 0 : (M3.rM); clip: true
-                        gradient: Gradient { orientation: Gradient.Horizontal
-                            GradientStop { position: 0; color: Qt.darker(gcard.bg, 1.3) }
-                            GradientStop { position: 1; color: Qt.rgba(gcard.bg.r * 0.6 + gcard.acc.r * 0.4, gcard.bg.g * 0.6 + gcard.acc.g * 0.4, gcard.bg.b * 0.6 + gcard.acc.b * 0.4, 1) } }
-                        Image { anchors.fill: parent; source: modelData.image || ""; fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true
-                            opacity: status === Image.Ready ? 1 : 0; Behavior on opacity { NumberAnimation { duration: 300 } } }
-                        // the three colors, as a little palette
-                        Row {
-                            anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 10; spacing: -6
-                            Repeater { model: modelData.preview
-                                delegate: Rectangle { width: 22; height: 22; radius: M3.sq ? 0 : 11; color: modelData; border.width: 2; border.color: Qt.rgba(0, 0, 0, 0.35) } }
-                        }
-                    }
-                    Column {
-                        x: 16; y: gimg.y + gimg.height + 10
-                        width: parent.width - 32
-                        spacing: 2
-                        Row { spacing: 6
-                            T { text: modelData.name; font.pixelSize: 15; font.weight: Font.DemiBold }
-                            T { visible: modelData.author !== ""; anchors.bottom: parent.bottom; bottomPadding: 2; text: I18n.t("by %1").replace("%1", modelData.author); font.pixelSize: 11; color: M3.inkDim } }
-                        T { kind: "reading"; text: modelData.desc; width: parent.width; font.pixelSize: 11; color: M3.inkDim; elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.WordWrap }
-                    }
-                    MouseArea { id: gm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: if (page.galBusy === "" && !run.running) page.getGal(modelData) }
-                    Rectangle {
-                        anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 14
-                        height: 32; width: gl.implicitWidth + 26; radius: M3.sq ? 0 : 16
-                        color: gcard.busy ? M3.primaryContainer : (gm.containsMouse ? M3.primary : M3.surfaceHighest)
-                        Behavior on color { ColorAnimation { duration: 160 } }
-                        T { id: gl; anchors.centerIn: parent; text: gcard.busy ? I18n.t("Applying...") : I18n.t("Get and use"); font.pixelSize: 12; font.weight: Font.DemiBold
-                            color: gcard.busy ? M3.inkPrimaryC : (gm.containsMouse ? M3.inkPrimary : M3.ink) }
-                    }
-                }
-            }
         }
 
         // ---------- your apps ----------
