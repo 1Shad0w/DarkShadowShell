@@ -13,7 +13,26 @@ Scope {
     readonly property var list: srvLoader.item ? srvLoader.item.trackedNotifications.values : []
     readonly property int count: list.length
     // the lock screen shows how many wait (rice-lock notif-count)
-    onCountChanged: Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/.cache/rice\"; echo " + count + " > \"$HOME/.cache/rice/notif-count\""])
+    onCountChanged: {
+        Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/.cache/rice\"; echo " + count + " > \"$HOME/.cache/rice/notif-count\""])
+        appsT.restart()
+    }
+    // V5.03: which apps they are from (the Glance lock screen shows their icons): names and counts only, never text
+    Timer {
+        id: appsT
+        interval: 400
+        onTriggered: {
+            const by = {}, order = []
+            for (const n of nfy.list) {
+                const a = String(n.appName || "")
+                if (a === "") continue
+                if (!by[a]) { by[a] = { app: a, icon: String(n.appIcon || n.desktopEntry || ""), n: 0 }; order.push(a) }
+                by[a].n++
+            }
+            Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/.cache/rice\"; printf '%s' \"$1\" > \"$HOME/.cache/rice/notif-apps.json\"", "_",
+                                     JSON.stringify(order.map(function(k) { return by[k] }))])
+        }
+    }
     property var pops: []              // notifications on screen right now
     property var leaving: []           // pop-ups that are on their way out
 

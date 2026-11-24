@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""rice-report: a problem report for DarkShadow's Shell (Settings > About > Report a problem), V5.03.
+
+  rice-report             write the report (~/.cache/rice/report.md), put it on the clipboard and print where it is
+  rice-report --open      the same, then open a new issue on GitHub in the browser (paste the report there)
+  rice-report --print     only print it
+
+What is in it: the version of the shell, your system (distribution, kernel, the compositor, Quickshell, the graphics
+card), the main settings (bar, Minimal mode, notifications, lock screen, theme), rice-doctor's checks and the last
+lines of the shell's logs. Your home folder, user name and computer name are replaced (~, <user>, <host>), and
+nothing is sent anywhere: you see it and paste it yourself.
+"""
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import urllib.parse
+
+HOME = os.path.expanduser("~")
+DIR = HOME + "/.config/rice"
+CACHE = HOME + "/.cache/rice"
+OUT = CACHE + "/report.md"
+BIN = HOME + "/.local/bin/"
+ISSUES = "https://github.com/shadowww-dev/DarkShadowShell/issues/new"
+
+
+def sh(args, t=8):
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=t)
+        return (r.stdout or r.stderr or "").strip()
+    except Exception:
+        return ""
+
+
+def jread(p):
+    try:
+        return json.load(open(p))
+    except Exception:
+        return {}
+
+
+def read(p, d=""):
+    try:
+        return open(p).read().strip()
+    except OSError:
+        return d
+
+
+def tail(p, n=40):
+    try:
+        lines = open(p, errors="replace").read().splitlines()
+    except OSError:
+        return ""
+    return "\n".join(lines[-n:])
+
+
+def os_name():
+    for l in read("/etc/os-release").splitlines():
+        if l.startswith("PRETTY_NAME="):
+            return l.split("=", 1)[1].strip('"')
+    return "unknown"
+
+
+def compositor():
+    if os.environ.get("NIRI_SOCKET") or shutil.which("niri") and not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return "niri " + sh(["niri", "--version"]).replace("niri ", "")
+    v = sh(["hyprctl", "version", "-j"])
+    try:
+        j = json.loads(v)
+        return "Hyprland %s (%s)" % (j.get("tag") or j.get("version") or "?", (j.get("commit") or "")[:8])
+    except Exception:
+        return "Hyprland " + (v.splitlines()[0] if v else "?")
+
+
+def settings():
+    bar = jread(DIR + "/bar.json")
+    mn = jread(DIR + "/minimal.json")
+    cc = jread(DIR + "/cc.json")
+    nt = jread(DIR + "/notify.json")
+    lk = jread(DIR + "/lock.json")
+    th = jread(DIR + "/theme.json")
+    fx = jread(DIR + "/effects.json")
+    rows = [
+        ("Bar", "%s, %s%s" % (bar.get("style", "?"), bar.get("position", "top"), "" if bar.get("enabled", True) is not False else " (off: Waybar)")),
+        ("Minimal mode", "on (%s)" % mn.get("frame", "double") if mn.get("on") else "off"),
+        ("Notifications", "%s, theme %s" % (cc.get("engine", "swaync"), nt.get("colors", "shell"))),
+        ("Lock screen", "%s%s" % (lk.get("style", "cards"), ", fingerprint" if lk.get("fingerprint") else "")),
+        ("Theme", "%s, colors %s" % (th.get("theme", "darkshadow"), read(DIR + "/color-mode", "auto"))),
+        ("Light mode", "on" if fx.get("lite") else "off"),
+        ("Language", read(DIR + "/lang", "") or jread(DIR + "/settings-app.json").get("lang", "system")),
+    ]
+    return "\n".join("- **%s**: %s" % r for r in rows)
+
+
+def report():
+    user = os.environ.get("USER") or os.path.basename(HOME)
+    host = socket.gethostname()
+    gpu = "\n".join("  " + l.split(": ", 1)[-1] for l in sh(["bash", "-c", "lspci 2>/dev/null | grep -iE 'vga|3d|display'"]).splitlines()) or "  ?"
+    screens = sh(["bash", "-c", "hyprctl monitors -j 2>/dev/null | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null"]) or "?"
+    doctor = re.sub(r"\x1b\[[0-9;]*m", "", sh([BIN + "rice-doctor"], 40)) if os.access(BIN + "rice-doctor", os.X_OK) else ""
+    logs = []
+    for name in ("desktop.log", "lockscreen.log", "settings.log", "update-live.log"):
+        t = tail(CACHE + "/" + name, 30)
+        if t:
+            logs.append("<details><summary>%s</summary>\n\n```\n%s\n```\n</details>" % (name, t))
+    body = """## What happened
+<!-- What did you do, what did you expect, what happened instead? A screenshot or a short video helps a lot. -->
+
+
+## System
+- **DarkShadow's Shell**: V%s
+- **System**: %s, kernel %s
+- **Compositor**: %s
+- **Quickshell**: %s
+- **Screens**: %s
+- **Graphics**:
+%s
+
+## Settings
+%s
+
+## rice-doctor
+```
+%s
+```
+
+## Logs
+%s
+""" % (read(DIR + "/version", "?"), os_name(), os.uname().release, compositor(), sh(["bash", "-c", "qs --version 2>/dev/null || quickshell --version 2>/dev/null"]) or "?",
+       screens, gpu, settings(), doctor or "(rice-doctor is not here)", "\n".join(logs) or "(no logs)")
+    # what could say who you are: out
+    body = body.replace(HOME, "~")
+    if user and len(user) > 2:
+        body = re.sub(r"\b%s\b" % re.escape(user), "<user>", body)
+    if host and len(host) > 2:
+        body = re.sub(r"\b%s\b" % re.escape(host), "<host>", body)
+    return body
+
+
+def main(a):
+    body = report()
+    if "--print" in a:
+        print(body)
+        return
+    os.makedirs(CACHE, exist_ok=True)
+    open(OUT, "w").write(body)
+    copied = False
+    if shutil.which("wl-copy"):
+        try:
+            p = subprocess.Popen(["wl-copy"], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            p.stdin.write(body.encode())
+            p.stdin.close()
+            copied = True
+        except OSError:
+            pass
+    print(OUT.replace(HOME, "~") + (" (on the clipboard)" if copied else ""))
+    if "--open" in a:
+        ver = read(DIR + "/version", "?")
+        short = ("<!-- The full report is on your clipboard (rice-report): paste it here, then describe the problem at the top. -->\n\n"
+                 if copied else "<!-- Paste ~/.cache/rice/report.md here. -->\n\n")
+        url = ISSUES + "?" + urllib.parse.urlencode({"title": "[V%s] " % ver, "body": short, "labels": "bug"})
+        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

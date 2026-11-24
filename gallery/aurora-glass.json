@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "app": "DarkShadow's Shell",
+ "repo_wallpaper": "aurora.jpg",
+ "theme": {
+  "name": "Aurora Glass",
+  "desc": "Northern lights, see-through islands, big round corners and wide gaps",
+  "author": "DarkShadow",
+  "colors": "teal",
+  "corners": 1.35,
+  "shape": "cookie12",
+  "wavy": true,
+  "motion": "expressive",
+  "bounce": 1.2,
+  "bar": "islands",
+  "bar_opacity": 0.45,
+  "widgets": "google",
+  "notify": "glass",
+  "notify_radius": 24,
+  "rounding": 16,
+  "gaps_in": 6,
+  "gaps_out": 14,
+  "border": 1,
+  "font": "Google Sans Flex",
+  "preview": [
+   "#0b1a1a",
+   "#6fd6c2",
+   "#e2f6f1"
+  ],
+  "extra": {
+   "anim_style": "emphasized",
+   "minimal": {
+    "on": false,
+    "frame": "double"
+   },
+   "notify_colors": "tinted",
+   "lock_style": "cards"
+  }
+ }
+}

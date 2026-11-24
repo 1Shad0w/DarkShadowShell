@@ -6,6 +6,7 @@ import QtQuick
 Item {
     id: page
     property var ctl
+    property bool reported: false
 
     property var info: ({})
     Process {
@@ -113,6 +114,35 @@ Item {
                         T { text: page.info[modelData.k] || "—"; font.pixelSize: 14; font.weight: Font.Medium; width: parent.width; elide: Text.ElideRight }
                     }
                 }
+            }
+        }
+
+        // ---------- V5.03: report a problem ----------
+        SectionTitle { text: I18n.t("Report a problem"); sub: I18n.t("Something broke? One click writes a report (your system, the shell's settings, the last lines of its logs), puts it on the clipboard and opens a new issue on GitHub: paste it there and say what happened. Your home folder, user name and computer name are left out.") }
+        Rectangle {
+            width: parent.width
+            height: 76
+            radius: M3.sq ? 0 : (M3.rM)
+            color: M3.surfaceC
+            Item { x: 14; anchors.verticalCenter: parent.verticalCenter; width: 44; height: 44
+                Blob { anchors.fill: parent; kind: Prefs.accentShape; color: M3.secondaryContainer }
+                Icon { anchors.centerIn: parent; name: "bug_report"; glyph: ""; size: 20; color: M3.inkSecondaryC } }
+            Column {
+                x: 72; anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - 72 - repRow.width - 28
+                spacing: 2
+                T { text: I18n.t("Report a problem"); font.pixelSize: 14; font.weight: Font.Medium }
+                T { text: page.reported ? I18n.t("The report is on your clipboard: paste it into the issue") : I18n.t("Nothing is sent by itself: you see it and paste it"); font.pixelSize: 11; color: page.reported ? M3.primary : M3.inkDim
+                    width: parent.width; elide: Text.ElideRight }
+            }
+            Row {
+                id: repRow
+                anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+                Btn { anchors.verticalCenter: parent.verticalCenter; text: I18n.t("See it"); sym: "description"; icon: ""; variant: "text"
+                    onClicked: Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-report\" >/dev/null 2>&1; xdg-open \"$HOME/.cache/rice/report.md\""]) }
+                Btn { anchors.verticalCenter: parent.verticalCenter; primary: true; text: I18n.t("Report"); sym: "bug_report"; icon: ""
+                    onClicked: { page.reported = true; Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-report\" --open"]) } }
             }
         }
 

@@ -349,6 +349,9 @@ Item {
             Btn { text: I18n.t("All changes on GitHub"); sym: "open_in_new"; icon: ""; variant: "text"
                 onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/shadowww-dev/DarkShadowShell/blob/main/CHANGELOG.md"]) }
         }
+        // V5.03: the version you have, in the What's new dialog
+        Btn { text: I18n.t("What's new in my version"); sym: "new_releases"; icon: ""; variant: "tonal"
+            onClicked: if (page.ctl && page.ctl.showWhatsNew) page.ctl.showWhatsNew() }
 
         // ---------- more ----------
         SectionTitle { text: I18n.t("More"); sub: I18n.t("Updates here bring the shell, its apps and your configs. New system packages need your password, so they update in a terminal.") }

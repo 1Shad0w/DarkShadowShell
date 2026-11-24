@@ -1,5 +1,17 @@
 # Changelog
 
+## V5.03: a new lock screen, theme sharing and a gallery, emoji, grouped notifications
+- **New lock screen style: Glance** (Settings > Desktop > Idle & Lockscreen > Style), in Material 3 Expressive: a very large clock on the left (the hours in your accent over the minutes, each digit rolls up when it changes) with your shape turning slowly behind it, the day and the weather above it, and the apps that left notifications under it (only their icons and how many, never what they say). On the right your music on a wide card and the week with today in your shape. On a screen turned upright everything stacks in one column
+- **Unlock with your fingerprint** (Idle & Lockscreen > Fingerprint): touch the reader or type the password, whichever comes first. Needs fprintd and a finger enrolled (`fprintd-enroll`); Settings says what is missing. The password always works, and after a few unrecognized touches only the password is asked
+- **Share a theme** (Settings > Appearance > Themes): the share button on a theme makes one file, `~/DarkShadow-themes/NAME.dstheme`, with everything in it and its wallpaper. **Import** it on another computer (Downloads is looked through for you)
+- **Theme gallery** (Themes > Gallery): themes from the community, kept in the `gallery` folder of the repo. **Get and use** downloads one and it becomes yours. Six to start with: Event Horizon, Aurora Glass, Mono Peaks, Nebula Pop, Dawn Ridge and Grey Waves. To add yours: export it and open a pull request (Add yours)
+- **Your own themes keep more**: the window animation style, Minimal mode, the fonts, the cursor, the notification colors and the lock screen style (themes saved before V5.03 still work)
+- **Emoji in the launcher**: type `:` and a word (`:fire`, `:heart`, `:kot`). Enter copies it and types it into the window you were in (with wtype; otherwise it is on the clipboard)
+- **Notifications grouped by app** in the control center: more than one from an app shows the newest on a little stack, with Show all and an X that clears that app
+- **Report a problem** (Settings > About): one click writes a report (the version, your system, the main settings, rice-doctor and the last lines of the logs), puts it on the clipboard and opens a new GitHub issue to paste it in. Your home folder, user name and computer name are left out, and nothing is sent by itself (`rice-report`)
+- **What's new**: the first time Settings opens after an update it shows what changed in the version you now have (Update Center > What's new in my version shows it again)
+- Polish translations for the new texts
+
 ## V5.02: fonts to download, new Material 3 motion, more colors, fixes
 - **New: Get more fonts** (Settings > Appearance > Fonts): 32 free fonts from Google Fonts (Inter, Geist, Outfit, Manrope, Plus Jakarta Sans, Lexend, Unbounded, JetBrains Mono, Fira Code, Geist Mono and more). Download one, then **Use for text**, **Use everywhere** or **Use in the terminal**; a downloaded one can be removed again (`font-set get|use|remove`)
 - **New motion styles** (Settings > Motion): Calm stays, and four new Material 3 ones: **Emphasized** (windows grow in on a long, soft landing), **Expressive** (a lively landing with a little overshoot), **Glide** (windows and panels slide in from the edge) and **Pop** (windows spring up with one soft bounce). Lively, Fluid, Snappy and Minimal are gone (they turn into the closest new one)

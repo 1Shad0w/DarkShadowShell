@@ -12,6 +12,19 @@ PanelWindow {
     screen: Mon.screen
     id: cc
     property var nf: null                      // Notifs.qml
+    // V5.03: the notifications in groups (one per app, the app with the newest first); the groups you opened
+    property var openGroups: ({})
+    readonly property var groups: {
+        if (!nf || !nf.shellMode) return []
+        const l = nf.list.slice().reverse()
+        const by = {}, out = []
+        for (const n of l) {
+            const a = String(n.appName || "") || Tr.t("Other")
+            if (!by[a]) { by[a] = { app: a, items: [] }; out.push(by[a]) }
+            by[a].items.push(n)
+        }
+        return out
+    }
     property bool open: false
     property string tab: "control"
     property real t: 0
@@ -457,10 +470,70 @@ PanelWindow {
                         MouseArea { id: cam; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { Sfx.play("remove"); cc.nf.clearAll() } }
                     }
                 }
+                // V5.03: one group per app, newest first. A group of more than one shows its newest card on a stack
+                // (the others peek out under it) and a header: how many, Show all, and an X that clears the group.
                 Repeater {
-                    model: cc.nf && cc.nf.shellMode ? cc.nf.list.slice().reverse() : []
-                    delegate: NotifCard { width: ctl.width; n: modelData; nf: cc.nf; onClosed: cc.nf.dismiss(modelData)
-                        opacity: cc.stg(7 + Math.min(index, 4)); transform: Translate { y: (1 - cc.stg(7 + Math.min(index, 4))) * 26 } }
+                    model: cc.groups
+                    delegate: Column {
+                        id: grp
+                        required property var modelData
+                        required property int index
+                        readonly property bool many: modelData.items.length > 1
+                        readonly property bool opened: cc.openGroups[modelData.app] === true
+                        width: ctl.width
+                        spacing: 6
+                        opacity: cc.stg(7 + Math.min(index, 4)); transform: Translate { y: (1 - cc.stg(7 + Math.min(index, 4))) * 26 }
+                        Item {
+                            visible: grp.many
+                            width: parent.width; height: 32
+                            Row {
+                                x: 6; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: grp.modelData.app; color: cc.fg
+                                    font.family: Fonts.main; font.pixelSize: 13; font.weight: Font.DemiBold
+                                    width: Math.min(implicitWidth, grp.width - 190); elide: Text.ElideRight }
+                                Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 20; width: Math.max(20, gn.implicitWidth + 12); radius: Look.sq ? 0 : 10
+                                    color: cc.container
+                                    Text { id: gn; anchors.centerIn: parent; text: grp.modelData.items.length; color: cc.inkContainer
+                                        font.family: Fonts.main; font.pixelSize: 11; font.weight: Font.Bold } }
+                            }
+                            Row {
+                                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 6
+                                Rectangle {
+                                    height: 30; width: gsr.implicitWidth + 22; radius: Look.sq ? 0 : 15
+                                    color: gsm.containsMouse ? cc.cardHi : cc.card
+                                    Behavior on color { ColorAnimation { duration: 120 } }
+                                    Row { id: gsr; anchors.centerIn: parent; spacing: 4
+                                        Text { anchors.verticalCenter: parent.verticalCenter; text: grp.opened ? Tr.t("Show less") : Tr.t("Show all")
+                                            color: cc.fg; font.family: Fonts.main; font.pixelSize: 12 }
+                                        MIcon { anchors.verticalCenter: parent.verticalCenter; size: 16; name: "expand_more"; glyph: ""; color: cc.fg
+                                            rotation: grp.opened ? 180 : 0; Behavior on rotation { NumberAnimation { duration: 260; easing.type: Easing.OutBack } } } }
+                                    MouseArea { id: gsm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { const o = Object.assign({}, cc.openGroups); o[grp.modelData.app] = !grp.opened; cc.openGroups = o } }
+                                }
+                                Rectangle {
+                                    width: 30; height: 30; radius: Look.sq ? 0 : 15
+                                    color: gxm.containsMouse ? cc.cardHi : cc.card
+                                    MIcon { anchors.centerIn: parent; size: 16; name: "close"; glyph: ""; color: cc.fg }
+                                    MouseArea { id: gxm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { Sfx.play("remove"); const l = grp.modelData.items.slice(); for (const n of l) cc.nf.dismiss(n) } }
+                                }
+                            }
+                        }
+                        Repeater {
+                            model: grp.many && !grp.opened ? [grp.modelData.items[0]] : grp.modelData.items
+                            delegate: NotifCard { width: grp.width; n: modelData; nf: cc.nf; onClosed: cc.nf.dismiss(modelData) }
+                        }
+                        // the stack: the cards under the newest one peek out at its bottom
+                        Item {
+                            visible: grp.many && !grp.opened
+                            width: parent.width; height: grp.modelData.items.length > 2 ? 12 : 4
+                            z: -1
+                            Rectangle { visible: grp.modelData.items.length > 2; x: 28; y: -6; width: parent.width - 56; height: 18; radius: Look.sq ? 0 : 12
+                                color: Qt.rgba(cc.cardHi.r, cc.cardHi.g, cc.cardHi.b, 0.35) }
+                            Rectangle { x: 14; y: -14; width: parent.width - 28; height: 18; radius: Look.sq ? 0 : 12
+                                color: Qt.rgba(cc.cardHi.r, cc.cardHi.g, cc.cardHi.b, 0.6) }
+                        }
+                    }
                 }
                 // nothing new
                 Column {

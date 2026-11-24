@@ -20,6 +20,14 @@ Item {
         refresh.restart()
     }
     readonly property bool classic: v("style", "cards") === "classic"
+    readonly property bool glance: v("style", "cards") === "glance"
+    // V5.03: unlock with a finger (rice-lock fingerprint: is there a reader with a finger enrolled)
+    property var fpInfo: ({ ok: false, why: "" })
+    Process {
+        running: true
+        command: ["bash", "-c", "\"$HOME/.local/bin/rice-lock\" fingerprint 2>/dev/null"]
+        stdout: StdioCollector { onStreamFinished: { try { page.fpInfo = JSON.parse(text) } catch (e) { } } }
+    }
     function mins(x) { return x <= 0 ? "Never" : (x + " min") }
     // lock screen clock fonts (rice-fonts downloads them)
     readonly property var clockFonts: [
@@ -92,7 +100,8 @@ Item {
                 border.width: 1; border.color: M3.surfaceHighest
                 readonly property real s: height / 1080
                 readonly property color acc: M3.primary
-                readonly property bool cards: page.v("style", "cards") !== "classic"
+                readonly property bool cards: page.v("style", "cards") === "cards"
+                readonly property bool glance: page.v("style", "cards") === "glance"
                 readonly property string bg: page.v("background", "screenshot")
 
                 // the background: your wallpaper, the screen (a stand-in here) or a plain color; blurred and dimmed
@@ -173,9 +182,46 @@ Item {
                         Rectangle { anchors.right: parent.right; anchors.rightMargin: 9 * frame.s; anchors.verticalCenter: parent.verticalCenter; width: 40 * frame.s; height: width; radius: M3.sq ? 0 : (width / 2); color: Qt.rgba(1, 0.42, 0.42, 0.3) } }
                 }
 
+                // ---- Glance: the big clock on the left in your shape, the music and the week on the right
+                Item {
+                    visible: frame.glance
+                    anchors.fill: parent
+                    Blob { x: -60 * frame.s; y: 170 * frame.s; width: 580 * frame.s; height: width; kind: Prefs.accentShape; color: frame.acc; opacity: 0.12 }
+                    Column {
+                        x: frame.width * 0.08; y: frame.height * 0.16
+                        spacing: 14 * frame.s
+                        T { visible: page.v("date", true) === true; text: page.now.toLocaleDateString(I18n.loc, "dddd, d MMMM"); font.pixelSize: 26 * frame.s; color: "#F6F5F4" }
+                        Column { spacing: -70 * frame.s
+                            T { text: page.hh(); font.family: page.clockFam(); font.pixelSize: 230 * frame.s; font.bold: true; color: frame.acc }
+                            T { text: page.mm(); font.family: page.clockFam(); font.pixelSize: 230 * frame.s; font.bold: true; color: "#F6F5F4" } }
+                        Row { visible: page.v("notifications", true) === true; spacing: 10 * frame.s
+                            Repeater { model: 3; delegate: Blob { width: 46 * frame.s; height: width; kind: index === 1 ? "circle" : Prefs.accentShape; color: M3.primaryContainer } } }
+                    }
+                    Column {
+                        x: frame.width * 0.92 - width; y: frame.height * 0.24
+                        width: 440 * frame.s; spacing: 14 * frame.s
+                        Rectangle { visible: page.v("media", true) === true; width: parent.width; height: 170 * frame.s; radius: M3.sq ? 0 : (32 * frame.s); color: M3.surfaceC
+                            Blob { x: 18 * frame.s; anchors.verticalCenter: parent.verticalCenter; width: 134 * frame.s; height: width; kind: Prefs.accentShape; color: M3.primaryContainer }
+                            Rectangle { x: 172 * frame.s; y: 40 * frame.s; width: 150 * frame.s; height: 16 * frame.s; radius: M3.sq ? 0 : (8 * frame.s); color: "#F6F5F4"; opacity: 0.8 }
+                            Rectangle { x: 172 * frame.s; y: 108 * frame.s; width: 64 * frame.s; height: 40 * frame.s; radius: M3.sq ? 0 : (14 * frame.s); color: frame.acc } }
+                        Rectangle { width: parent.width; height: 110 * frame.s; radius: M3.sq ? 0 : (28 * frame.s); color: M3.surfaceC
+                            Row { anchors.centerIn: parent; spacing: 22 * frame.s
+                                Repeater { model: 7; delegate: Item { width: 36 * frame.s; height: width
+                                    Blob { anchors.fill: parent; visible: index === (page.now.getDay() + 6) % 7; kind: Prefs.accentShape; color: frame.acc }
+                                    Rectangle { anchors.centerIn: parent; visible: index !== (page.now.getDay() + 6) % 7; width: 12 * frame.s; height: 4 * frame.s; radius: M3.sq ? 0 : (2 * frame.s); color: "#F6F5F4"; opacity: 0.6 } } } } }
+                    }
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom; anchors.bottomMargin: 64 * frame.s
+                        spacing: 10 * frame.s
+                        Rectangle { width: 420 * frame.s; height: 58 * frame.s; radius: M3.sq ? 0 : (height / 2); color: M3.surfaceC; border.width: 2; border.color: frame.acc
+                            Blob { x: 9 * frame.s; anchors.verticalCenter: parent.verticalCenter; width: 40 * frame.s; height: width; kind: Prefs.accentShape; color: frame.acc } }
+                        Rectangle { visible: page.v("fingerprint", false) === true; width: 58 * frame.s; height: width; radius: M3.sq ? 0 : (width / 2); color: M3.surfaceC; border.width: 2; border.color: frame.acc }
+                    }
+                }
                 // ---- Classic: one column (the clock in your style, the greeting, the password)
                 Column {
-                    visible: !frame.cards
+                    visible: page.classic
                     readonly property bool isLeft: page.v("layout", "center") === "left"
                     readonly property string st: page.v("clock", "big")
                     x: isLeft ? frame.width * 0.08 : (frame.width - width) / 2
@@ -203,7 +249,7 @@ Item {
                         T { visible: page.v("greeting", true) === true; text: page.greeting(); font.pixelSize: 20 * frame.s; color: "#F6F5F4"; anchors.verticalCenter: parent.verticalCenter } }
                 }
                 Rectangle {
-                    visible: !frame.cards
+                    visible: page.classic
                     readonly property string kind: page.v("input", "pill")
                     readonly property bool isLeft: page.v("layout", "center") === "left"
                     width: 380 * frame.s; height: 56 * frame.s
@@ -259,8 +305,8 @@ Item {
         SectionTitle { text: I18n.t("Lock screen"); sub: I18n.t("Changes show up the next time you lock. Preview shows it without locking.") }
         SegRow {
             label: I18n.t("Style")
-            desc: I18n.t("Cards: the month, the time and your music on tall cards. Classic: one column")
-            options: [{ label: I18n.t("Cards"), value: "cards" }, { label: I18n.t("Classic"), value: "classic" }]
+            desc: I18n.t("Cards: the month, the time and your music on tall cards. Glance: a big clock with your music and the week. Classic: one column")
+            options: [{ label: I18n.t("Cards"), value: "cards" }, { label: I18n.t("Glance"), value: "glance" }, { label: I18n.t("Classic"), value: "classic" }]
             current: page.v("style", "cards")
             onChosen: function(x) { page.setv("style", x) }
         }
@@ -333,15 +379,23 @@ Item {
         }
         ToggleRow { label: I18n.t("24-hour clock"); checked: page.v("clock_24h", true) === true; onToggled: function(x) { page.setv("clock_24h", x ? "on" : "off") } }
         ToggleRow { visible: page.classic; label: I18n.t("Accent clock"); desc: I18n.t("Color the clock with your Theme"); checked: page.v("accent_clock", false) === true; onToggled: function(x) { page.setv("accent_clock", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Date"); checked: page.v("date", true) === true; onToggled: function(x) { page.setv("date", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Greeting"); desc: I18n.t("Good morning / evening with your name"); checked: page.v("greeting", true) === true; onToggled: function(x) { page.setv("greeting", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Profile picture"); desc: I18n.t("Your avatar from Home"); checked: page.v("avatar", true) === true; onToggled: function(x) { page.setv("avatar", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Date"); checked: page.v("date", true) === true; onToggled: function(x) { page.setv("date", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Greeting"); desc: I18n.t("Good morning / evening with your name"); checked: page.v("greeting", true) === true; onToggled: function(x) { page.setv("greeting", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Profile picture"); desc: I18n.t("Your avatar from Home"); checked: page.v("avatar", true) === true; onToggled: function(x) { page.setv("avatar", x ? "on" : "off") } }
         SegRow {
             visible: page.classic
             label: I18n.t("Password field")
             options: [{ label: I18n.t("Pill"), value: "pill" }, { label: I18n.t("Box"), value: "box" }, { label: I18n.t("Line"), value: "line" }]
             current: page.v("input", "pill")
             onChosen: function(x) { page.setv("input", x) }
+        }
+        ToggleRow {
+            label: I18n.t("Fingerprint")
+            desc: page.fpInfo.ok ? I18n.t("Touch the reader to unlock, or type your password: whichever comes first")
+                                 : (page.fpInfo.why ? I18n.t(page.fpInfo.why) : I18n.t("Looking for a fingerprint reader ..."))
+            enabled: page.fpInfo.ok || page.v("fingerprint", false) === true
+            checked: page.v("fingerprint", false) === true
+            onToggled: function(x) { page.setv("fingerprint", x ? "on" : "off") }
         }
         ToggleRow { label: I18n.t("Power buttons"); desc: I18n.t("Sleep, restart and shut down (in red); restart and shut down ask for a second click"); checked: page.v("power", true) === true; onToggled: function(x) { page.setv("power", x ? "on" : "off") } }
 
@@ -367,11 +421,11 @@ Item {
             onCommitted: function(x) { page.setv("dim", x.toFixed(2)) }
         }
 
-        SectionTitle { text: I18n.t("Widgets"); sub: page.classic ? I18n.t("Small lines at the bottom of the lock screen.") : I18n.t("Cards shows your music on its own card.") }
+        SectionTitle { text: I18n.t("Widgets"); sub: page.classic ? I18n.t("Small lines at the bottom of the lock screen.") : (page.glance ? I18n.t("Glance shows the apps with notifications (only their icons), your music and the week.") : I18n.t("Cards shows your music on its own card.")) }
         ToggleRow { label: I18n.t("Media"); desc: I18n.t("What is playing right now"); checked: page.v("media", true) === true; onToggled: function(x) { page.setv("media", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Resources"); desc: I18n.t("CPU, RAM and GPU usage"); checked: page.v("resources", false) === true; onToggled: function(x) { page.setv("resources", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Notifications"); desc: I18n.t("How many notifications are waiting"); checked: page.v("notifications", true) === true; onToggled: function(x) { page.setv("notifications", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Weather"); desc: I18n.t("Current weather from wttr.in"); checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Resources"); desc: I18n.t("CPU, RAM and GPU usage"); checked: page.v("resources", false) === true; onToggled: function(x) { page.setv("resources", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Notifications"); desc: I18n.t("How many notifications are waiting"); checked: page.v("notifications", true) === true; onToggled: function(x) { page.setv("notifications", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Weather"); desc: I18n.t("Current weather from wttr.in"); checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
 
         LoginScreenCard { ctl: page.ctl }
 

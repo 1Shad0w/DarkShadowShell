@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "app": "DarkShadow's Shell",
+ "repo_wallpaper": "space-black-hole.jpg",
+ "theme": {
+  "name": "Event Horizon",
+  "desc": "The black hole, warm gold light, a living island and soft bouncy motion",
+  "author": "DarkShadow",
+  "colors": "auto",
+  "corners": 1.0,
+  "shape": "verysunny",
+  "wavy": true,
+  "motion": "expressive",
+  "bounce": 1.0,
+  "bar": "dynamic",
+  "bar_opacity": 0.7,
+  "widgets": "google",
+  "notify": "glass",
+  "notify_radius": 20,
+  "rounding": 12,
+  "gaps_in": 5,
+  "gaps_out": 10,
+  "border": 2,
+  "font": "Google Sans Flex",
+  "preview": [
+   "#0d0b09",
+   "#e3b770",
+   "#f3ece0"
+  ],
+  "extra": {
+   "anim_style": "expressive",
+   "minimal": {
+    "on": false,
+    "frame": "double"
+   },
+   "notify_colors": "shell",
+   "lock_style": "glance"
+  }
+ }
+}

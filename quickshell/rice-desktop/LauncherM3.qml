@@ -102,7 +102,7 @@ Item {
                 onTextChanged: { if (text !== ln.query) { ln.query = text; if (activeFocus) Sfx.play("type") } }
                 Keys.onPressed: function(e) { ln.keyNav(e, input) }
                 Text { visible: input.text.length === 0; anchors.verticalCenter: parent.verticalCenter
-                    text: Tr.t("Search apps, files, sums and the web"); font: input.font; color: m3.pal.dim }
+                    text: Tr.t("Search apps, files, sums and the web  ·  : for emoji"); font: input.font; color: m3.pal.dim }
             }
             Row {
                 id: tools
@@ -288,6 +288,7 @@ Item {
                 required property int index
                 readonly property bool sel: index === ln.cur
                 readonly property bool sum: modelData.kind === "calc"
+                readonly property bool emo: modelData.kind === "emoji"
                 // the groups: a small title over the first of each kind (a sum, apps, files, the web)
                 readonly property bool first: index === 0 || ln.results[index - 1].kind !== modelData.kind
                 readonly property real head: first ? 30 : 0
@@ -323,8 +324,15 @@ Item {
                     x: 12 + (row.sel ? 4 : 0); y: row.head + (parent.height - row.head - height) / 2
                     width: row.sum ? 52 : 40; height: width
                     Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    // an emoji: itself, large, on a tonal circle
+                    Rectangle {
+                        visible: row.emo
+                        anchors.fill: parent; radius: Look.sq ? 0 : (width / 2)
+                        color: row.sel ? m3.pal.primary : m3.pal.card
+                        Text { anchors.centerIn: parent; text: row.modelData.val || ""; font.pixelSize: 24; font.family: "Noto Color Emoji" }
+                    }
                     AppIcon {
-                        visible: !row.sum && ln.icons
+                        visible: !row.sum && !row.emo && ln.icons
                         anchors.centerIn: parent
                         size: 40
                         name: row.modelData.kind === "app" ? (row.modelData.entry ? (row.modelData.entry.icon || "") : "")
@@ -373,7 +381,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: enterT.implicitWidth + 22; height: 30; radius: Look.sq ? 0 : (15)
                         color: m3.pal.primary
-                        Text { id: enterT; anchors.centerIn: parent; text: row.sum ? Tr.t("Copy") + "  ↵" : Tr.t("Open") + "  ↵"
+                        Text { id: enterT; anchors.centerIn: parent; text: row.sum || row.emo ? Tr.t("Copy") + "  ↵" : Tr.t("Open") + "  ↵"
                             color: m3.pal.inkPrimary; font.family: Fonts.main; font.pixelSize: 12; font.weight: Font.DemiBold }
                     }
                 }

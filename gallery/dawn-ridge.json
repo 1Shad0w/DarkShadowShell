@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "app": "DarkShadow's Shell",
+ "repo_wallpaper": "dawn-ridge.jpg",
+ "theme": {
+  "name": "Dawn Ridge",
+  "desc": "A peach sunrise, gentle glide motion and soft cards",
+  "author": "DarkShadow",
+  "colors": "peach",
+  "corners": 1.0,
+  "shape": "flower",
+  "wavy": true,
+  "motion": "standard",
+  "bounce": 0.6,
+  "bar": "island",
+  "bar_opacity": 0.85,
+  "widgets": "google",
+  "notify": "solid",
+  "notify_radius": 16,
+  "rounding": 10,
+  "gaps_in": 4,
+  "gaps_out": 8,
+  "border": 2,
+  "font": "Google Sans Flex",
+  "preview": [
+   "#1d1210",
+   "#ffb38f",
+   "#ffe9df"
+  ],
+  "extra": {
+   "anim_style": "glide",
+   "minimal": {
+    "on": false,
+    "frame": "double"
+   },
+   "notify_colors": "shell",
+   "lock_style": "glance"
+  }
+ }
+}

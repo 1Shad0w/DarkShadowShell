@@ -10,6 +10,7 @@ Item {
     property string icon: ""
     property real topPadding: 22
     readonly property var map: [
+        [/^share/, "share"], [/gallery|communit/, "photo_library"], [/report|problem|bug/, "bug_report"], [/what.s new/, "new_releases"],
         [/password|passkey/, "password"], [/account|users\b/, "group"], [/\buser|you\b|profile/, "person"],
         [/\bdock/, "dock_to_bottom"], [/notif|pop-?up/, "notifications"], [/sound|sfx|volume|audio/, "volume_up"],
         [/wallpaper/, "wallpaper"], [/colou?r|palette|theme|tint/, "palette"], [/\bfont|text\b|typeface/, "text_fields"],

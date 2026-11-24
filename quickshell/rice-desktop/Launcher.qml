@@ -9,6 +9,7 @@ import QtQuick
 // type) and Side sheet (a tall panel at the edge of the screen). This file finds things; LauncherM3.qml shows them.
 // Type to search, arrows or Tab to move, Enter to open, Esc to close. "2+2" calculates and "10 km in mi" or "100 usd pln" converts (Enter copies the result),
 // files in your home show after three letters ("/" in front: only files), anything else can be searched on the web. The apps you open most come first.
+// V5.03: ":" in front finds emoji (":fire", ":heart", ":kot"): Enter copies it and pastes it where you were typing.
 PanelWindow {
     screen: Mon.screen
     id: ln
@@ -90,7 +91,47 @@ PanelWindow {
         } catch (e) { }
         return null
     }
+    // ---------- V5.03: emoji (":" in front) ----------
+    // emoji.json: [emoji, its Unicode name, the group, more words (English and Polish)], read the first time ":" is typed
+    property var emojis: []
+    property bool emoWanted: false
+    FileView {
+        path: ln.emoWanted ? Quickshell.shellPath("emoji.json") : ""
+        printErrors: false
+        onLoaded: { try { ln.emojis = JSON.parse(text()) } catch (e) { ln.emojis = [] } if (ln.open) ln.recompute() }
+    }
+    function emojiFind(q) {
+        const words = q.split(/\s+/).filter(function(w) { return w !== "" })
+        const out = []
+        for (let i = 0; i < emojis.length; i++) {
+            const e = emojis[i]
+            const hay = e[1] + " " + e[3]
+            let sc = 0, ok = true
+            for (const w of words) {
+                const at = hay.indexOf(w)
+                if (at < 0) { ok = false; break }
+                sc += at === 0 ? 30 : (hay.charAt(at - 1) === " " ? 15 : 2)
+            }
+            if (!ok) continue
+            if (e[3] !== "") sc += 12                       // the ones people use most have extra words
+            out.push({ s: sc - i * 0.001, e: e })
+        }
+        out.sort(function(a, b) { return b.s - a.s })
+        return out.slice(0, 60).map(function(x) {
+            const n = x.e[1]
+            return { kind: "emoji", name: n.charAt(0).toUpperCase() + n.slice(1), sub: x.e[3], val: x.e[0] }
+        })
+    }
     function recompute() {
+        if (query.indexOf(":") === 0) {
+            emoWanted = true
+            const eq = query.slice(1).trim().toLowerCase()
+            results = emojis.length === 0 ? [] : (eq === "" ? emojis.filter(function(e) { return e[3] !== "" }).slice(0, 60).map(function(e) {
+                const n = e[1]; return { kind: "emoji", name: n.charAt(0).toUpperCase() + n.slice(1), sub: e[3], val: e[0] } }) : emojiFind(eq))
+            resetScroll()
+            cur = 0
+            return
+        }
         const q = query.trim().toLowerCase()
         const out = []
         const list = []
@@ -167,7 +208,7 @@ PanelWindow {
     readonly property int mcols: m3 ? m3.cols : 6
     // the grid before you type moves by rows with up and down
     readonly property bool gridNow: lay !== "spotlight" && query.trim() === ""
-    function groupName(k) { return ({ calc: "Result", app: "Apps", file: "Files", web: "The web" })[k] || "" }
+    function groupName(k) { return ({ calc: "Result", app: "Apps", file: "Files", web: "The web", emoji: "Emoji" })[k] || "" }
     function fileIcon(r) {
         const ext = (String(r.name).split(".").pop() || "").toLowerCase()
         const m = { png: "image-x-generic", jpg: "image-x-generic", jpeg: "image-x-generic", webp: "image-x-generic", gif: "image-x-generic",
@@ -250,6 +291,8 @@ PanelWindow {
         try {
             if (r.kind === "app") { r.entry.execute(); bump(r.id) }
             else if (r.kind === "calc") Quickshell.execDetached(["bash", "-c", "printf %s \"$1\" | wl-copy", "_", r.val])
+            // an emoji: on the clipboard, then typed into the window you were in (wtype, when it is here)
+            else if (r.kind === "emoji") Quickshell.execDetached(["bash", "-c", "printf %s \"$1\" | wl-copy; command -v wtype >/dev/null 2>&1 && { sleep 0.25; wtype -- \"$1\"; }", "_", r.val])
             else if (r.kind === "web") Quickshell.execDetached(["xdg-open", "https://duckduckgo.com/?q=" + encodeURIComponent(r.q)])
             else if (r.kind === "file") Quickshell.execDetached(["xdg-open", r.path])
         } catch (e) { console.warn("launcher: could not start " + r.name + ": " + e) }

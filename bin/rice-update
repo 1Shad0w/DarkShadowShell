@@ -9,6 +9,9 @@
   rice-update notify        show the "Update is Available!" notification now (to try it)
   rice-update gui           update in the background for Settings > Update Center (no terminal): the steps go to
                             ~/.cache/rice/update-live.log, the state to ~/.cache/rice/update-live.json
+  rice-update whatsnew [VERSION]   JSON: what is new in this version (or VERSION), from the CHANGELOG
+                            ("show": true the first time Settings opens after an update)
+  rice-update whatsnew-seen        Settings showed it: not again for this version
 """
 import fcntl
 import json
@@ -508,8 +511,70 @@ def run(args):
     sys.exit(code)
 
 
+# ---------------- V5.03: what is new ----------------
+SEEN = DIR + "/whatsnew-seen"
+
+
+def md_line(t):
+    """a CHANGELOG line for Settings (Qt's StyledText): **bold**, `code`, the rest escaped"""
+    t = t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
+    return re.sub(r"`(.+?)`", r"<i>\1</i>", t)
+
+
+def whatsnew(ver=None):
+    r = repo()
+    text = ""
+    for f in ([r + "/CHANGELOG.md"] if r else []) + [HOME + "/.local/share/rice/CHANGELOG.md"]:
+        try:
+            text = open(f).read()
+            break
+        except OSError:
+            pass
+    inst = ""
+    try:
+        inst = open(INSTALLED).read().strip()
+    except OSError:
+        pass
+    ver = ver or inst
+    title, items, found = "", [], False
+    for line in text.splitlines():
+        m = re.match(r"^##\s+V([\d.]+)\s*:?\s*(.*)$", line)
+        if m:
+            if found:
+                break
+            found = m.group(1) == ver
+            title = m.group(2).strip() if found else ""
+            title = title[:1].upper() + title[1:]
+            continue
+        if found and line.startswith("- "):
+            items.append(md_line(line[2:].strip()))
+    try:
+        seen = open(SEEN).read().strip()
+    except OSError:
+        seen = ""
+    # the first install: the welcome screen shows the shell, not a changelog; it starts counting from here
+    first = not os.path.exists(DIR + "/welcome-seen") and not seen
+    if first and inst:
+        try:
+            open(SEEN, "w").write(inst + "\n")
+        except OSError:
+            pass
+    print(json.dumps({"version": ver, "title": title, "items": items[:16], "more": max(0, len(items) - 16),
+                      "show": bool(items) and not first and seen != ver and ver == inst}))
+
+
 def main(a):
     cmd = a[1] if len(a) > 1 else ""
+    if cmd == "whatsnew":
+        whatsnew(a[2] if len(a) > 2 else None)
+        return
+    if cmd == "whatsnew-seen":
+        try:
+            open(SEEN, "w").write(open(INSTALLED).read().strip() + "\n")
+        except OSError:
+            pass
+        return
     if cmd == "check":
         st = check(offline="--offline" in a)
         if "--json" in a:

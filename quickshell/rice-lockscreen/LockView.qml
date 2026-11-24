@@ -19,8 +19,21 @@ FocusScope {
     // the first screen shows the music and reads the numbers (the others only the clock and the password)
     readonly property bool first: !scr || Quickshell.screens.length === 0 || scr === Quickshell.screens[0]
     readonly property bool atLeft: v("layout", "center") === "left"
-    // Style: Cards (the month, the time and the music on tall cards, a bar at the bottom) or Classic (one column)
-    readonly property bool cards: v("style", "cards") !== "classic"
+    // Style: Cards (the month, the time and the music on tall cards, a bar at the bottom), Glance (V5.03: a big
+    // Material 3 clock on the left, the music and the week on the right) or Classic (one column)
+    readonly property bool cards: v("style", "cards") === "cards"
+    readonly property bool glance: v("style", "cards") === "glance"
+    readonly property bool classic: !cards && !glance
+    // the finger (shell.qml checks it): shown in the preview too when it is on
+    readonly property bool fpShown: !!root && (root.fpOn === true || (isPreview && v("fingerprint", false) === true))
+    readonly property string fpState: !root ? "off" : (isPreview && fpShown ? "waiting" : (root.fp || "off"))
+    function hint() {
+        if (root && root.phase === "checking") return Tr.t("Checking ...")
+        if (isPreview) return Tr.t("Password (preview, Esc closes)")
+        if (fpShown && fpState === "wrong") return Tr.t("Not recognized, try again")
+        if (fpShown && fpState === "waiting") return Tr.t("Password or fingerprint")
+        return Tr.t("Enter your password")
+    }
     NPal { id: pal; theme: "shell"; alpha: 0.62 }
     readonly property var npal: pal
     readonly property var player: pl
@@ -57,11 +70,16 @@ FocusScope {
     property string weather: ""
     property string notifs: ""
     property string greet: ""
+    property var napps: []
     Process { running: lv.v("weather", false) === true; command: ["bash", "-c", "\"$HOME/.local/bin/rice-lock\" weather"]
         stdout: StdioCollector { onStreamFinished: lv.weather = text.trim() } }
     Process { id: nProc; running: lv.v("notifications", true) !== false; command: ["bash", "-c", "\"$HOME/.local/bin/rice-lock\" notif-count"]
         stdout: StdioCollector { onStreamFinished: lv.notifs = text.trim() } }
-    Timer { interval: 15000; running: lv.v("notifications", true) !== false; repeat: true; onTriggered: if (!nProc.running) nProc.running = true }
+    Timer { interval: 15000; running: lv.v("notifications", true) !== false; repeat: true
+        onTriggered: { if (!nProc.running) nProc.running = true; if (lv.glance && !aProc.running) aProc.running = true } }
+    Process { id: aProc; running: lv.glance && lv.first && lv.v("notifications", true) !== false
+        command: ["bash", "-c", "\"$HOME/.local/bin/rice-lock\" notif-apps"]
+        stdout: StdioCollector { onStreamFinished: { try { lv.napps = JSON.parse(text) } catch (e) { lv.napps = [] } } } }
     Process { running: lv.v("greeting", true) !== false; command: ["bash", "-c", "\"$HOME/.local/bin/rice-lock\" greet"]
         stdout: StdioCollector { onStreamFinished: lv.greet = text.trim() } }
     readonly property var batt: UPower.displayDevice
@@ -185,6 +203,7 @@ FocusScope {
                         + ", read-only " + keys.readOnly + ", typed so far " + keys.text.length)
         }
         if (!r) { e.accepted = true; return }
+        if (r.fpAgain) r.fpAgain()
         if (k === Qt.Key_Escape) { if (lv.isPreview) Qt.quit(); else keys.text = "" }
         else if (k === Qt.Key_Return || k === Qt.Key_Enter) r.submit()
         else if (k === Qt.Key_Backspace) { if (!keys.readOnly) keys.text = (e.modifiers & Qt.ControlModifier) ? "" : keys.text.slice(0, -1) }
@@ -202,7 +221,7 @@ FocusScope {
         anchors.fill: parent
         onPressed: function(m) {
             if (!lv.clicked) { lv.clicked = true; console.log("[lock] mouse click; screen active:", lv.winActive, "field focused:", keys.activeFocus) }
-            lv.activate(); m.accepted = false
+            lv.activate(); if (lv.root && lv.root.fpAgain) lv.root.fpAgain(); m.accepted = false
         }
     }
     // after a while without a single key: offer hyprlock (the session stays locked while it takes over)
@@ -221,7 +240,7 @@ FocusScope {
 
         Column {
             id: main
-            visible: !lv.cards
+            visible: lv.classic
             width: Math.min(lv.width - 64, 600)
             x: lv.atLeft ? Math.round(lv.width * 0.08) : Math.round((lv.width - width) / 2)
             // centred, a little above the middle; it moves smoothly when the music comes or goes
@@ -421,7 +440,7 @@ FocusScope {
                     Text {
                         anchors.left: lk.right; anchors.leftMargin: 14; anchors.verticalCenter: parent.verticalCenter
                         visible: !!root && root.pass === ""
-                        text: passArea.checking ? Tr.t("Checking ...") : (lv.isPreview ? Tr.t("Password (preview, Esc closes)") : Tr.t("Enter your password"))
+                        text: lv.hint()
                         color: pal.dim; font.family: Fonts.main; font.pixelSize: 15
                     }
                     // Enter, as a button too
@@ -516,7 +535,7 @@ FocusScope {
         // ---------- power ----------
         Row {
             id: pwr
-            visible: !lv.cards && lv.v("power", true) !== false
+            visible: lv.classic && lv.v("power", true) !== false
             anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 32
             spacing: 12
             opacity: lv.stg(6)
@@ -534,6 +553,8 @@ FocusScope {
     }
 
     LockCards { anchors.fill: parent; visible: lv.cards; lv: lv; pal: lv.npal }
+    Loader { anchors.fill: parent; active: lv.glance; sourceComponent: Component { LockGlance { } }
+        onLoaded: { item.pal = lv.npal; item.lv = lv } }
 
     function wGlyph(w) {
         const s = String(w).toLowerCase()

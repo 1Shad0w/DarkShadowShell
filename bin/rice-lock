@@ -5,7 +5,8 @@
   rice-lock now                                 lock the screen (hypridle, SUPER + L, the power menu ...)
   rice-lock preview                             show the lock screen in a window (Esc closes it)
   rice-lock test                                lock for real, but it unlocks itself after 30 seconds (try the keyboard)
-  rice-lock greet | notif | notif-count | weather | media     (text for the lock screen)
+  rice-lock greet | notif | notif-count | notif-apps | weather | media     (text for the lock screen)
+  rice-lock fingerprint                         JSON: is there a sensor with a finger enrolled (fprintd)
   rice-lock screen off|on                       (used by hypridle)
 
 V3.45: the lock screen is the shell's own (Quickshell, ~/.config/quickshell/rice-lockscreen), in Material 3.
@@ -42,13 +43,15 @@ DEFAULTS = {
     "date": True, "greeting": True, "avatar": True, "input": "pill", "power": True,
     "background": "screenshot", "blur": 3, "dim": 0.5,
     "media": True, "resources": False, "notifications": True, "weather": False,
+    # V5.03: unlock with a finger too (fprintd), next to the password
+    "fingerprint": False,
 }
 INTS = {"lock_after": (0, 120), "screen_off_after": (0, 120), "suspend_after": (0, 240), "blur": (0, 4)}
 FLOATS = {"dim": (0.2, 1.0)}
 # clock fonts (rice-fonts downloads them; "default" is your Numbers font from Settings > Services)
 CLOCK_FONTS = {"default": "", "bebas": "Bebas Neue", "orbitron": "Orbitron", "outfit": "Outfit",
                "grotesk": "Space Grotesk", "unbounded": "Unbounded", "shoulders": "Big Shoulders Display"}
-CHOICES = {"style": ["cards", "classic"], "layout": ["center", "left"], "clock": ["big", "stacked", "minimal", "shape"], "clock_font": list(CLOCK_FONTS),
+CHOICES = {"style": ["cards", "glance", "classic"], "layout": ["center", "left"], "clock": ["big", "stacked", "minimal", "shape"], "clock_font": list(CLOCK_FONTS),
            "input": ["pill", "box", "line"], "background": ["screenshot", "wallpaper", "color"]}
 
 
@@ -394,6 +397,80 @@ def notif_count():
         print(0)
 
 
+ICON_DIRS = [HOME + "/.local/share/icons", "/usr/share/icons", "/usr/local/share/icons", HOME + "/.local/share/flatpak/exports/share/icons",
+             "/var/lib/flatpak/exports/share/icons"]
+
+
+def icon_file(name):
+    """a file for an icon name (the hicolor theme, the pixmaps, or a path), "" when there is none"""
+    if not name:
+        return ""
+    if name.startswith("file://"):
+        name = name[7:]
+    if name.startswith("/"):
+        return name if os.path.isfile(name) else ""
+    name = os.path.basename(name)
+    if name.endswith(".desktop"):
+        name = name[:-8]
+    for base in ICON_DIRS:
+        for theme in ("hicolor", "Papirus", "Papirus-Dark", "Adwaita"):
+            for size in ("scalable", "256x256", "128x128", "96x96", "64x64", "48x48"):
+                for ext in (".svg", ".png"):
+                    f = "%s/%s/%s/apps/%s%s" % (base, theme, size, name, ext)
+                    if os.path.isfile(f):
+                        return f
+    for ext in (".svg", ".png", ".xpm"):
+        for d in ("/usr/share/pixmaps", HOME + "/.local/share/pixmaps"):
+            if os.path.isfile(d + "/" + name + ext):
+                return d + "/" + name + ext
+    return ""
+
+
+def notif_apps():
+    """the apps with notifications waiting (the shell's own notifications): name, icon file and how many.
+    Only the app names: what the notifications say never reaches the lock screen"""
+    try:
+        j = json.load(open(HOME + "/.cache/rice/notif-apps.json"))
+    except Exception:
+        j = []
+    out = []
+    for a in j if isinstance(j, list) else []:
+        if isinstance(a, dict) and a.get("app"):
+            out.append({"app": str(a["app"])[:40], "n": int(a.get("n", 1) or 1),
+                        "icon": icon_file(str(a.get("icon") or "")) or icon_file(str(a["app"]).lower())})
+    print(json.dumps(out[:6]))
+
+
+PAMDIR = HOME + "/.local/share/rice/pam"
+
+
+def fingerprint():
+    """{"ok": a reader and a finger enrolled, "why": what is missing}. The lock screen's PAM file is written here"""
+    mod = any(os.path.exists(d + "/security/pam_fprintd.so") for d in ("/usr/lib", "/usr/lib64", "/lib/x86_64-linux-gnu", "/usr/lib/x86_64-linux-gnu", "/run/current-system/sw/lib"))
+    why = ""
+    if not shutil.which("fprintd-list") or not mod:
+        why = "Install fprintd (it brings pam_fprintd)"
+    else:
+        try:
+            r = subprocess.run(["fprintd-list", os.environ.get("USER") or os.path.basename(HOME)], capture_output=True, text=True, timeout=5)
+            out = (r.stdout + r.stderr).lower()
+            if "no devices" in out:
+                why = "No fingerprint reader found"
+            elif "no fingers" in out or not re.search(r"#\d+:", out):
+                why = "No finger enrolled yet: run fprintd-enroll in a terminal"
+        except Exception:
+            why = "fprintd did not answer"
+    try:
+        os.makedirs(PAMDIR, exist_ok=True)
+        f = PAMDIR + "/fprint"
+        want = "# DarkShadow's Shell lock screen: a finger only (the password is checked on its own)\nauth required pam_fprintd.so max-tries=1 timeout=30\n"
+        if not os.path.exists(f) or open(f).read() != want:
+            open(f, "w").write(want)
+    except OSError:
+        pass
+    return {"ok": why == "", "why": why, "dir": PAMDIR}
+
+
 # ---------------- the lock screen itself ----------------
 QS = HOME + "/.config/quickshell"
 LOCKQS = QS + "/rice-lockscreen"
@@ -541,12 +618,19 @@ def main(argv):
         out["pam"] = "hyprlock" if os.path.exists("/etc/pam.d/hyprlock") else "login"
         out["shell_ok"] = bool(qs_bin()) and os.path.exists(LOCKQS + "/shell.qml")
         out["has_hyprlock"] = bool(shutil.which("hyprlock"))
+        if out.get("fingerprint"):
+            fp = fingerprint()
+            out["fp_ok"] = fp["ok"]
+            out["fp_dir"] = fp["dir"]
         print(json.dumps(out))
         return
     if cmd in ("now", "preview", "test"):
         lock_now(preview=cmd == "preview", test=cmd == "test")
         return
-    helpers = {"greet": greet, "notif": notif, "notif-count": notif_count, "weather": weather, "media": media}
+    if cmd == "fingerprint":
+        print(json.dumps(fingerprint()))
+        return
+    helpers = {"greet": greet, "notif": notif, "notif-count": notif_count, "notif-apps": notif_apps, "weather": weather, "media": media}
     if cmd in helpers:
         helpers[cmd]()
         return

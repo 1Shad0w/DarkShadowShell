@@ -264,7 +264,7 @@ Item {
             Text {
                 anchors.left: lk.right; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
                 visible: !!lc.root && lc.root.pass === ""
-                text: pass.wrong && lc.root && lc.root.msg !== "" ? lc.root.msg : (pass.checking ? Tr.t("Checking ...") : (lv && lv.isPreview ? Tr.t("Password (preview, Esc closes)") : Tr.t("Enter your password")))
+                text: pass.wrong && lc.root && lc.root.msg !== "" ? lc.root.msg : (lv ? lv.hint() : "")
                 color: pass.wrong ? "#ffb4ab" : lc.dim; font.family: Fonts.main; font.pixelSize: 14
                 width: pass.width - 110; elide: Text.ElideRight
             }

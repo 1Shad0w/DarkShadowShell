@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "app": "DarkShadow's Shell",
+ "repo_wallpaper": "grey-waves.jpg",
+ "theme": {
+  "name": "Grey Waves",
+  "desc": "Quiet grey waves, a thin frame in Minimal mode and emphasized motion",
+  "author": "DarkShadow",
+  "colors": "grey",
+  "corners": 0.8,
+  "shape": "pill",
+  "wavy": true,
+  "motion": "standard",
+  "bounce": 0.4,
+  "bar": "edge",
+  "bar_opacity": 0.9,
+  "widgets": "google",
+  "notify": "solid",
+  "notify_radius": 12,
+  "rounding": 6,
+  "gaps_in": 4,
+  "gaps_out": 8,
+  "border": 1,
+  "font": "Google Sans Flex",
+  "preview": [
+   "#141414",
+   "#a8a8a8",
+   "#ececec"
+  ],
+  "extra": {
+   "anim_style": "emphasized",
+   "minimal": {
+    "on": true,
+    "frame": "single"
+   },
+   "notify_colors": "graphite",
+   "lock_style": "cards"
+  }
+ }
+}

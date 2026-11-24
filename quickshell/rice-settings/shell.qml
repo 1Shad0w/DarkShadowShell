@@ -247,6 +247,7 @@ FloatingWindow {
     }
     readonly property string presetTool: home + "/.local/bin/waybar-preset"
     property int page: 0
+    function showWhatsNew() { whatsNew.showNow() }
     // rice-settings PAGE: open on that page (the Settings card of the dashboard uses it)
     Process {
         command: ["bash", "-c", "f=\"$HOME/.cache/rice/settings-page\"; if [ -f \"$f\" ]; then cat \"$f\"; rm -f \"$f\"; " +
@@ -1132,6 +1133,9 @@ FloatingWindow {
 
         // ---------- your profile picture (click it in the sidebar) ----------
         FacePicker { id: faceBox; onChanged: { faceReload.restart(); win.faceRev++ } }
+
+        // ---------- V5.03: what is new (once after an update; Update Center shows it again) ----------
+        WhatsNew { id: whatsNew; objectName: "whatsNew" }
 
         // ---------- the tour (after the welcome intro, or rice-welcome tour) ----------
         Tour {

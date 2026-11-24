@@ -103,10 +103,47 @@ ShellRoot {
         onCompleted: function(result) {
             console.log("[lock] PAM finished:", result === PamResult.Success ? "right password" : "result " + result)
             if (lockShell.phase !== "checking") return      // the attempt was given up (checkT): its result is old
-            if (result === PamResult.Success) { lockShell.phase = "done"; lockShell.pending = ""; lockShell.unlock(); return }
+            if (result === PamResult.Success) { lockShell.phase = "done"; lockShell.pending = ""; if (fpam.active) fpam.abort(); lockShell.unlock(); return }
             lockShell.fail(lockShell.msg !== "" ? lockShell.msg : (result === PamResult.MaxTries ? Tr.t("Too many tries, wait a moment") : Tr.t("That is not the password")))
         }
     }
+    // ---------- V5.03: the finger (Settings > Idle & Lockscreen > Fingerprint; rice-lock wrote the PAM file) ----------
+    // A second, separate PAM check that waits for a finger the whole time the screen is locked, next to the
+    // password: whichever is right first unlocks. A finger that is not recognized tries again (a few times).
+    readonly property bool fpOn: !preview && cfg.fingerprint === true && cfg.fp_ok === true && (cfg.fp_dir || "") !== ""
+    property string fp: "off"               // off | waiting | wrong
+    property int fpTries: 0
+    property real fpSince: 0
+    PamContext {
+        id: fpam
+        configDirectory: lockShell.cfg.fp_dir || "/etc/pam.d"
+        config: "fprint"
+        onCompleted: function(result) {
+            console.log("[lock] fingerprint:", result === PamResult.Success ? "recognized" : "result " + result)
+            if (lockShell.phase === "done") return
+            if (result === PamResult.Success) {
+                lockShell.fp = "off"; lockShell.phase = "done"; lockShell.pass = ""; lockShell.unlock(); return
+            }
+            // nobody touched it for its whole wait (pam_fprintd gives up after 30 s): just wait again, quietly
+            if (Date.now() - lockShell.fpSince > 25000) { lockShell.fp = "waiting"; fpRetry.restart(); return }
+            lockShell.fpTries++
+            lockShell.fp = "wrong"
+            if (lockShell.fpTries < 6) fpRetry.restart()
+            else { lockShell.fp = "off"; lockShell.msg = Tr.t("Use your password (the finger was not recognized)") }
+        }
+        onError: function(e) { console.warn("[lock] fingerprint PAM error", e); lockShell.fp = "off" }
+    }
+    Timer { id: fpRetry; interval: 900; onTriggered: lockShell.fpStart() }
+    function fpStart() {
+        if (!fpOn || phase === "done" || fpam.active) return
+        fpSince = Date.now()
+        if (fpam.start()) fp = "waiting"
+        else { console.warn("[lock] the fingerprint check did not start"); fp = "off" }
+    }
+    onFpOnChanged: if (fpOn) Qt.callLater(fpStart)
+    // after a wake from sleep the reader may need a new ask: a click or a key brings it back
+    function fpAgain() { if (fpOn && fp === "off" && fpTries < 6 && phase !== "done") fpStart() }
+
     property int wait: 0                     // seconds left before the next try
     Timer { id: waitT; interval: 1000; repeat: true
             onTriggered: { lockShell.wait--; if (lockShell.wait <= 0) stop() } }
