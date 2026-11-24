@@ -39,20 +39,13 @@
 
 ---
 
-## Screenshots
+## See it in motion
 <p align="center">
-  <img src="assets/screenshot-desktop.png" alt="DarkShadow's Shell: the desktop with widgets, the island in the notch and the visualizer" width="100%"><br>
-  <sub>The desktop: widgets in your shape with wavy rings, the dynamic island in the notch and the visualizer</sub>
+  <a href="https://github.com/shadowww-dev/DarkShadowShell/releases/download/v5.06/darkshadow-showcase.mp4">
+    <img src="assets/showcase.webp" alt="DarkShadow's Shell in motion: the desktop, the dock, widgets, presets, the Update Center and the modes" width="100%">
+  </a><br>
+  <sub>The dock, widgets, presets, the Update Center and the modes. <a href="https://github.com/shadowww-dev/DarkShadowShell/releases/download/v5.06/darkshadow-showcase.mp4"><b>▶ Watch the whole video with sound (1:48)</b></a></sub>
 </p>
-<p align="center">
-  <img src="assets/screenshot-settings.png" alt="The Settings app (SUPER + U)" width="100%"><br>
-  <sub>The Settings app (<code>SUPER + U</code>)</sub>
-</p>
-<p align="center">
-  <img src="assets/screenshot-edit.png" alt="Edit mode (SUPER + ALT + W)" width="100%"><br>
-  <sub>Edit mode (<code>SUPER + ALT + W</code>): widgets, quick settings, the bar and the visualizer</sub>
-</p>
-<!-- more screenshots: put the files in assets/ and add them here -->
 
 ## Supported systems
 The bar, the welcome window and Settings show **your distro's logo** automatically.
