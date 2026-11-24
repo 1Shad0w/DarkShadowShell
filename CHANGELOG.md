@@ -1,5 +1,9 @@
 # Changelog
 
+## V5.05: the terminal is see-through again, icons line up
+- Fixed: **the terminal stayed solid black with no blur after Minimal mode was turned off** (also after Light mode or gaming mode with "Solid windows"). Turning Minimal mode off now writes the terminal's transparency again, kitty can always change it while it runs, and the "every window opaque" rule of Minimal mode and Light mode no longer outlives a reload. A terminal that was already open before this update needs to be opened once more
+- **App icons line up** in the launcher, the dock and Edit mode: the signs of the Themed, Filled and Mono looks are centered on what they really draw and all have the same size (icon fonts put some a little high, low or wide), app pictures on a shape are as large as the signs, and the chosen row of the launcher no longer steps to the right
+
 ## V5.04: Presets, a whole desktop in one click
 - **New: Presets** (Settings > Appearance > Presets, the first tab): eight whole desktops, each in one click: the wallpaper and its colors, corners and shapes, the bar (its style, its edge, its workspaces and modules), the launcher, the desktop clock, the dock, notifications, the lock screen, the login screen (SDDM), the window corners and gaps and how windows move
   - **DarkShadow** (the shell as it comes), **Material** (an edge bar, Spotlight, big round corners), **Sidebar** (the bar down the left edge, a side sheet launcher), **Ink** (black and white, Minimal mode, square), **Islands** (floating islands, a dock of pills, windows that glide in), **Neon** (pills, a pixel clock, pop motion, for gaming), **Dock** (a notch and a full dock that grows under the pointer) and **Zen** (a bar at the bottom that hides itself)

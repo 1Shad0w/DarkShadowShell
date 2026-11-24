@@ -30,7 +30,7 @@ Item {
     readonly property color bg: !colors ? "#333" : (look === "filled" ? colors.primary : (look === "themed" ? colors.container : (look === "mono" ? colors.cardHi
                                 : (active ? colors.container : (hover ? colors.cardHi : colors.card)))))
     // the sign's color: on its shape, or alone (no shape) in your theme color
-    readonly property color ink: !colors ? "#fff" : (!tile ? (look === "mono" ? colors.fg : colors.primary)
+    readonly property color ink2: !colors ? "#fff" : (!tile ? (look === "mono" ? colors.fg : colors.primary)
                                  : (look === "filled" ? colors.inkPrimary : (look === "themed" ? colors.inkContainer : colors.fg)))
     readonly property bool round: shape === "circle" || shape === "squircle"
 
@@ -47,19 +47,29 @@ Item {
         Behavior on rotation { NumberAnimation { duration: 460; easing.type: Easing.OutBack } }
     }
 
-    // the sign (themed looks, a known app)
-    Text {
+    // the sign (themed looks, a known app). V5.05: centered on what the glyph really draws, at one size for every
+    // sign: icon fonts put their glyphs a little high, low or wide, so the signs of a row did not line up
+    TextMetrics { id: tm; font.family: Fonts.icons; font.pixelSize: 100; text: ai.sign }
+    readonly property rect ink: tm.tightBoundingRect
+    readonly property real signK: ink.width > 0 && ink.height > 0
+                                  ? ai.size * (ai.tile ? 0.46 : 0.74) / Math.max(ink.width, ink.height) : 0.5
+    Item {
         visible: ai.sign !== ""
-        anchors.centerIn: parent
-        text: ai.sign
-        font.family: Fonts.icons
-        font.pixelSize: Math.round(ai.size * (ai.tile ? 0.5 : 0.8))
-        color: ai.ink
-        Behavior on color { ColorAnimation { duration: 180 } }
-        verticalAlignment: Text.AlignVCenter
-        horizontalAlignment: Text.AlignHCenter
-        scale: ai.pressed ? 0.9 : (ai.hover ? (ai.tile ? 1.04 : 1.14) : 1)
+        width: Math.max(1, ai.ink.width); height: Math.max(1, ai.ink.height)
+        x: (ai.width - width) / 2; y: (ai.height - height) / 2
+        transformOrigin: Item.Center
+        scale: ai.signK * (ai.pressed ? 0.9 : (ai.hover ? (ai.tile ? 1.04 : 1.14) : 1))
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+        Text {
+            id: signT
+            x: -ai.ink.x
+            y: -(baselineOffset + ai.ink.y)
+            text: ai.sign
+            font.family: Fonts.icons
+            font.pixelSize: 100
+            color: ai.ink2
+            Behavior on color { ColorAnimation { duration: 180 } }
+        }
     }
 
     // the app's own picture (every look but a known app in the themed ones)
@@ -67,7 +77,7 @@ Item {
         id: pic
         visible: ai.sign === "" && ai.look === "original"
         anchors.centerIn: parent
-        width: Math.round(ai.size * (ai.tile ? 0.68 : 1)); height: width
+        width: Math.round(ai.size * (ai.tile ? (ai.signLook ? 0.58 : 0.68) : 1)); height: width
         source: ai.sign === "" ? ai.src : ""
         sourceSize.width: 96; sourceSize.height: 96
         asynchronous: true
@@ -83,7 +93,7 @@ Item {
             source: pic
             scale: pic.scale
             colorization: ai.look === "tinted" ? 0.62 : 1.0
-            colorizationColor: ai.look === "tinted" ? Look.accentHi : (ai.look === "grey" ? "#e4e4e7" : ai.ink)
+            colorizationColor: ai.look === "tinted" ? Look.accentHi : (ai.look === "grey" ? "#e4e4e7" : ai.ink2)
             saturation: ai.look === "tinted" ? 0.1 : 0
             brightness: ai.signLook ? 0.18 : 0
             Behavior on colorizationColor { ColorAnimation { duration: 400 } }

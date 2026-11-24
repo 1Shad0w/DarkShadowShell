@@ -321,13 +321,13 @@ Item {
                 // the icon: the app's own, a folder or file, a globe, an = for a sum
                 Item {
                     id: lead2
-                    x: 12 + (row.sel ? 4 : 0); y: row.head + (parent.height - row.head - height) / 2
-                    width: row.sum ? 52 : 40; height: width
-                    Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    // V5.05: one column for every row (the chosen one no longer steps 4 px to the right)
+                    x: 12; y: row.head + (parent.height - row.head - height) / 2
+                    width: 52; height: row.sum ? 52 : 40
                     // an emoji: itself, large, on a tonal circle
                     Rectangle {
                         visible: row.emo
-                        anchors.fill: parent; radius: Look.sq ? 0 : (width / 2)
+                        anchors.centerIn: parent; width: 40; height: 40; radius: Look.sq ? 0 : (width / 2)
                         color: row.sel ? m3.pal.primary : m3.pal.card
                         Text { anchors.centerIn: parent; text: row.modelData.val || ""; font.pixelSize: 24; font.family: "Noto Color Emoji" }
                     }
