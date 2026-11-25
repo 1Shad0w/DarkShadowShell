@@ -1,12 +1,14 @@
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Shapes
 
 // V5.07: moving wallpapers drawn by the shell itself (no video): Aurora, Starfall, Orbit and Mesh.
 // rice-walls scene NAME starts this; under it the still picture of the scene stays set as the wallpaper, so the
-// colors, the lock screen and the blur all have a picture. It stops moving in Gaming mode and Light mode.
+// colors, the lock screen and the blur all have a picture. It stops moving in Gaming mode and Light mode, and (V6.00)
+// on a screen whose workspace has windows on it: what nobody sees costs nothing.
 ShellRoot {
     id: root
     readonly property string home: Quickshell.env("HOME")
@@ -34,7 +36,7 @@ ShellRoot {
             }
         }
     }
-    Timer { interval: 3000; repeat: true; running: true; onTriggered: if (!modeP.running) modeP.running = true }
+    Timer { interval: 10000; repeat: true; running: true; onTriggered: if (!modeP.running) modeP.running = true }
 
     Variants {
         model: Quickshell.screens
@@ -48,9 +50,13 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Background
             WlrLayershell.namespace: "rice-scene"
             mask: Region {}
+            // windows on this screen's workspace: the scene waits under them (Hyprland; on niri it always moves)
+            readonly property var hmon: Hyprland.monitorFor(modelData)
+            readonly property bool covered: !!(hmon && hmon.activeWorkspace && hmon.activeWorkspace.toplevels.values.length > 0)
 
             Loader {
                 anchors.fill: parent
+                property bool hold: root.paused || win.covered
                 sourceComponent: ({ aurora: aurora, starfall: starfall, orbit: orbit, mesh: mesh })[root.scene] || aurora
             }
         }
@@ -69,6 +75,7 @@ ShellRoot {
         id: tw
         property int count: 60
         property real upTo: 0.6       // only in the upper part
+        property bool hold: false
         anchors.fill: parent
         Repeater {
             model: tw.count
@@ -78,7 +85,7 @@ ShellRoot {
                 width: sz; height: sz; radius: sz / 2; color: "white"
                 opacity: 0.2
                 SequentialAnimation on opacity {
-                    running: !root.paused; loops: Animation.Infinite
+                    running: !hold; loops: Animation.Infinite
                     PauseAnimation { duration: Math.random() * 4000 }
                     NumberAnimation { to: 0.9; duration: 1400 + Math.random() * 1800; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 0.15; duration: 1400 + Math.random() * 1800; easing.type: Easing.InOutSine }
@@ -91,6 +98,7 @@ ShellRoot {
     Component {
         id: aurora
         Item {
+            readonly property bool hold: parent ? parent.hold === true : root.paused
             Pic { source: "file://" + root.here + "/aurora.jpg" }
             Repeater {
                 model: [{ dx: 60, dur: 23000, o: 0.45, sy: 1.06 }, { dx: -80, dur: 31000, o: 0.35, sy: 0.95 }]
@@ -100,18 +108,18 @@ ShellRoot {
                     opacity: modelData.o
                     transform: [Scale { origin.y: parent ? parent.height * 0.35 : 0; yScale: modelData.sy }, Translate { id: tr }]
                     SequentialAnimation on opacity {
-                        running: !root.paused; loops: Animation.Infinite
+                        running: !hold; loops: Animation.Infinite
                         NumberAnimation { to: modelData.o * 0.2; duration: modelData.dur / 2; easing.type: Easing.InOutSine }
                         NumberAnimation { to: modelData.o; duration: modelData.dur / 2; easing.type: Easing.InOutSine }
                     }
                     SequentialAnimation {
-                        running: !root.paused; loops: Animation.Infinite
+                        running: !hold; loops: Animation.Infinite
                         NumberAnimation { target: tr; property: "x"; to: modelData.dx; duration: modelData.dur; easing.type: Easing.InOutSine }
                         NumberAnimation { target: tr; property: "x"; to: -modelData.dx; duration: modelData.dur; easing.type: Easing.InOutSine }
                     }
                 }
             }
-            Twinkle { count: 70; upTo: 0.45 }
+            Twinkle { count: 70; upTo: 0.45; hold: parent.hold }
         }
     }
 
@@ -119,11 +127,12 @@ ShellRoot {
     Component {
         id: starfall
         Item {
+            readonly property bool hold: parent ? parent.hold === true : root.paused
             id: sf
             Rectangle { anchors.fill: parent
                 gradient: Gradient { GradientStop { position: 0; color: "#0b1426" } GradientStop { position: 1; color: "#1d2c44" } } }
             Pic { source: root.still !== "" ? "file://" + root.still : "" }
-            Twinkle { count: 50; upTo: 0.4 }
+            Twinkle { count: 50; upTo: 0.4; hold: parent.hold }
             Repeater {
                 model: 5
                 delegate: Item {
@@ -141,7 +150,7 @@ ShellRoot {
                             GradientStop { position: 0; color: "white" } GradientStop { position: 1; color: "transparent" } }
                     }
                     SequentialAnimation {
-                        running: !root.paused; loops: Animation.Infinite
+                        running: !hold; loops: Animation.Infinite
                         PauseAnimation { duration: 1500 + index * 2300 }
                         ScriptAction { script: { st.sx = sf.width * (0.4 + Math.random() * 0.6); st.sy = sf.height * Math.random() * 0.25 } }
                         NumberAnimation { target: st; property: "k"; from: 0; to: 1; duration: 1100 + Math.random() * 700; easing.type: Easing.InQuad }
@@ -156,6 +165,7 @@ ShellRoot {
     Component {
         id: orbit
         Item {
+            readonly property bool hold: parent ? parent.hold === true : root.paused
             id: ob
             readonly property real r: height * 0.26
             Pic { source: "file://" + root.here + "/orbit.jpg" }
@@ -165,7 +175,7 @@ ShellRoot {
                 color: "transparent"; border.width: 35; border.color: "#ffbe6e"
                 opacity: 0.08
                 SequentialAnimation on opacity {
-                    running: !root.paused; loops: Animation.Infinite
+                    running: !hold; loops: Animation.Infinite
                     NumberAnimation { to: 0.22; duration: 4200; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 0.06; duration: 4200; easing.type: Easing.InOutSine }
                 }
@@ -173,7 +183,7 @@ ShellRoot {
             Shape {
                 anchors.fill: parent
                 preferredRendererType: Shape.CurveRenderer
-                RotationAnimation on rotation { running: !root.paused; loops: Animation.Infinite; from: 0; to: 360; duration: 26000 }
+                RotationAnimation on rotation { running: !hold; loops: Animation.Infinite; from: 0; to: 360; duration: 26000 }
                 ShapePath {
                     strokeWidth: 5; fillColor: "transparent"; capStyle: ShapePath.RoundCap
                     strokeGradient: ConicalGradient { centerX: ob.width / 2; centerY: ob.height / 2; angle: 0
@@ -184,16 +194,20 @@ ShellRoot {
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width; height: 6
+                // bright toward the ring on both sides, nothing across the dark middle
+                readonly property real e: 0.5 - ob.r / Math.max(1, width)
                 gradient: Gradient { orientation: Gradient.Horizontal
-                    GradientStop { position: 0; color: "transparent" } GradientStop { position: 0.5; color: "#ffcf96" } GradientStop { position: 1; color: "transparent" } }
+                    GradientStop { position: 0; color: "transparent" } GradientStop { position: Math.max(0.01, parent.e); color: "#ffcf96" }
+                    GradientStop { position: Math.max(0.02, parent.e + 0.01); color: "transparent" } GradientStop { position: Math.min(0.98, 1 - parent.e - 0.01); color: "transparent" }
+                    GradientStop { position: Math.min(0.99, 1 - parent.e); color: "#ffcf96" } GradientStop { position: 1; color: "transparent" } }
                 opacity: 0.15
                 SequentialAnimation on opacity {
-                    running: !root.paused; loops: Animation.Infinite
+                    running: !hold; loops: Animation.Infinite
                     NumberAnimation { to: 0.4; duration: 3100; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 0.1; duration: 3100; easing.type: Easing.InOutSine }
                 }
             }
-            Twinkle { count: 40; upTo: 1 }
+            Twinkle { count: 40; upTo: 1; hold: parent.hold }
         }
     }
 
@@ -201,6 +215,7 @@ ShellRoot {
     Component {
         id: mesh
         Item {
+            readonly property bool hold: parent ? parent.hold === true : root.paused
             id: ms
             Pic { source: "file://" + root.here + "/mesh.jpg" }
             Repeater {
@@ -215,7 +230,7 @@ ShellRoot {
                     y: (modelData.y + modelData.dy * Math.cos(t * Math.PI * 2)) * ms.height - rr
                     width: 2 * rr; height: 2 * rr
                     opacity: 0.55
-                    NumberAnimation on t { running: !root.paused; loops: Animation.Infinite; from: 0; to: 1; duration: bl.modelData.d }
+                    NumberAnimation on t { running: !hold; loops: Animation.Infinite; from: 0; to: 1; duration: bl.modelData.d }
                     ShapePath {
                         strokeColor: "transparent"
                         fillGradient: RadialGradient { centerX: bl.rr; centerY: bl.rr; centerRadius: bl.rr; focalX: bl.rr; focalY: bl.rr

@@ -2,7 +2,7 @@
 """rice-perf: how much memory and processor the shell's parts use right now, and what would make it lighter.
 
   rice-perf          a short table (the biggest first) and tips
-  rice-perf json     the same as JSON
+  rice-perf json     the same as JSON, with "fixes": what one click can make lighter (V6.00: Settings > System > Care)
 
 Memory is PSS (each shared page counted once, split between the programs that share it): the honest number. The
 graphics driver's own memory (NVIDIA most of all) is not in it, and on some drivers it shows up in RSS instead.
@@ -32,6 +32,10 @@ def name_of(pid):
         return "shell (desktop)", full
     if "quickshell/rice-settings" in full:
         return "Settings", full
+    if "quickshell/rice-scene" in full:
+        return "Moving wallpaper", full
+    if "quickshell/rice-welcome" in full:
+        return "Welcome", full
     if "quickshell/rice-apps" in full:
         # our Files, Photos or Music / Videos (which one: its environment says)
         try:
@@ -101,8 +105,26 @@ def main(a):
         pass
     if any(r["name"] == "mpvpaper" for r in out):
         tips.append("A live wallpaper (mpvpaper) plays a video all the time: a picture wallpaper is much lighter.")
+    # what one click can change (Settings shows these as buttons): the command, and the memory it frees if known
+    fixes = []
+    def mem_of(n):
+        return sum(r["mem"] for r in out if r["name"] == n)
+    bin_ = home + "/.local/bin/"
+    if mem_of("Moving wallpaper"):
+        fixes.append({"id": "scene", "text": "A moving wallpaper is on. It stands still under windows, but a picture is lighter.",
+                      "label": "Use a still picture", "frees": mem_of("Moving wallpaper"), "cmd": [bin_ + "rice-walls", "scene", "off"]})
+    if mem_of("mpvpaper"):
+        fixes.append({"id": "live", "text": "A live wallpaper plays a video all the time.", "label": "Use a still picture",
+                      "frees": mem_of("mpvpaper"),
+                      "cmd": ["bash", "-c", "f=$(cat \"$HOME/.cache/hyprquickpaper-current\" 2>/dev/null) && [ -f \"$f\" ] && \"$HOME/.local/bin/rice-walls\" set \"$f\""]})
+    if os.path.exists(home + "/.config/rice/settings-keep"):
+        fixes.append({"id": "keep", "text": "Settings waits in memory to open at once.", "label": "Start it when I open it",
+                      "frees": mem_of("Settings"), "cmd": [bin_ + "rice-settings", "lazy", "on"]})
+    if not os.path.exists(home + "/.cache/rice/lite"):
+        fixes.append({"id": "lite", "text": "Light mode: no blur, no see-through, no shadows. Best on laptops and older graphics.",
+                      "label": "Light mode on", "frees": 0, "cmd": [bin_ + "rice-effects", "lite", "on"]})
     if a[1:2] == ["json"]:
-        print(json.dumps({"rows": out, "total": total, "tips": tips}))
+        print(json.dumps({"rows": out, "total": total, "tips": tips, "fixes": fixes}))
         return
     print("%-26s %10s %8s" % ("", "memory", "cpu"))
     for r in out:

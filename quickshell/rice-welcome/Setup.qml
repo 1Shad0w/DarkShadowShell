@@ -40,6 +40,20 @@ Item {
             else su.busy = false
         }
     }
+    // V6.00: a backup in ~/DarkShadow-backups (a new install): the first card puts it back
+    property var backup: null
+    Process {
+        command: [su.bin + "rice-backup", "list"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const b = JSON.parse(text).backups.filter(function(x) { return x.ok && x.name.indexOf("before-restore") !== 0 })
+                    su.backup = b.length > 0 ? b[0] : null
+                } catch (e) { su.backup = null }
+            }
+        }
+    }
     Process {
         id: lister
         command: [su.bin + "rice-preset", "list"]
@@ -60,7 +74,8 @@ Item {
         look = k
         lookName = n || ""
         Sfx.play("select")
-        if (k !== "") run("\"" + bin + "rice-preset\" apply " + k + " >/dev/null 2>&1")
+        if (k === "backup" && backup) run("\"" + bin + "rice-backup\" restore \"" + backup.path.replace(/"/g, "") + "\" >/dev/null 2>&1")
+        else if (k !== "") run("\"" + bin + "rice-preset\" apply " + k + " >/dev/null 2>&1")
         else run("\"" + bin + "rice-preset\" apply before >/dev/null 2>&1 || true")
     }
     function pickDock(k) {
@@ -174,7 +189,7 @@ Item {
         Flow {
             spacing: 14
             Repeater {
-                model: [{ key: "", name: "Keep mine", wallpaper_path: "" }].concat(su.presets)
+                model: (su.backup ? [{ key: "backup", name: "My backup", wallpaper_path: "" }] : []).concat([{ key: "", name: "Keep mine", wallpaper_path: "" }]).concat(su.presets)
                 delegate: Choice {
                     required property var modelData
                     width: 220; height: 160
@@ -190,7 +205,7 @@ Item {
                             source: modelData.wallpaper_path ? "file://" + modelData.wallpaper_path : ""
                         }
                         Rectangle { anchors.fill: parent; visible: modelData.wallpaper_path === ""; radius: 18; color: "#1b1d26"
-                            T { anchors.centerIn: parent; kind: "icon"; text: String.fromCodePoint(0xF015); font.pixelSize: 30; color: "#9a9db0" } }
+                            T { anchors.centerIn: parent; kind: "icon"; text: String.fromCodePoint(modelData.key === "backup" ? 0xF187 : 0xF015); font.pixelSize: 30; color: "#9a9db0" } }
                     }
                 }
             }
@@ -274,7 +289,7 @@ Item {
         Column {
             spacing: 14
             Repeater {
-                model: [{ i: 0xF03E, t: "Look", v: su.look === "" ? "Kept yours" : su.lookName },
+                model: [{ i: 0xF03E, t: "Look", v: su.look === "" ? "Kept yours" : (su.look === "backup" ? "Your backup" : su.lookName) },
                         { i: 0xF0C9, t: "Dock", v: su.dock === "" ? "Not changed" : su.dock },
                         { i: 0xF2D0, t: "Bar", v: su.bar === "" ? "Not changed" : su.barName() }]
                 delegate: Row {

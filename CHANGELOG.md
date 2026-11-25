@@ -1,5 +1,16 @@
 # Changelog
 
+## V6.00: Optimized. Less RAM, more rice
+- **New: Care** (Settings > System > Care), one page to keep everything light, up to date and clean
+- **What the shell uses**: memory and processor of every part of the shell, live, with one-click fixes that say how much they free (a moving or live wallpaper, Settings kept in memory, Light mode). `rice-perf json` now lists these fixes too
+- **System updates**: the updates waiting for your packages (pacman with checkupdates, the AUR with paru or yay, Flatpak; xbps, dnf, apt and zypper on other systems), and **Update now** in a terminal. With snapper or timeshift a snapshot is made first, so an update can be undone (`rice-care`)
+- **Clean up**: old package files (the last two versions of each stay), packages nothing needs, old system logs (the newest 200 MB stay), crash reports, AUR build files, picture previews and the trash, each with its size. Nothing is removed before you press Clean; what needs your password runs in a terminal
+- **Backup**: your whole setup in one file (`~/DarkShadow-backups`): every setting, your themes, keybinds, window rules, your avatar and the wallpaper itself. **Restore** keeps your current setup first, so it can always be undone (`rice-backup save|list|restore`)
+- **On a new install**: put a backup in `~/DarkShadow-backups` and **Make it yours** shows it first: one click and your old desktop is back
+- **Moving wallpapers stand still under windows** (Hyprland): a scene nobody sees costs nothing. They check Gaming mode and Light mode less often too
+- Fixed: in the Orbit moving wallpaper a line of light crossed the black middle
+- Polish translations for all of it
+
 ## V5.07: Make it yours, Explore, moving wallpapers, GIFs
 - **New: Make it yours**, a quick setup right after the welcome intro: pick a look (one of the presets, or keep yours), the dock (none, floating or pills) and the bar (dynamic island, edge, notch or pills). The night thins out while you choose, so you see your desktop change behind it. Every step works at once and can be changed later in Settings. "Or take a look around first" still goes straight to the Settings tour
 - **New: Explore** (Settings > Appearance > Explore): themes made by people who use the shell, each a wallpaper and a whole look. **Get** keeps one as your own theme, **Use** puts it on. Four to start with, with wallpapers drawn by a script: **Polar Lights**, **Dunes**, **Orbit** and **Mesh**. Files only come from this repo and are checked against the size and SHA-256 in the list before they are used (`rice-explore`)

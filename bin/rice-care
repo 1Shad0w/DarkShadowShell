@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+"""rice-care: keeping the computer itself up to date and clean (Settings > System > Care), V6.00.
+
+  rice-care updates           JSON: the updates waiting for the system, by package manager (nothing is changed)
+  rice-care update            the update in a terminal: a snapshot first when snapper or timeshift is there,
+                              then every package manager found (your password is asked there, never here)
+  rice-care scan              JSON: what can be cleaned and how big it is (nothing is removed)
+  rice-care clean ID...       clean those: your own files at once, the system's in a terminal (it asks for your
+                              password). IDs: pkgcache orphans journal coredumps aurcache thumbnails trash
+
+Nothing runs as root without the terminal and your password. Package caches keep the last two versions of every
+package, so going back one version still works offline.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+BIN = HOME + "/.local/bin/"
+
+
+def run(cmd, timeout=90):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout, r.stderr
+    except (OSError, subprocess.TimeoutExpired):
+        return 1, "", ""
+
+
+def has(c):
+    return shutil.which(c) is not None
+
+
+def du(path):
+    """bytes under a path (what can be read of it)"""
+    total = 0
+    if os.path.isfile(path):
+        try:
+            return os.path.getsize(path)
+        except OSError:
+            return 0
+    for root, dirs, files in os.walk(path, onerror=lambda e: None):
+        for f in files:
+            try:
+                st = os.lstat(os.path.join(root, f))
+                total += st.st_blocks * 512 if st.st_blocks else st.st_size
+            except OSError:
+                pass
+    return total
+
+
+def aur_helper():
+    for h in ("paru", "yay"):
+        if has(h):
+            return h
+    return ""
+
+
+# ---------------------------------------------------------------- updates
+def pkg_lines(out, parse):
+    items = []
+    for line in out.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("::", "Listing", "Last metadata", "WARNING")):
+            continue
+        it = parse(line)
+        if it:
+            items.append(it)
+    return items
+
+
+def arrow(line):
+    # "name 1.0-1 -> 1.1-1"
+    p = line.split()
+    if len(p) >= 4 and p[2] == "->":
+        return {"name": p[0], "from": p[1], "to": p[3]}
+    return {"name": p[0], "from": "", "to": p[1] if len(p) > 1 else ""} if p else None
+
+
+def updates():
+    out = []
+    if has("pacman"):
+        if has("checkupdates"):
+            code, so, _ = run(["checkupdates"], 120)        # its own copy of the database: safe while you work
+            out.append({"id": "pacman", "name": "Arch packages", "items": pkg_lines(so, arrow) if code in (0, 2) else [],
+                        "note": "" if code in (0, 2) else "Could not check (no internet?)"})
+        else:
+            code, so, _ = run(["pacman", "-Qu"], 30)
+            out.append({"id": "pacman", "name": "Arch packages", "items": pkg_lines(so, arrow),
+                        "note": "From the last sync: install pacman-contrib for a fresh check"})
+        h = aur_helper()
+        if h:
+            code, so, _ = run([h, "-Qua"], 120)
+            out.append({"id": "aur", "name": "AUR (" + h + ")", "items": pkg_lines(so, arrow), "note": ""})
+    elif has("xbps-install"):
+        code, so, _ = run(["xbps-install", "-nuM"], 120)
+        out.append({"id": "xbps", "name": "Void packages",
+                    "items": pkg_lines(so, lambda l: {"name": l.split()[0], "from": "", "to": ""}), "note": ""})
+    elif has("dnf"):
+        code, so, _ = run(["dnf", "-q", "check-update"], 180)
+        out.append({"id": "dnf", "name": "Fedora packages",
+                    "items": pkg_lines(so, lambda l: {"name": l.split()[0], "from": "", "to": l.split()[1] if len(l.split()) > 1 else ""}), "note": ""})
+    elif has("apt"):
+        code, so, _ = run(["apt", "list", "--upgradable"], 60)
+        out.append({"id": "apt", "name": "Debian / Ubuntu packages",
+                    "items": pkg_lines(so, lambda l: {"name": l.split("/")[0], "from": "", "to": l.split()[1] if len(l.split()) > 1 else ""}), "note": ""})
+    elif has("zypper"):
+        code, so, _ = run(["zypper", "-q", "lu"], 120)
+        out.append({"id": "zypper", "name": "openSUSE packages",
+                    "items": pkg_lines(so, lambda l: {"name": l.split("|")[2].strip(), "from": "", "to": ""} if l.count("|") >= 4 and l[0] in "v ?" else None), "note": ""})
+    if has("flatpak"):
+        code, so, _ = run(["flatpak", "remote-ls", "--updates", "--columns=application,version"], 120)
+        out.append({"id": "flatpak", "name": "Flatpak apps",
+                    "items": pkg_lines(so, lambda l: {"name": l.split()[0], "from": "", "to": l.split()[1] if len(l.split()) > 1 else ""}), "note": ""})
+    for m in out:
+        m["count"] = len(m["items"])
+        m["items"] = m["items"][:200]
+    print(json.dumps({"managers": out, "total": sum(m["count"] for m in out), "snapshot": snapshot_tool()}))
+
+
+def snapshot_tool():
+    if has("snapper"):
+        return "snapper"
+    if has("timeshift"):
+        return "timeshift"
+    return ""
+
+
+def terminal(script, title):
+    """runs a bash script in the user's terminal; it waits for Enter at the end so it can be read"""
+    os.makedirs(HOME + "/.cache/rice", exist_ok=True)
+    f = HOME + "/.cache/rice/care-run.sh"
+    open(f, "w").write("#!/usr/bin/env bash\nset -u\nB=$'\\e[1m'; G=$'\\e[32m'; Z=$'\\e[0m'\necho \"${B}" + title + "${Z}\"\necho\n" + script
+                       + "\necho\necho \"${G}${B}Done.${Z} Press Enter to close.\"\nread -r _\n")
+    os.chmod(f, 0o700)
+    term = BIN + "rice-term"
+    cmd = [term, "--class", "rice-care", "-e", "bash", f] if os.access(term, os.X_OK) else ["kitty", "--class", "rice-care", "bash", f]
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def update():
+    s = []
+    snap = snapshot_tool()
+    if snap == "snapper":
+        s.append('echo "A snapshot first (snapper), so this update can be undone:"; sudo snapper -c root create -d "Before an update (DarkShadow)" && echo "  made." || echo "  could not make one: going on."')
+    elif snap == "timeshift":
+        s.append('echo "A snapshot first (timeshift), so this update can be undone:"; sudo timeshift --create --comments "Before an update (DarkShadow)" --scripted >/dev/null && echo "  made." || echo "  could not make one: going on."')
+    if has("pacman"):
+        h = aur_helper()
+        s.append(('echo; echo "Arch and AUR packages (%s):"; %s -Syu' % (h, h)) if h else 'echo; echo "Arch packages:"; sudo pacman -Syu')
+    elif has("xbps-install"):
+        s.append('echo; echo "Void packages:"; sudo xbps-install -Su')
+    elif has("dnf"):
+        s.append('echo; echo "Fedora packages:"; sudo dnf upgrade --refresh')
+    elif has("apt"):
+        s.append('echo; echo "Debian / Ubuntu packages:"; sudo apt update && sudo apt upgrade')
+    elif has("zypper"):
+        s.append('echo; echo "openSUSE packages:"; sudo zypper dup')
+    if has("flatpak"):
+        s.append('echo; echo "Flatpak apps:"; flatpak update -y')
+    if not s:
+        sys.exit("rice-care: no package manager found")
+    terminal("\n".join(s), "Updating the system")
+
+
+# ---------------------------------------------------------------- cleaning
+def pacman_cache_extra():
+    """the size paccache -rk2 would free (paccache -dk2 is a dry run)"""
+    if not has("paccache"):
+        return du("/var/cache/pacman/pkg"), False
+    code, so, se = run(["paccache", "-dk2"], 60)
+    txt = so + se
+    import re
+    m = re.search(r"\(disk space saved: ([\d.]+) ([KMGT]?i?B)\)", txt) or re.search(r"\(([\d.]+) ([KMGT]?i?B)\)", txt)
+    if not m:
+        return 0, True
+    mult = {"B": 1, "KiB": 1024, "MiB": 1024 ** 2, "GiB": 1024 ** 3, "TiB": 1024 ** 4, "KB": 1e3, "MB": 1e6, "GB": 1e9}.get(m.group(2), 1)
+    return int(float(m.group(1)) * mult), True
+
+
+def orphans():
+    if not has("pacman"):
+        return [], 0
+    code, so, _ = run(["pacman", "-Qdtq"], 30)
+    names = [n for n in so.split() if n]
+    size = 0
+    if names:
+        code, so, _ = run(["pacman", "-Qi"] + names, 30)
+        mult = {"B": 1, "KiB": 1024, "MiB": 1024 ** 2, "GiB": 1024 ** 3}
+        for line in so.splitlines():
+            if line.startswith("Installed Size"):
+                try:
+                    v, u = line.split(":", 1)[1].split()
+                    size += int(float(v.replace(",", ".")) * mult.get(u, 1))
+                except ValueError:
+                    pass
+    return names, size
+
+
+def journal_size():
+    if not has("journalctl"):
+        return 0
+    code, so, se = run(["journalctl", "--disk-usage"], 20)
+    import re
+    m = re.search(r"take up ([\d.]+)([KMGT])", so + se)
+    if not m:
+        return 0
+    return int(float(m.group(1)) * {"K": 1024, "M": 1024 ** 2, "G": 1024 ** 3, "T": 1024 ** 4}[m.group(2)])
+
+
+JOURNAL_KEEP = 200 * 1024 * 1024
+
+
+def scan():
+    items = []
+    if has("pacman"):
+        n, exact = pacman_cache_extra()
+        items.append({"id": "pkgcache", "name": "Old package files", "size": n, "root": True,
+                      "desc": "Downloaded packages; the last two versions of each stay" if exact else "Downloaded packages (install pacman-contrib to keep the last two)"})
+        names, size = orphans()
+        items.append({"id": "orphans", "name": "Packages nothing needs", "size": size, "root": True, "count": len(names),
+                      "desc": ", ".join(names[:6]) + (" and %d more" % (len(names) - 6) if len(names) > 6 else "") if names else "None"})
+        h = aur_helper()
+        if h:
+            d = HOME + "/.cache/" + h
+            items.append({"id": "aurcache", "name": "AUR build files (%s)" % h, "size": du(d), "root": False, "desc": "What was left after building AUR packages"})
+    j = journal_size()
+    if j:
+        items.append({"id": "journal", "name": "Old system logs", "size": max(0, j - JOURNAL_KEEP), "root": True, "desc": "The newest 200 MB stay"})
+    if os.path.isdir("/var/lib/systemd/coredump"):
+        items.append({"id": "coredumps", "name": "Crash reports", "size": du("/var/lib/systemd/coredump"), "root": True, "desc": "Saved when a program crashed"})
+    items.append({"id": "thumbnails", "name": "Picture previews", "size": du(HOME + "/.cache/thumbnails"), "root": False, "desc": "Made again when needed"})
+    items.append({"id": "trash", "name": "Trash", "size": du(HOME + "/.local/share/Trash"), "root": False, "desc": "Files you deleted"})
+    print(json.dumps({"items": items, "total": sum(i["size"] for i in items)}))
+
+
+def clean(ids):
+    ids = [i for i in ids if i in ("pkgcache", "orphans", "journal", "coredumps", "aurcache", "thumbnails", "trash")]
+    freed = 0
+    user = {"aurcache": HOME + "/.cache/" + (aur_helper() or "yay"), "thumbnails": HOME + "/.cache/thumbnails", "trash": HOME + "/.local/share/Trash"}
+    for i in ids:
+        if i in user and os.path.isdir(user[i]):
+            freed += du(user[i])
+            for e in os.listdir(user[i]):
+                p = os.path.join(user[i], e)
+                try:
+                    shutil.rmtree(p) if os.path.isdir(p) and not os.path.islink(p) else os.remove(p)
+                except OSError:
+                    pass
+            if i == "trash":
+                for sub in ("files", "info"):
+                    os.makedirs(os.path.join(user[i], sub), exist_ok=True)
+    s = []
+    if "pkgcache" in ids:
+        s.append('echo "Old package files:"; ' + ('sudo paccache -rk2 && sudo paccache -ruk0' if has("paccache") else 'sudo pacman -Sc --noconfirm'))
+    if "orphans" in ids:
+        s.append('echo; echo "Packages nothing needs:"; o=$(pacman -Qdtq); if [ -n "$o" ]; then sudo pacman -Rns $o; else echo "  none"; fi')
+    if "journal" in ids:
+        s.append('echo; echo "Old system logs:"; sudo journalctl --vacuum-size=200M')
+    if "coredumps" in ids:
+        s.append('echo; echo "Crash reports:"; sudo find /var/lib/systemd/coredump -type f -delete && echo "  removed."')
+    if s:
+        terminal("\n".join(s), "Cleaning up")
+    print(json.dumps({"freed": freed, "terminal": bool(s)}))
+
+
+def main(a):
+    cmd = a[1] if len(a) > 1 else ""
+    if cmd == "updates":
+        updates()
+    elif cmd == "update":
+        update()
+    elif cmd == "scan":
+        scan()
+    elif cmd == "clean" and len(a) > 2:
+        clean(a[2:])
+    else:
+        print(__doc__.strip())
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
