@@ -1,5 +1,9 @@
 # Changelog
 
+## V6.13: The installer shows the download
+- **No more "stuck" at Retrieving packages...**: the system update and the package install now show pacman's (and dnf's) download bars live, with the speed and what is left. Before, the output went through a pipe, pacman printed nothing while it downloaded, and a big first update (often over 1 GB) looked frozen for many minutes
+- The same output still goes into the install log
+
 ## V6.12: Fixes from your reports
 - **The clock style sticks** (issue #35): picking Expressive, Shape or Analog in Settings > Desktop > Widgets went back to Stacked, because the style was checked against the clock's old style names and refused. All of them work now (and the old names still do)
 - **The launcher opens what you typed for** (issue #34): with the pointer resting over the list, the results moving under it while you typed counted as pointing at one, so Enter opened whatever was under the pointer. Now only a real move of the mouse (a few pixels) picks a result

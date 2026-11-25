@@ -82,8 +82,19 @@ live() {
   note "What it prints is shown below (also in $LOG). Ctrl+C stops it."
   { echo; echo "### $msg"; } >>"$LOG"
   local t0=$SECONDS rc
-  "$@" 2>&1 </dev/null | tee -a "$LOG"
-  rc=${PIPESTATUS[0]}
+  if [ "${1:-}" = sudo ] && command -v script >/dev/null 2>&1; then
+    # the command gets a terminal of its own (util-linux's script), so pacman and dnf draw their download bars as
+    # they go: through a plain pipe they print nothing while downloading, and "Retrieving packages..." looked stuck
+    # for minutes. sudo stays outside that terminal (its password is remembered per terminal, and a new one would
+    # ask again with nobody able to answer); -e: script ends with the command's exit code
+    shift
+    local cmdline; cmdline="$(printf '%q ' "$@")"
+    sudo script -q -e -f -c "$cmdline" /dev/null </dev/null 2>&1 | tee -a "$LOG"
+    rc=${PIPESTATUS[0]}
+  else
+    "$@" 2>&1 </dev/null | tee -a "$LOG"
+    rc=${PIPESTATUS[0]}
+  fi
   if [ "$rc" = 0 ]; then ok "$msg  ($((SECONDS - t0))s)"; else fail "$msg  (details: $LOG)"; fi
   return "$rc"
 }
