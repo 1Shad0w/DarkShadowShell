@@ -148,8 +148,12 @@ Item {
             anchors.centerIn: parent
             visible: mp.lines.length === 0 && mp.plain === ""
             spacing: 8
-            Blob { width: 16; height: 16; kind: Look.shape; color: mp.dim; anchors.verticalCenter: parent.verticalCenter
-                RotationAnimator on rotation { from: 0; to: 360; duration: 1600; loops: Animation.Infinite; running: mp.loading && mp.on } }
+            Blob { id: lyrBlob; width: 16; height: 16; kind: Look.shape; color: mp.dim; anchors.verticalCenter: parent.verticalCenter
+                RotationAnimator on rotation { from: 0; to: 360; duration: 1600; loops: Animation.Infinite; running: mp.loading && mp.on
+                    onRunningChanged: if (running) lyrSettle.stop(); else Qt.callLater(lyrSettle.go) }
+                NumberAnimation { id: lyrSettle; target: lyrBlob; property: "rotation"; to: 360; duration: 500; easing.type: Easing.OutCubic
+                    function go() { const r = ((lyrBlob.rotation % 360) + 360) % 360; lyrBlob.rotation = r; from = r; restart() }
+                    onFinished: lyrBlob.rotation = 0 } }
             Text { anchors.verticalCenter: parent.verticalCenter; color: mp.dim; font.family: Fonts.main; font.pixelSize: 12
                 text: !Player.has ? Tr.t("Nothing playing") : (mp.loading ? Tr.t("Looking for the lyrics...") : (mp.lyOff ? Tr.t("Lyrics are off: Settings > Language & region") : Tr.t("No lyrics for this song"))) }
         }

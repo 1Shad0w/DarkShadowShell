@@ -216,6 +216,10 @@ Item {
     property color fill: pal ? pal.surface : "#141414"
     property bool flatRest: false
     property real areaW: 1920                    // how wide the bar is (the card stays inside it)
+    // V6.01: the middle of the bar part the island sits in (in the bar's coordinates; -1 = the island's own
+    // middle). With more modules beside the island the card is centred on that part, so it lines up with the
+    // bar instead of hanging off to one side; it always still covers the island
+    property real partMid: -1
     // its width in the bar
     readonly property real restW: ghost ? 0 : tw
     width: Math.round(restW); height: bh
@@ -567,7 +571,9 @@ Item {
         width: Math.max(isl.bh, isl.width + (cwA - isl.width) * tc)
         height: Math.max(isl.bh * 0.6, isl.bh + (chA - isl.bh) * tc)
         // centred on the island, but always on the screen
-        x: Math.max(-isl.x, Math.min(isl.areaW - isl.x - width, (isl.width - width) / 2))
+        readonly property real want: isl.partMid < 0 || width <= isl.width ? (isl.width - width) / 2
+            : Math.max(isl.width - width, Math.min(0, isl.partMid - isl.x - width / 2))
+        x: Math.max(-isl.x, Math.min(isl.areaW - isl.x - width, (isl.width - width) / 2 + (want - (isl.width - width) / 2) * Math.min(1, tc)))
         y: isl.down ? (isl.bh + 8) * Math.min(1, tc) : isl.bh - height - (isl.bh + 8) * Math.min(1, tc)
         radius: Look.sq ? 0 : (Math.min(height / 2, isl.bh / 2 + (30 - isl.bh / 2) * Math.min(1, tc)))
         color: isl.fill
@@ -731,8 +737,12 @@ Item {
                     color: isl.up.update ? (fInfo.pp ? fInfo.pp.container : "#333") : (fInfo.pp ? fInfo.pp.card : "#222")
                     Behavior on color { ColorAnimation { duration: 260 } }
                     Item { id: upIc; x: 18; anchors.verticalCenter: parent.verticalCenter; width: 48; height: 48
-                        Blob { anchors.fill: parent; kind: isl.up.update ? Look.shape : "circle"; color: fInfo.pp ? (isl.up.update ? fInfo.pp.primary : fInfo.pp.cardHi) : "#444"
-                            RotationAnimator on rotation { from: 0; to: 360; duration: 2400; loops: Animation.Infinite; running: isl.checking && ab.visible } }
+                        Blob { id: upBlob; anchors.fill: parent; kind: isl.up.update ? Look.shape : "circle"; color: fInfo.pp ? (isl.up.update ? fInfo.pp.primary : fInfo.pp.cardHi) : "#444"
+                            RotationAnimator on rotation { from: 0; to: 360; duration: 2400; loops: Animation.Infinite; running: isl.checking && ab.visible
+                                onRunningChanged: if (running) upBlobSettle.stop(); else Qt.callLater(upBlobSettle.go) }
+                            NumberAnimation { id: upBlobSettle; target: upBlob; property: "rotation"; to: 360; duration: 600; easing.type: Easing.OutCubic
+                                function go() { const r = ((upBlob.rotation % 360) + 360) % 360; upBlob.rotation = r; from = r; restart() }
+                                onFinished: upBlob.rotation = 0 } }
                         MIcon { anchors.centerIn: parent; size: 22; filled: true; glyph: ""
                             name: isl.checking ? "sync" : (isl.up.update ? "system_update_alt" : "check_circle")
                             color: fInfo.pp ? (isl.up.update ? fInfo.pp.inkPrimary : fInfo.pp.fg) : "white" } }

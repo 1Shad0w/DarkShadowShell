@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rice-care: keeping the computer itself up to date and clean (Settings > System > Care), V6.00.
+"""rice-care: keeping the computer itself up to date and clean (Settings > System > Care), V6.00 (V6.01).
 
   rice-care updates           JSON: the updates waiting for the system, by package manager (nothing is changed)
   rice-care update            the update in a terminal: a snapshot first when snapper or timeshift is there,
@@ -7,18 +7,28 @@
   rice-care scan              JSON: what can be cleaned and how big it is (nothing is removed)
   rice-care clean ID...       clean those: your own files at once, the system's in a terminal (it asks for your
                               password). IDs: pkgcache orphans journal coredumps aurcache thumbnails trash
+  rice-care wait              waits until the terminal of the last update or clean-up is done (Settings then looks
+                              again), or was closed
 
 Nothing runs as root without the terminal and your password. Package caches keep the last two versions of every
-package, so going back one version still works offline.
+package, so going back one version still works offline. V6.01: the old package files are worked out here, by name
+and version (pacman-contrib is not needed any more), and pacman's own leftover download folders go too (pacman -Sc
+stopped on those with "could not open file ... download-XXXX").
 """
+import functools
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import time
 
 HOME = os.path.expanduser("~")
 BIN = HOME + "/.local/bin/"
+CACHE = HOME + "/.cache/rice"
+PIDF = CACHE + "/care-run.pid"
+PKGLIST = CACHE + "/care-pkgcache.list"
 
 
 def run(cmd, timeout=90):
@@ -130,10 +140,16 @@ def snapshot_tool():
 
 def terminal(script, title):
     """runs a bash script in the user's terminal; it waits for Enter at the end so it can be read"""
-    os.makedirs(HOME + "/.cache/rice", exist_ok=True)
-    f = HOME + "/.cache/rice/care-run.sh"
-    open(f, "w").write("#!/usr/bin/env bash\nset -u\nB=$'\\e[1m'; G=$'\\e[32m'; Z=$'\\e[0m'\necho \"${B}" + title + "${Z}\"\necho\n" + script
-                       + "\necho\necho \"${G}${B}Done.${Z} Press Enter to close.\"\nread -r _\n")
+    os.makedirs(CACHE, exist_ok=True)
+    f = CACHE + "/care-run.sh"
+    try:
+        os.remove(PIDF)
+    except OSError:
+        pass
+    # the pid file is there while it works: Settings (rice-care wait) looks again once it is gone
+    open(f, "w").write("#!/usr/bin/env bash\nset -u\nP=\"" + PIDF + "\"\necho $$ > \"$P\"\ntrap 'rm -f \"$P\"' EXIT\n"
+                       "B=$'\\e[1m'; G=$'\\e[32m'; Z=$'\\e[0m'\necho \"${B}" + title + "${Z}\"\necho\n" + script
+                       + "\nrm -f \"$P\"\necho\necho \"${G}${B}Done.${Z} Press Enter to close.\"\nread -r _\n")
     os.chmod(f, 0o700)
     term = BIN + "rice-term"
     cmd = [term, "--class", "rice-care", "-e", "bash", f] if os.access(term, os.X_OK) else ["kitty", "--class", "rice-care", "bash", f]
@@ -166,18 +182,75 @@ def update():
 
 
 # ---------------------------------------------------------------- cleaning
-def pacman_cache_extra():
-    """the size paccache -rk2 would free (paccache -dk2 is a dry run)"""
-    if not has("paccache"):
-        return du("/var/cache/pacman/pkg"), False
-    code, so, se = run(["paccache", "-dk2"], 60)
-    txt = so + se
-    import re
-    m = re.search(r"\(disk space saved: ([\d.]+) ([KMGT]?i?B)\)", txt) or re.search(r"\(([\d.]+) ([KMGT]?i?B)\)", txt)
-    if not m:
-        return 0, True
-    mult = {"B": 1, "KiB": 1024, "MiB": 1024 ** 2, "GiB": 1024 ** 3, "TiB": 1024 ** 4, "KB": 1e3, "MB": 1e6, "GB": 1e9}.get(m.group(2), 1)
-    return int(float(m.group(1)) * mult), True
+PKG_RE = re.compile(r"^(.+)-([^-]+)-([^-]+)-([^-]+)\.pkg\.tar(\.[a-z0-9]+)?$")
+
+
+def cache_dirs():
+    dirs = []
+    if has("pacman-conf"):
+        code, so, _ = run(["pacman-conf", "CacheDir"], 10)
+        dirs = [d.strip().rstrip("/") for d in so.splitlines() if d.strip()]
+    return [d for d in (dirs or ["/var/cache/pacman/pkg"]) if os.path.isdir(d)]
+
+
+@functools.lru_cache(maxsize=None)
+def vercmp(a, b):
+    if a == b:
+        return 0
+    code, so, _ = run(["vercmp", a, b], 5)
+    try:
+        return int(so.strip())
+    except ValueError:
+        return (a > b) - (a < b)
+
+
+def cache_plan():
+    """the old package files: of every package the installed version and the newest other one stay (two in all, like
+    paccache -rk2); of packages that are not installed any more nothing stays (paccache -ruk0). And the empty
+    download-XXXX folders pacman leaves behind when a download stops. Returns (files, size, leftover folders)."""
+    code, so, _ = run(["pacman", "-Q"], 30)
+    if code != 0:
+        return [], 0, []
+    inst = {}
+    for line in so.splitlines():
+        p = line.split()
+        if len(p) == 2:
+            inst[p[0]] = p[1]
+    groups, leftovers = {}, []
+    for d in cache_dirs():
+        try:
+            names = os.listdir(d)
+        except OSError:
+            continue
+        for f in names:
+            full = os.path.join(d, f)
+            if f.startswith("download-") and os.path.isdir(full) and not os.path.islink(full):
+                leftovers.append(full)
+                continue
+            if f.endswith((".sig", ".part")) or os.path.islink(full) or not os.path.isfile(full):
+                continue
+            m = PKG_RE.match(f)
+            if not m:
+                continue
+            groups.setdefault(m.group(1), []).append((m.group(2) + "-" + m.group(3), full))
+    files, size = [], 0
+    for name, vers in groups.items():
+        keep = set()
+        if name in inst:
+            keep.add(inst[name])
+            rest = sorted({v for v, _ in vers if v != inst[name]}, key=functools.cmp_to_key(vercmp), reverse=True)
+            keep.update(rest[:1])
+        for v, full in vers:
+            if v in keep:
+                continue
+            for x in (full, full + ".sig"):
+                if os.path.isfile(x):
+                    files.append(x)
+                    try:
+                        size += os.path.getsize(x)
+                    except OSError:
+                        pass
+    return files, size, leftovers
 
 
 def orphans():
@@ -216,9 +289,10 @@ JOURNAL_KEEP = 200 * 1024 * 1024
 def scan():
     items = []
     if has("pacman"):
-        n, exact = pacman_cache_extra()
-        items.append({"id": "pkgcache", "name": "Old package files", "size": n, "root": True,
-                      "desc": "Downloaded packages; the last two versions of each stay" if exact else "Downloaded packages (install pacman-contrib to keep the last two)"})
+        files, n, left = cache_plan()
+        items.append({"id": "pkgcache", "name": "Old package files", "size": n, "root": True, "count": len(files),
+                      "desc": "Downloaded packages; the last two versions of each stay" if files or not left
+                      else "Folders left by downloads that stopped"})
         names, size = orphans()
         items.append({"id": "orphans", "name": "Packages nothing needs", "size": size, "root": True, "count": len(names),
                       "desc": ", ".join(names[:6]) + (" and %d more" % (len(names) - 6) if len(names) > 6 else "") if names else "None"})
@@ -254,7 +328,23 @@ def clean(ids):
                     os.makedirs(os.path.join(user[i], sub), exist_ok=True)
     s = []
     if "pkgcache" in ids:
-        s.append('echo "Old package files:"; ' + ('sudo paccache -rk2 && sudo paccache -ruk0' if has("paccache") else 'sudo pacman -Sc --noconfirm'))
+        files, size, left = cache_plan()
+        dirs = cache_dirs()
+        ok = [f for f in files if os.path.dirname(os.path.realpath(f)) in [os.path.realpath(d) for d in dirs] and PKG_RE.match(os.path.basename(f).removesuffix(".sig"))]
+        os.makedirs(CACHE, exist_ok=True)
+        open(PKGLIST, "w").write("".join(f + "\n" for f in ok))
+        line = 'echo "Old package files:"; '
+        if ok:
+            line += ('if sudo xargs -r -d "\\n" -a "%s" rm -f --; then echo "  removed %d files (%s)."; fi; ' % (PKGLIST, len(ok), human(size)))
+        else:
+            line += 'echo "  none: only the last two versions are there."; '
+        line += 'rm -f "%s"' % PKGLIST
+        if left:
+            # pacman's own temporary download folders; never while pacman runs (it holds db.lck then)
+            q = " ".join("'%s'" % d for d in dirs)
+            line += ('; if [ -e /var/lib/pacman/db.lck ]; then echo "  pacman is busy: the leftover download folders stay for now."; '
+                     'else sudo find %s -mindepth 1 -maxdepth 1 -type d -name "download-*" -exec rm -rf -- {} + && echo "  removed %d leftover download folders."; fi' % (q, len(left)))
+        s.append(line)
     if "orphans" in ids:
         s.append('echo; echo "Packages nothing needs:"; o=$(pacman -Qdtq); if [ -n "$o" ]; then sudo pacman -Rns $o; else echo "  none"; fi')
     if "journal" in ids:
@@ -264,6 +354,34 @@ def clean(ids):
     if s:
         terminal("\n".join(s), "Cleaning up")
     print(json.dumps({"freed": freed, "terminal": bool(s)}))
+
+
+def human(b):
+    return "%.1f GB" % (b / 1073741824) if b >= 1073741824 else "%d MB" % max(1, round(b / 1048576)) if b else "0 MB"
+
+
+def wait():
+    """until the terminal is done (its pid file is gone) or closed; at most 3 hours"""
+    t0 = time.time()
+    while not os.path.exists(PIDF):
+        if time.time() - t0 > 20:
+            print(json.dumps({"done": False}))
+            return
+        time.sleep(0.5)
+    try:
+        pid = int(open(PIDF).read().strip())
+    except (OSError, ValueError):
+        pid = 0
+    while os.path.exists(PIDF) and time.time() - t0 < 3 * 3600:
+        if pid:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                break
+            except PermissionError:
+                pass
+        time.sleep(1)
+    print(json.dumps({"done": True}))
 
 
 def main(a):
@@ -276,6 +394,8 @@ def main(a):
         scan()
     elif cmd == "clean" and len(a) > 2:
         clean(a[2:])
+    elif cmd == "wait":
+        wait()
     else:
         print(__doc__.strip())
         sys.exit(1)

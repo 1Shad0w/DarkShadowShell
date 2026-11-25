@@ -17,6 +17,7 @@ Item {
     property var backups: ({ folder: "", backups: [] })
     property string confirm: ""          // the backup asked to restore, waiting for "sure?"
     property bool busy: false
+    property string waiting: ""          // V6.01: "clean" or "update" while its terminal works (then it looks again)
 
     function mb(b) { return b >= 1073741824 ? (b / 1073741824).toFixed(1) + " GB" : Math.max(0, Math.round(b / 1048576)) + " MB" }
     function status(s) { if (page.ctl) page.ctl.status = s }
@@ -65,15 +66,38 @@ Item {
             page.busy = false
             if (code !== 0) { const w = doErr.text.trim().split("\n").pop(); page.status(w !== "" ? w : I18n.t("That did not work")) }
             else if (doP.done === "clean") {
-                let freed = 0
-                try { freed = JSON.parse(doOut.text).freed } catch (e) { }
-                page.status(I18n.t("Freed %1 here; the rest goes on in the terminal", page.mb(freed)))
-                scanP.running = true; page.scanning = true
+                let r = { freed: 0, terminal: false }
+                try { r = JSON.parse(doOut.text) } catch (e) { }
+                if (r.terminal) {
+                    // V6.01: it used to look again at once, before your password was even typed, so nothing
+                    // seemed to change. Now it waits for the terminal and then looks again
+                    page.status(r.freed > 0 ? I18n.t("Freed %1 here; finish the rest in the terminal", page.mb(r.freed))
+                                            : I18n.t("Finish it in the terminal; this list updates after"))
+                    page.waitFor("clean")
+                } else {
+                    page.status(I18n.t("Freed %1", page.mb(r.freed)))
+                    scanP.running = true; page.scanning = true
+                }
+            } else if (doP.done === "update") {
+                page.status(I18n.t("The update goes on in the terminal"))
+                page.waitFor("update")
             } else if (doP.done !== "") page.status(doP.done)
             listP.running = true
             if (!perfP.running) perfP.running = true
         }
     }
+    Process {
+        id: waitP
+        command: ["bash", "-c", "\"$HOME/.local/bin/rice-care\" wait 2>/dev/null"]
+        onExited: {
+            const w = page.waiting
+            page.waiting = ""
+            if (w === "clean") { page.scanning = true; scanP.running = true; page.status(I18n.t("Cleaned up")) }
+            else if (w === "update") { page.checking = true; updP.running = true }
+            if (!perfP.running) perfP.running = true
+        }
+    }
+    function waitFor(what) { if (waitP.running) return; waiting = what; waitP.running = true }
     function act(cmd, done) {
         if (doP.running) return
         busy = true; doP.done = done; doP.command = cmd; doP.running = true
@@ -162,9 +186,10 @@ Item {
             spacing: 10
             Btn { sym: "refresh"; icon: ""; enabled: !page.checking; text: page.checking ? I18n.t("Checking...") : I18n.t("Check for updates")
                 onClicked: { page.checking = true; updP.running = true } }
-            Btn { primary: true; sym: "download"; icon: ""; visible: !!page.upd && page.upd.total > 0; enabled: !page.busy
-                text: I18n.t("Update now (%1)", page.upd ? page.upd.total : 0)
-                onClicked: page.act(["bash", "-c", "\"$HOME/.local/bin/rice-care\" update"], I18n.t("The update goes on in the terminal")) }
+            Btn { primary: true; sym: "download"; icon: ""; visible: !!page.upd && page.upd.total > 0
+                enabled: !page.busy && page.waiting === ""
+                text: page.waiting === "update" ? I18n.t("Updating in the terminal...") : I18n.t("Update now (%1)", page.upd ? page.upd.total : 0)
+                onClicked: page.act(["bash", "-c", "\"$HOME/.local/bin/rice-care\" update"], "update") }
         }
         T { visible: !!page.upd && page.upd.total === 0 && !page.checking; text: I18n.t("Everything is up to date."); color: M3.inkDim; font.pixelSize: 13 }
         Repeater {
@@ -203,13 +228,13 @@ Item {
             sub: I18n.t("Old package files, packages nothing needs, old logs and caches. Nothing is removed before you press Clean.") }
         Row {
             spacing: 10
-            Btn { sym: "search"; icon: ""; enabled: !page.scanning; text: page.scanning ? I18n.t("Looking...") : I18n.t("Look")
+            Btn { sym: "search"; icon: ""; enabled: !page.scanning && page.waiting !== "clean"; text: page.scanning ? I18n.t("Looking...") : I18n.t("Look")
                 onClicked: { page.scanning = true; scanP.running = true } }
             Btn {
                 primary: true; sym: "delete_sweep"; icon: ""
                 readonly property real sel: { let s = 0; if (page.scan) for (let i = 0; i < page.scan.items.length; i++) if (page.picked[page.scan.items[i].id]) s += page.scan.items[i].size; return s }
-                visible: !!page.scan && sel > 0; enabled: !page.busy
-                text: I18n.t("Clean %1", page.mb(sel))
+                visible: !!page.scan && (sel > 0 || page.waiting === "clean"); enabled: !page.busy && page.waiting === ""
+                text: page.waiting === "clean" ? I18n.t("Cleaning in the terminal...") : I18n.t("Clean %1", page.mb(sel))
                 onClicked: { const ids = Object.keys(page.picked).filter(function(k) { return page.picked[k] })
                              page.act(["bash", "-c", "\"$HOME/.local/bin/rice-care\" clean \"$@\"", "_"].concat(ids), "clean") }
             }

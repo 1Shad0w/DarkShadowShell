@@ -1010,6 +1010,11 @@ PanelWindow {
             readonly property real cx: bar.islSlot ? bar.islSlot.bx + bar.islSlot.width / 2 : body.width / 2
             x: Math.round(Math.max(0, Math.min(body.width - width, cx - width / 2)))
             y: bar.atBottom ? bar.barH - height : 0
+            // V6.01: the part of the bar it sits in (its zone, or the zone with the island in the Edge style)
+            readonly property Item part: !bar.islSlot ? null
+                : ((bar.lay.left || []).indexOf("island") >= 0 ? zl : ((bar.lay.center || []).indexOf("island") >= 0 ? zc
+                : ((bar.lay.right || []).indexOf("island") >= 0 ? zr : null)))
+            partMid: part && part.any && !ghost ? (bar.notch ? body.width / 2 : bar.hug ? Math.round((body.spanOf(part)[0] + body.spanOf(part)[1]) / 2) : Math.round(part.x + part.width / 2)) : -1
         }
 
         // ---------- the tray menu ----------

@@ -1,5 +1,12 @@
 # Changelog
 
+## V6.01: Fixes for Care, Update Center and notifications
+- **Clean up works without pacman-contrib**: the old package files are now worked out by the shell itself (of every package the installed version and the newest other one stay; packages that are gone leave nothing), so the size it shows is what really goes. It used to fall back to `pacman -Sc`, which stopped on the folders pacman leaves behind when a download breaks ("could not open file ... download-XXXX"): those folders are removed too now, never while pacman is busy
+- **Care looks again once the terminal is done**: after a clean-up or an update it waits for the terminal and then shows the new sizes and updates (it looked again at once, before your password was even typed, so nothing seemed to change)
+- **Update Center**: the icon finishes its turn and stands upright when an update is done (it stayed tilted at the angle it stopped at). The same for the island's update card and the lyrics loader
+- **Notifications from the island line up with the bar**: with more modules beside the clock the card is centred on that part of the bar, not only on the clock, so it no longer hangs off to one side (it still always covers the island; the notch keeps it in the middle of the screen)
+- Polish translations for the new texts
+
 ## V6.00: Optimized. Less RAM, more rice
 - **New: Care** (Settings > System > Care), one page to keep everything light, up to date and clean
 - **What the shell uses**: memory and processor of every part of the shell, live, with one-click fixes that say how much they free (a moving or live wallpaper, Settings kept in memory, Light mode). `rice-perf json` now lists these fixes too

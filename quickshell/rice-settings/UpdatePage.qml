@@ -159,14 +159,19 @@ Item {
                 width: 76; height: 76; radius: M3.sq ? 0 : (38)
                 color: M3.primary
                 Icon {
+                    id: upIcon
                     anchors.centerIn: parent
                     size: 34
                     // Minimal mode: a plain mark in the square (a round check in a square looked broken)
                     name: page.running ? "sync" : (page.failed ? (M3.sq ? "priority_high" : "error") : (page.finished && !page.hasUpdate ? (M3.sq ? "check" : "check_circle") : (page.hasUpdate ? "system_update_alt" : (M3.sq ? "done_all" : "verified"))))
                     glyph: page.running ? "" : (page.failed ? "" : (page.hasUpdate ? "" : ""))
                     color: M3.inkPrimary
+                    // V6.01: when it stops it finishes its turn and stands upright again (it used to stay tilted)
                     RotationAnimation on rotation { running: page.running; from: 0; to: -360; duration: 1400; loops: Animation.Infinite
-                        onRunningChanged: if (!running) parent.rotation = 0 }
+                        onRunningChanged: if (running) upSettle.stop(); else upSettle.go() }
+                    NumberAnimation { id: upSettle; target: upIcon; property: "rotation"; to: 0; duration: 520; easing.type: Easing.OutCubic
+                        function go() { const r = ((upIcon.rotation % 360) + 360) % 360; upIcon.rotation = r; from = r; restart() }
+                        onFinished: upIcon.rotation = 0 }
                 }
                 // a ring that fills while it updates
                 Canvas {
