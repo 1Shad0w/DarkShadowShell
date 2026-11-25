@@ -3,7 +3,8 @@ import Quickshell.Io
 import QtQuick
 
 // The music card the bar's Music module opens (inside BarPop.qml): the cover in a turning halo of your shape,
-// the song, its lyrics running with it (rice-lyrics, LRCLIB; fetched only while the card is open), a wavy
+// the song, its lyrics running with it (rice-lyrics, LRCLIB; fetched only while the card is open; V6.11: one big
+// line at a time, its words rising in and filling as they are sung), a wavy
 // progress line you can drag, the buttons and the volume. Everything comes in one after another as the card opens.
 Item {
     id: mp
@@ -27,35 +28,13 @@ Item {
     function st(i) { const p = Math.max(0, Math.min(1, (e - i * 0.09) / 0.55)); return 1 - Math.pow(1 - p, 3) }
 
     // ---------- the lyrics ----------
-    property var lines: []
-    property string plain: ""
-    // rice-lyrics answered that lookups are off (Settings > Language & region > Online lookups)
-    property bool lyOff: false
-    property bool loading: false
-    property string songKey: ""
-    readonly property string want: Player.has && on ? Player.artist + "|" + Player.title : ""
-    // nothing plays (the player closed): the last song's lyrics go too
+    // V6.11: from Lyrics (one lookup per song for the whole shell), while the card is open
+    LyricsUser { active: mp.on }
+    readonly property var lines: Lyrics.lines
+    readonly property string plain: Lyrics.plain
+    readonly property bool lyOff: Lyrics.lyOff
+    readonly property bool loading: Lyrics.loading
     readonly property bool hasSong: Player.has
-    onHasSongChanged: if (!hasSong) { lines = []; plain = ""; songKey = ""; loading = false }
-    onWantChanged: lookT.restart()
-    Timer { id: lookT; interval: 400; onTriggered: mp.look() }
-    function look() {
-        if (want === "" || want === songKey) return
-        songKey = want; lines = []; plain = ""
-        loading = true
-        fetch.command = [Quickshell.env("HOME") + "/.local/bin/rice-lyrics", Player.artist, Player.title, Player.album, String(Math.round(Player.length))]
-        fetch.running = true
-    }
-    Process {
-        id: fetch
-        stdout: StdioCollector { onStreamFinished: { mp.loading = false; try { const j = JSON.parse(text); mp.lines = j.synced || []; mp.plain = j.plain || ""; mp.lyOff = j.off === true } catch (e) { } } }
-    }
-    readonly property int cur: {
-        const l = lines, t = Player.pos + 0.3
-        let k = -1
-        for (let i = 0; i < l.length; i++) { if (l[i][0] <= t) k = i; else break }
-        return k
-    }
 
     // ---------- the cover and the song ----------
     Item {
@@ -109,31 +88,13 @@ Item {
         radius: Look.sq ? 0 : (22); color: mp.chip; clip: true
         opacity: mp.st(2)
         transform: Translate { y: (1 - mp.st(2)) * 22 }
-        ListView {
-            id: lyr
-            anchors.fill: parent; anchors.margins: 6
+        // V6.11: only the line being sung, big; its words rise in and fill as they are sung
+        LyricLine {
+            anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; anchors.topMargin: 8; anchors.bottomMargin: 8
             visible: mp.hasSong && mp.lines.length > 0
-            model: mp.lines
-            interactive: false
-            currentIndex: Math.max(0, mp.cur)
-            highlightRangeMode: ListView.StrictlyEnforceRange
-            preferredHighlightBegin: height / 2 - 13
-            preferredHighlightEnd: height / 2 + 13
-            highlightMoveDuration: 420
-            delegate: Text {
-                width: lyr.width
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                text: modelData[1] === "" ? "♪" : modelData[1]
-                readonly property bool now: index === mp.cur
-                font.family: Fonts.main
-                font.pixelSize: now ? 16 : 12
-                font.weight: now ? Font.Bold : Font.Normal
-                color: now ? mp.acc : mp.fg
-                opacity: now ? 1 : Math.max(0.15, 0.6 - Math.abs(index - mp.cur) * 0.2)
-                Behavior on opacity { NumberAnimation { duration: 300 } }
-                Behavior on font.pixelSize { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-            }
+            size: 24; minSize: 15; maxRows: 2
+            sung: mp.acc; dim: Qt.rgba(mp.fg.r, mp.fg.g, mp.fg.b, 0.34)
+            live: mp.on && !Look.lite
         }
         Flickable {
             anchors.fill: parent; anchors.margins: 12
@@ -157,10 +118,10 @@ Item {
             Text { anchors.verticalCenter: parent.verticalCenter; color: mp.dim; font.family: Fonts.main; font.pixelSize: 12
                 text: !Player.has ? Tr.t("Nothing playing") : (mp.loading ? Tr.t("Looking for the lyrics...") : (mp.lyOff ? Tr.t("Lyrics are off: Settings > Language & region") : Tr.t("No lyrics for this song"))) }
         }
-        // soft edges, the lines fade in and out
-        Rectangle { anchors.top: parent.top; width: parent.width; height: 30; radius: Look.sq ? 0 : (words.radius); gradient: Gradient {
+        // soft edges for the plain words that scroll
+        Rectangle { visible: mp.lines.length === 0; anchors.top: parent.top; width: parent.width; height: 30; radius: Look.sq ? 0 : (words.radius); gradient: Gradient {
             GradientStop { position: 0; color: mp.chip } GradientStop { position: 1; color: Qt.rgba(mp.chip.r, mp.chip.g, mp.chip.b, 0) } } }
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 30; radius: Look.sq ? 0 : (words.radius); gradient: Gradient {
+        Rectangle { visible: mp.lines.length === 0; anchors.bottom: parent.bottom; width: parent.width; height: 30; radius: Look.sq ? 0 : (words.radius); gradient: Gradient {
             GradientStop { position: 0; color: Qt.rgba(mp.chip.r, mp.chip.g, mp.chip.b, 0) } GradientStop { position: 1; color: mp.chip } } }
     }
 

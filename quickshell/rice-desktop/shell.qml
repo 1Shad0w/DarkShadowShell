@@ -255,10 +255,10 @@ ShellRoot {
     Timer { interval: 6000; running: true; onTriggered: if (!Vibe.active) Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-vibe\" border reset --if-set"]) }
     Trigger { path: root.home + "/.config/rice/vibe.json"; every: 4000
         onContent: function(t) { let j = {}; try { j = t.trim() !== "" ? JSON.parse(t) : {} } catch (e) { j = {} } Vibe.apply(j) } }
-    // Settings > Vibe > Try: "rain 1764100000" shows that weather for a little while
-    Trigger { name: "vibe-try"; every: 3000
-        onFired: function(line) { const w = line.trim().split(/\s+/).pop(); if (["rain", "snow", "storm", "fog"].indexOf(w) >= 0) { Vibe.tryWeather = w; vibeTry.restart() } } }
-    Timer { id: vibeTry; interval: 15000; onTriggered: Vibe.tryWeather = "" }
+    // Settings > Vibe > Try: "1764100000 rain" shows that on the desktop for a minute
+    Trigger { name: "vibe-try"; every: 2000
+        onFired: function(line) { const w = line.trim().split(/\s+/).pop(); if (["rain", "snow", "storm", "fog", "petals", "fireflies"].indexOf(w) >= 0) { Vibe.tryWeather = w; vibeTry.restart() } } }
+    Timer { id: vibeTry; interval: 60000; onTriggered: Vibe.tryWeather = "" }
     // the weather outside for Vibe > Weather on the desktop: rice-weather keeps it for 30 minutes and never asks
     // anything without a place set (Settings > Language & region)
     Process {
@@ -266,7 +266,7 @@ ShellRoot {
         command: ["bash", "-c", "\"$HOME/.local/bin/rice-weather\" json 2>/dev/null"]
         stdout: StdioCollector { onStreamFinished: { try { Vibe.sky = Vibe.skyOf(JSON.parse(text).cond) } catch (e) { } } }
     }
-    Timer { interval: 15 * 60000; repeat: true; triggeredOnStart: true; running: Vibe.weather; onTriggered: if (!vibeSky.running) vibeSky.running = true }
+    Timer { interval: 15 * 60000; repeat: true; triggeredOnStart: true; running: Vibe.weather && Vibe.weatherMode === "live"; onTriggered: if (!vibeSky.running) vibeSky.running = true }
     Trigger { path: root.home + "/.config/waybar/colors.css"; every: 2000
         onContent: function(t) { const r = /@define-color accent *(#[0-9a-fA-F]{6})/.exec(t); if (r) root.setAccent(r[1]) } }
     // desktop.json is read as soon as it changes (no more starting a program 5 times a second to look at it);
@@ -713,9 +713,14 @@ ShellRoot {
         model: Vibe.edge ? Quickshell.screens : []
         VibeEdge { required property var modelData; screen: modelData }
     }
+    // V6.11: the window is there only while something falls (it used to sit there empty on a clear day)
     Variants {
-        model: Vibe.weather || Vibe.tryWeather !== "" ? Quickshell.screens : []
+        model: Vibe.fall !== "" ? Quickshell.screens : []
         VibeWeather { required property var modelData; screen: modelData }
+    }
+    Variants {
+        model: Vibe.lyrics ? [Mon.widgetScreen] : []
+        VibeLyrics { required property var modelData; screen: modelData }
     }
     // niri: the blurred wallpaper behind the workspaces in the overview (SUPER + Tab)
     NiriBackdrop { path: root.wallpaper }

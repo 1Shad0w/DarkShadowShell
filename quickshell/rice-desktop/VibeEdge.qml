@@ -5,7 +5,7 @@ import QtQuick
 
 // V6.10 Vibe > Edge glow: a soft light along the bottom of the screen that moves with the music, on the desktop
 // under your windows (and under the bar). Styles: glow (a light that rises and fades) and liquid (a clear liquid
-// shape with a bright edge). It waits, and costs nothing, while windows cover the workspace (Hyprland), the music
+// shape with a bright edge). It waits, and costs nothing, while a window is full screen (Hyprland), the music
 // is paused, or in Light mode.
 PanelWindow {
     id: eg
@@ -18,8 +18,9 @@ PanelWindow {
     mask: Region { }
 
     readonly property var hmon: Wm.hypr && screen ? Hyprland.monitorFor(screen) : null
-    readonly property bool covered: !!(hmon && hmon.activeWorkspace && hmon.activeWorkspace.toplevels.values.length > 0)
-    readonly property bool on: Player.playing && !covered && !Look.lite
+    // V6.11: it goes on under windows (you see it through see-through ones); a full-screen window stops it
+    readonly property bool full: !!(hmon && hmon.activeWorkspace && hmon.activeWorkspace.hasFullscreen === true)
+    readonly property bool on: Player.playing && !full && !Look.lite
     readonly property color k1: Look.accentHi
     readonly property color k2: Vibe.active ? Qt.hsla(Vibe.tint2.hslHue < 0 ? 0 : Vibe.tint2.hslHue, Math.max(0.35, Vibe.tint2.hslSaturation), 0.72, 1)
         : (k1.hslSaturation < 0.12 ? k1 : Qt.hsla(((k1.hslHue < 0 ? 0 : k1.hslHue) + 0.1) % 1, k1.hslSaturation, k1.hslLightness, 1))

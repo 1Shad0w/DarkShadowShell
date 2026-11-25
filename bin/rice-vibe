@@ -5,7 +5,9 @@
   rice-vibe set KEY VALUE         cover | borders | edge | island | beat | lock | weather   on|off
                                   bar bars|liquid|dots   bar_size small|medium|wide
                                   edge_style glow|liquid   edge_height 0.06..0.4
-  rice-vibe try rain|snow|storm|fog   that weather on the desktop for 15 seconds, to see it
+                                  weather_mode live|rain|snow|storm|fog|petals|fireflies   (V6.11)
+                                  lyrics on|off   lyrics_size small|medium|large   (V6.11)
+  rice-vibe try rain|snow|storm|fog|petals|fireflies   that on the desktop for a minute, to see it
   rice-vibe border HEX HEX        the window borders in the cover's colors (Hyprland; the desktop shell runs this
                                   once per song). Not when you picked your own border colors, not on niri
   rice-vibe border reset [--if-set]   the wallpaper's border colors again (border-sync); --if-set: only when the
@@ -25,9 +27,12 @@ CFG = HOME + "/.config/rice/vibe.json"
 TRY = HOME + "/.cache/rice/vibe-try"
 FLAG = HOME + "/.cache/rice/vibe-border"
 DEF = {"cover": True, "borders": True, "bar": "liquid", "bar_size": "medium", "edge": False, "edge_style": "glow",
-       "edge_height": 0.16, "island": True, "beat": True, "lock": True, "weather": False}
-BOOL = {"cover", "borders", "edge", "island", "beat", "lock", "weather"}
-CHOICE = {"bar": ["bars", "liquid", "dots"], "bar_size": ["small", "medium", "wide"], "edge_style": ["glow", "liquid"]}
+       "edge_height": 0.16, "island": True, "beat": True, "lock": True, "weather": False, "weather_mode": "live",
+       "lyrics": False, "lyrics_size": "medium"}
+BOOL = {"cover", "borders", "edge", "island", "beat", "lock", "weather", "lyrics"}
+KINDS = ["rain", "snow", "storm", "fog", "petals", "fireflies"]
+CHOICE = {"bar": ["bars", "liquid", "dots"], "bar_size": ["small", "medium", "wide"], "edge_style": ["glow", "liquid"],
+          "weather_mode": ["live"] + KINDS, "lyrics_size": ["small", "medium", "large"]}
 
 
 def load():
@@ -117,7 +122,7 @@ def main(a):
         print(json.dumps(state()))
     elif cmd == "set" and len(a) == 4:
         set_key(a[2], a[3])
-    elif cmd == "try" and len(a) == 3 and a[2] in ("rain", "snow", "storm", "fog"):
+    elif cmd == "try" and len(a) == 3 and a[2] in KINDS:
         os.makedirs(os.path.dirname(TRY), exist_ok=True)
         with open(TRY, "w") as f:
             f.write("%d %s\n" % (time.time(), a[2]))

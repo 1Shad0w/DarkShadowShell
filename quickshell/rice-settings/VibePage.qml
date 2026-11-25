@@ -21,7 +21,7 @@ Item {
     }
     function tryIt(w) {
         Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-vibe\" try \"$1\"", "_", w])
-        page.ctl.status = I18n.t("Look at an empty workspace for 15 seconds")
+        page.ctl.status = I18n.t("On your desktop for a minute")
     }
     Process {
         command: ["bash", "-c", "\"$HOME/.local/bin/rice-vibe\" state 2>/dev/null"]
@@ -31,16 +31,38 @@ Item {
     // is the visualizer on the bar, and is a place set for the weather?
     Process {
         id: barP
-        command: ["bash", "-c", "\"$HOME/.local/bin/rice-bar\" state 2>/dev/null; echo; \"$HOME/.local/bin/rice-weather\" state 2>/dev/null"]
+        command: ["bash", "-c", "\"$HOME/.local/bin/rice-bar\" state 2>/dev/null; echo; \"$HOME/.local/bin/rice-weather\" state 2>/dev/null; echo; head -c 4000 \"$HOME/.cache/rice/weather.json\" 2>/dev/null; echo"]
         running: true
         stdout: StdioCollector { onStreamFinished: {
             const l = text.split("\n").filter(function(x) { return x.trim() !== "" })
-            try { page.bq = JSON.parse(l[0]) } catch (e) { }
-            try { page.place = JSON.parse(l[l.length - 1]).place || "" } catch (e) { }
+            page.cond = ""
+            for (const x of l) {
+                let j = null
+                try { j = JSON.parse(x) } catch (e) { continue }
+                if (j.layout !== undefined || j.style !== undefined) page.bq = j
+                else if (j.cond !== undefined) page.cond = j.cond
+                else if (j.place !== undefined) page.place = j.place || ""
+            }
         } }
     }
     onVisibleChanged: if (visible && !barP.running) barP.running = true
     property string place: ""
+    property string cond: ""
+    // the same words as the desktop (Vibe.qml skyOf): what falls for this weather
+    function fallOf(c) {
+        c = (c || "").toLowerCase()
+        if (/thunder/.test(c)) return "storm"
+        if (/snow|sleet|blizzard|ice pellets|freezing/.test(c)) return "snow"
+        if (/rain|drizzle|shower/.test(c)) return "rain"
+        if (/fog|mist|haze/.test(c)) return "fog"
+        return ""
+    }
+    readonly property var kinds: [
+        { v: "live", t: "The weather outside", sym: "partly_cloudy_day" },
+        { v: "rain", t: "Rain", sym: "rainy" }, { v: "snow", t: "Snow", sym: "ac_unit" },
+        { v: "storm", t: "Storm", sym: "thunderstorm" }, { v: "fog", t: "Fog", sym: "foggy" },
+        { v: "petals", t: "Cherry petals", sym: "local_florist" }, { v: "fireflies", t: "Fireflies", sym: "flare" }
+    ]
     readonly property bool vizOnBar: ["left", "center", "right"].some(function(z) { return ((page.bq.layout || {})[z] || []).indexOf("visualizer") >= 0 })
 
     // ---------- the stage: a song plays ----------
@@ -231,18 +253,57 @@ Item {
         T { width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12; color: M3.inkDim
             text: I18n.t("The visualizer widget has two new styles too: Liquid and Orb (the cover with a ring around it). Edit mode > Visualizer.") }
 
-        // ---------- the weather ----------
-        SectionTitle { text: I18n.t("Weather on the desktop"); sub: I18n.t("When it rains outside, it rains on your desktop. Snow, a storm with lightning, and fog too.") }
-        ToggleRow { label: I18n.t("Weather on the desktop"); desc: page.place !== "" ? I18n.t("The weather in %1, checked every 15 minutes", page.place)
-                                                                               : I18n.t("Needs your place: Settings > Language & region")
+        // ---------- lyrics on the desktop (V6.11) ----------
+        SectionTitle { text: I18n.t("Lyrics on the desktop"); sub: I18n.t("The line being sung, big and low on your desktop, like the words in a music video. Its words rise in one after another and fill with color as they are sung.") }
+        ToggleRow { label: I18n.t("Lyrics on the desktop"); desc: I18n.t("Synced lyrics from LRCLIB, for songs that have them. Under your windows; gone for a full-screen one")
+            checked: page.v("lyrics", false) === true; onToggled: function(x) { page.setv("lyrics", x ? "on" : "off") } }
+        SegRow { label: I18n.t("Size"); desc: I18n.t("How big the words are")
+            enabled: page.v("lyrics", false) === true; opacity: enabled ? 1 : 0.45
+            options: [ { label: I18n.t("Small"), value: "small" }, { label: I18n.t("Medium"), value: "medium" }, { label: I18n.t("Large"), value: "large" } ]
+            current: page.v("lyrics_size", "medium"); onChosen: function(x) { page.setv("lyrics_size", x) } }
+        T { width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12; color: M3.inkDim
+            text: I18n.t("The music card of the bar and the Lyrics widget show the words the same way now: one big line at a time.") }
+
+        // ---------- the weather and more ----------
+        SectionTitle { text: I18n.t("Weather on the desktop"); sub: I18n.t("When it rains outside, it rains on your desktop. Or pick what always falls: rain, snow, a storm, fog, cherry petals or fireflies that glow with the beat.") }
+        ToggleRow { label: I18n.t("Weather on the desktop"); desc: I18n.t("Under your windows, slow and soft; it rests for a full-screen window and in Light mode")
             checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
+        // what falls: the weather outside, or always one of them
+        Flow {
+            width: parent.width
+            spacing: 8
+            opacity: page.v("weather", false) === true ? 1 : 0.45
+            Repeater {
+                model: page.kinds
+                delegate: Rectangle {
+                    required property var modelData
+                    readonly property bool on: page.v("weather_mode", "live") === modelData.v
+                    height: 40; width: kr.implicitWidth + 32
+                    radius: M3.sq ? 0 : (on ? 12 : 20)
+                    color: on ? M3.primary : (ma.containsMouse ? M3.surfaceHighest : M3.surfaceHigh)
+                    Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 180 } }
+                    Row { id: kr; anchors.centerIn: parent; spacing: 7
+                        Icon { anchors.verticalCenter: parent.verticalCenter; name: modelData.sym; size: 18; filled: on; color: on ? M3.inkPrimary : M3.ink }
+                        T { anchors.verticalCenter: parent.verticalCenter; text: I18n.t(modelData.t); font.pixelSize: 13; font.weight: on ? Font.DemiBold : Font.Normal; color: on ? M3.inkPrimary : M3.ink } }
+                    MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: { page.setv("weather_mode", modelData.v); if (page.v("weather", false) !== true) page.setv("weather", "on") } }
+                }
+            }
+        }
+        T { width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12; color: M3.inkDim
+            visible: page.v("weather_mode", "live") === "live"
+            text: page.place === "" ? I18n.t("The weather outside needs your place: Settings > Language & region")
+                : (page.cond === "" ? I18n.t("In %1: not checked yet", page.place)
+                : (page.fallOf(page.cond) === "" ? I18n.t("In %1 now: %2. Nothing falls, so the desktop stays clear", page.place, page.cond)
+                : I18n.t("In %1 now: %2", page.place, page.cond))) }
         Row {
             spacing: 8
-            T { anchors.verticalCenter: parent.verticalCenter; text: I18n.t("Try it:"); font.pixelSize: 13; color: M3.inkDim }
+            T { anchors.verticalCenter: parent.verticalCenter; text: I18n.t("Try for a minute:"); font.pixelSize: 13; color: M3.inkDim }
             Btn { sym: "rainy"; text: I18n.t("Rain"); onClicked: page.tryIt("rain") }
             Btn { sym: "ac_unit"; text: I18n.t("Snow"); onClicked: page.tryIt("snow") }
-            Btn { sym: "thunderstorm"; text: I18n.t("Storm"); onClicked: page.tryIt("storm") }
-            Btn { sym: "foggy"; text: I18n.t("Fog"); onClicked: page.tryIt("fog") }
+            Btn { sym: "local_florist"; text: I18n.t("Petals"); onClicked: page.tryIt("petals") }
+            Btn { sym: "flare"; text: I18n.t("Fireflies"); onClicked: page.tryIt("fireflies") }
         }
     }
 }

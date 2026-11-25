@@ -11,7 +11,9 @@ import QtQuick
 //   island  the island's edge breathes with the beat
 //   beat    the moving wallpapers move with the music (rice-scene reads vibe.json itself)
 //   lock    a ring around the cover on the lock screen (the lock screen reads vibe.json itself)
-//   weather rain, snow, a storm or fog on the desktop when it is like that outside (VibeWeather.qml)
+//   weather rain, snow, a storm or fog on the desktop when it is like that outside (VibeWeather.qml);
+//           weatherMode (V6.11): live (the weather outside) or always rain | snow | storm | fog | petals | fireflies
+//   lyrics  (V6.11) the line being sung, big, low on the desktop (VibeLyrics.qml), lyricsSize small|medium|large
 // level: the beat (the low notes), 0..1, rises at once and falls softly; only worked out while something
 // shows it (need > 0) and music plays.
 Singleton {
@@ -25,7 +27,14 @@ Singleton {
     property real edgeHeight: 0.16
     property bool island: true
     property bool weather: false
-    property string tryWeather: ""        // a few seconds of rain, snow ... to see it (Settings > Vibe > Try)
+    property string weatherMode: "live"
+    property bool lyrics: false
+    property string lyricsSize: "medium"
+    property real lyricsY: 0.16
+    readonly property var modes: ["live", "rain", "snow", "storm", "fog", "petals", "fireflies"]
+    property string tryWeather: ""        // a minute of rain, snow ... to see it (Settings > Vibe > Try)
+    // what falls on the desktop now: what you try, else what you picked, else the weather outside
+    readonly property string fall: tryWeather !== "" ? tryWeather : (!weather ? "" : (weatherMode !== "live" ? weatherMode : sky))
     // the weather outside, for VibeWeather: rain | storm | snow | fog | "" (shell.qml asks rice-weather)
     property string sky: ""
     property bool skyHeavy: false
@@ -49,6 +58,9 @@ Singleton {
         edgeHeight = j.edge_height !== undefined ? Math.max(0.06, Math.min(0.4, Number(j.edge_height) || 0.16)) : 0.16
         island = j.island !== false
         weather = j.weather === true
+        weatherMode = modes.indexOf(j.weather_mode) >= 0 ? j.weather_mode : "live"
+        lyrics = j.lyrics === true
+        lyricsSize = ["small", "medium", "large"].indexOf(j.lyrics_size) >= 0 ? j.lyrics_size : "medium"
     }
 
     // ---------- the cover's colors ----------

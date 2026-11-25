@@ -1,5 +1,15 @@
 # Changelog
 
+## V6.11: Lyrics that move, and more Vibe
+- **Lyrics, one big line at a time**: the music card of the bar and the Lyrics widget now show only the line being sung, big and bold. Its words rise in one after another with a little bounce, fill with color word by word as they are sung, and the line floats up and fades when the next one comes. A pause in the song shows three notes that bob. Long lines get smaller until they fit
+- **New in Vibe: Lyrics on the desktop**: the line being sung, big and low on your desktop like the words in a music video, with a soft shadow so it reads on any wallpaper. Small, medium or large
+- **Weather on the desktop works under your windows**: it vanished as soon as a terminal or any window was open (you could still see the desktop through see-through windows). Now it goes on under them and rests only for a full-screen window and in Light mode. The same for the edge glow
+- **Pick what falls**: the weather outside, or always rain, snow, a storm, fog, and two new ones: **cherry petals** that drift and turn, and **fireflies** that wander low on the screen and glow brighter with the beat
+- **Try** shows it for a minute (it was 15 seconds), and Vibe tells you what the weather is in your place now, and when nothing falls because it is clear
+- The weather layer is only there while something falls (it sat there empty on a clear day)
+- One lookup of the lyrics per song for the whole shell (the card, the widget and the desktop shared nothing before)
+- Polish translations for all of it
+
 ## V6.10: Vibe. Your desktop moves with your music
 - **New: Vibe** (Settings > Appearance > Vibe), with a stage at the top that plays a song so you can see every switch at work. Everything in it rests while nothing plays, under windows and in Light mode (`rice-vibe`)
 - **The music's colors**: while a song plays, the bar, the island, the dock, the control center and the widgets take the colors of its cover, and so do the window borders (Hyprland; not when you picked your own). They flow in slowly; a few seconds after the music stops your theme comes back

@@ -3,48 +3,19 @@ import Quickshell.Io
 import QtQuick
 
 // Desktop widget "Lyrics": the song with its cover, and its words line by line in time with the music
-// (synced lyrics from LRCLIB through rice-lyrics). The line being sung is big and bright, the next ones fade.
+// (synced lyrics from LRCLIB through rice-lyrics). V6.11: only the line being sung, big, filling word by word.
 Item {
     id: ly
     property var pal: null
     property real bg: 1
     property bool running: true
-    Instantiator { model: ly.running ? 1 : 0; delegate: QtObject { Component.onCompleted: Player.hold(); Component.onDestruction: Player.release() } }
     readonly property color ink: pal ? pal.fg : "#F6F5F4"
-    property var lines: []          // [[seconds, text], ...]
-    property string plain: ""
-    // rice-lyrics answered that lookups are off (Settings > Language & region > Online lookups)
-    property bool lyOff: false
-    property bool loading: false
-    property string songKey: ""
-    readonly property string want: Player.has ? Player.artist + "|" + Player.title : ""
-    onWantChanged: lookT.restart()
-    Timer { id: lookT; interval: 600; onTriggered: ly.look() }
-    function look() {
-        if (want === songKey) return
-        songKey = want; lines = []; plain = ""
-        if (!Player.has || !running) return
-        loading = true
-        fetch.command = [Quickshell.env("HOME") + "/.local/bin/rice-lyrics", Player.artist, Player.title, Player.album, String(Math.round(Player.length))]
-        fetch.running = true
-    }
-    onRunningChanged: if (running) look()
-    Process {
-        id: fetch
-        stdout: StdioCollector {
-            onStreamFinished: {
-                ly.loading = false
-                try { const j = JSON.parse(text); ly.lines = j.synced || []; ly.plain = j.plain || ""; ly.lyOff = j.off === true } catch (e) { }
-            }
-        }
-    }
-    // the line being sung
-    readonly property int cur: {
-        const l = lines, t = Player.pos + 0.3
-        let k = -1
-        for (let i = 0; i < l.length; i++) { if (l[i][0] <= t) k = i; else break }
-        return k
-    }
+    // V6.11: the words come from Lyrics (one lookup per song for the whole shell)
+    LyricsUser { active: ly.running }
+    readonly property var lines: Lyrics.lines
+    readonly property string plain: Lyrics.plain
+    readonly property bool lyOff: Lyrics.lyOff
+    readonly property bool loading: Lyrics.loading
 
     Card { anchors.fill: parent; k: ly.bg; pal: ly.pal }
     // the song
@@ -66,29 +37,14 @@ Item {
         x: 16; width: parent.width - 32
         clip: true
         // synced: the current line in the middle, the others around it
-        ListView {
-            id: lv
+        // V6.11: only the line being sung, big; its words rise in and fill as they are sung
+        LyricLine {
             anchors.fill: parent
             visible: ly.lines.length > 0
-            model: ly.lines
-            interactive: false
-            spacing: 6
-            currentIndex: Math.max(0, ly.cur)
-            highlightRangeMode: ListView.ApplyRange
-            preferredHighlightBegin: height * 0.35
-            preferredHighlightEnd: height * 0.35 + 30
-            highlightMoveDuration: 420
-            delegate: T {
-                width: lv.width
-                wrapMode: Text.WordWrap
-                text: modelData[1] === "" ? "♪" : modelData[1]
-                readonly property bool now: index === ly.cur
-                font.pixelSize: now ? 17 : 14
-                font.weight: now ? Font.DemiBold : Font.Normal
-                color: now ? ly.ink : (ly.pal ? ly.pal.fg3 : "#8a8a8f")
-                opacity: now ? 1 : Math.max(0.25, 0.8 - Math.abs(index - ly.cur) * 0.15)
-                Behavior on opacity { NumberAnimation { duration: 300 } }
-            }
+            size: Math.max(18, Math.min(34, ly.width / 11)); minSize: 14; maxRows: 3
+            sung: ly.pal ? ly.pal.primary : "#9ec9bd"
+            dim: Qt.rgba(ly.ink.r, ly.ink.g, ly.ink.b, 0.32)
+            live: ly.running && !Look.lite
         }
         // plain words only: they scroll with the song
         Flickable {
