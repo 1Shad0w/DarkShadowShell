@@ -258,7 +258,7 @@ Item {
                         text: cell.modelData.name; color: cell.sel ? m3.pal.inkContainer : m3.pal.fg
                         font.family: Fonts.main; font.pixelSize: 12; font.weight: cell.sel ? Font.DemiBold : Font.Normal }
                     MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onPositionChanged: { ln.noScroll = true; ln.cur = cell.index; ln.noScroll = false }
+                        onPositionChanged: function(m) { if (!ln.pointerMoved(cm, m)) return; ln.noScroll = true; ln.cur = cell.index; ln.noScroll = false }
                         onClicked: function(m) { if (m.button === Qt.RightButton) ln.menuFor(cell.modelData, mapToItem(card, m.x, m.y)); else ln.activate(cell.modelData) } }
                 }
             }
@@ -386,7 +386,7 @@ Item {
                     }
                 }
                 MouseArea { id: rowM; anchors.fill: parent; anchors.topMargin: row.head; z: -1; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onPositionChanged: { ln.noScroll = true; ln.cur = row.index; ln.noScroll = false }
+                    onPositionChanged: function(m) { if (!ln.pointerMoved(rowM, m)) return; ln.noScroll = true; ln.cur = row.index; ln.noScroll = false }
                     onClicked: function(m) { if (m.button === Qt.RightButton) ln.menuFor(row.modelData, mapToItem(card, m.x, m.y)); else ln.activate(row.modelData) } }
             }
         }

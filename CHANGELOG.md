@@ -1,5 +1,11 @@
 # Changelog
 
+## V6.12: Fixes from your reports
+- **The clock style sticks** (issue #35): picking Expressive, Shape or Analog in Settings > Desktop > Widgets went back to Stacked, because the style was checked against the clock's old style names and refused. All of them work now (and the old names still do)
+- **The launcher opens what you typed for** (issue #34): with the pointer resting over the list, the results moving under it while you typed counted as pointing at one, so Enter opened whatever was under the pointer. Now only a real move of the mouse (a few pixels) picks a result
+- **Dock pins stay after a restart** (issue #32): an app pinned from its open window whose name has no .desktop file (an AppImage, a game, some Electron apps) was saved, but left out of the dock when it was built again. Now its entry is found by its class, name or command, and without one the pin stays anyway: with its window, or with its own icon, started by its name
+- The visualizer widget's new styles (Liquid and Orb) were refused when picked in Edit mode; they work now, and Settings > Desktop > Widgets offers them too
+
 ## V6.11: Lyrics that move, and more Vibe
 - **Lyrics, one big line at a time**: the music card of the bar and the Lyrics widget now show only the line being sung, big and bold. Its words rise in one after another with a little bounce, fill with color word by word as they are sung, and the line floats up and fades when the next one comes. A pause in the song shows three notes that bob. Long lines get smaller until they fit
 - **New in Vibe: Lyrics on the desktop**: the line being sung, big and low on your desktop like the words in a music video, with a soft shadow so it reads on any wallpaper. Small, medium or large

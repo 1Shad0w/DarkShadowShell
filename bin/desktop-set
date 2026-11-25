@@ -20,7 +20,7 @@ WIDGETS = ["weather", "media", "resources", "usercard", "calendar", "visualizer"
 GEOM = ("x", "y", "scale", "w", "h", "opacity", "bg", "style", "flip", "color", "font", "focus", "metric", "bars", "shape", "gap", "gain")
 # the visualizer's bars (Edit mode > Visualizer)
 VIZ = {"bars": ["16", "32", "48", "64"], "shape": ["square", "rounded", "pill"], "gap": ["thin", "normal", "wide"], "gain": ["1", "1.4", "2", "2.8"]}
-STYLES = {"visualizer": ["bars", "mirror", "wave", "dots"], "clock": ["expressive", "stacked", "shape", "analog", "digital", "line", "cookie", "pixel"],
+STYLES = {"visualizer": ["bars", "mirror", "wave", "dots", "liquid", "orb"], "clock": ["expressive", "stacked", "shape", "analog", "digital", "line", "cookie", "pixel"],
           "gauge": ["water", "pentagon", "cookie", "flower", "clover", "hexagon", "sun", "circle"],
           "date": ["flower", "cookie", "clover", "sun", "square", "circle"]}
 METRICS = ["cpu", "ram", "gpu", "temp", "battery"]
@@ -78,7 +78,10 @@ DEFAULTS = {
     "editing": False,
     "editTab": "",
 }
-CHOICES = {"placement": ["draggable", "leastBusy", "mostBusy"], "style": ["digital", "line", "cookie", "pixel"], "font": list(FONTS)}
+# the clock's styles: the V4.93 ones (Settings > Desktop > Widgets, Edit mode) and the older names they replaced
+# (issue #35: only the old names were let through here, so Expressive, Shape and Analog were refused and Settings
+# went back to Stacked)
+CHOICES = {"placement": ["draggable", "leastBusy", "mostBusy"], "style": STYLES["clock"], "font": list(FONTS)}
 
 
 def target(c, wid):

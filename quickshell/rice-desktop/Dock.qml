@@ -81,7 +81,8 @@ Scope {
     }
     // while a slider in Edit mode moves: the dock follows at once, desktop.json only when it is let go (setKey)
     function preview(k, v) { const n = JSON.parse(JSON.stringify(dc)); n[k] = v; dc = n }
-    function idOf(it) { return it.entry ? (it.entry.id || "").replace(/\.desktop$/, "") : it.key }
+    // a pinned icon is known by the name it was pinned under (its entry may have been found another way)
+    function idOf(it) { return it.pin ? it.key : (it.entry ? (it.entry.id || "").replace(/\.desktop$/, "") : it.key) }
     function isPinned(it) { return (dc.apps || []).indexOf(idOf(it)) >= 0 }
     function setApps(l) {
         const n = JSON.parse(JSON.stringify(dc)); n.apps = l; dc = n
@@ -163,16 +164,19 @@ Scope {
         const used = {}
         const apps = dc.apps || []
         for (let i = 0; i < apps.length; i++) {
-            const e = DesktopEntries.heuristicLookup(apps[i])
-            if (!e) continue
-            const ids = [apps[i].toLowerCase(), (e.id || "").toLowerCase(), (e.startupClass || "").toLowerCase()]
+            // V6.11 (issue #32): a pin whose app has no .desktop file under that name (an app pinned from its open
+            // window, an AppImage, a game ...) was dropped here, so after a restart it was gone from the dock. Now a
+            // looser search (the app's class, name or command) finds its entry, and without one the pin still stays:
+            // with the open window, or with its own icon, started by its name as a command
+            const e = DesktopEntries.heuristicLookup(apps[i]) || dock.looseEntry(all, apps[i])
+            const ids = [apps[i].toLowerCase(), e ? (e.id || "").replace(/\.desktop$/, "").toLowerCase() : "", e ? (e.startupClass || "").toLowerCase() : ""]
             let t = null
             for (let j = 0; j < tl.length; j++) {
                 const id = tid(tl[j])
                 if (id !== "" && ids.indexOf(id) >= 0) { t = tl[j]; break }
             }
             if (t) used[tid(t)] = true
-            out.push({ entry: e, tl: t, key: apps[i] })
+            out.push({ entry: e, tl: t, key: apps[i], pin: true })
         }
         for (let j = 0; j < tl.length; j++) {
             const id = tid(tl[j])
@@ -183,8 +187,25 @@ Scope {
         return out
     }
     readonly property var items: build()
+    function looseEntry(all, key) {
+        const k = String(key || "").toLowerCase()
+        if (k === "") return null
+        for (let i = 0; i < all.length; i++) {
+            const e = all[i]
+            const id = (e.id || "").replace(/\.desktop$/, "").toLowerCase()
+            const cmd = e.command && e.command.length > 0 ? String(e.command[0]).split("/").pop().toLowerCase() : ""
+            if (id === k || (e.startupClass || "").toLowerCase() === k || (e.name || "").toLowerCase() === k || cmd === k
+                || id.split(".").pop() === k) return e
+        }
+        return null
+    }
+    // a pin with no app entry: start it by its name, if there is such a command
+    function runKey(k) {
+        if (!/^[A-Za-z0-9._+-]+$/.test(k || "")) return
+        Quickshell.execDetached(["bash", "-c", "command -v \"$1\" >/dev/null 2>&1 && exec setsid -f \"$1\"", "_", k])
+    }
     function iconFor(it) {
-        const n = it.entry ? it.entry.icon : (it.tl ? tid(it.tl) : "")
+        const n = it.entry ? it.entry.icon : (it.tl ? tid(it.tl) : (it.key || ""))
         const p = n !== "" ? Icons.get(n, true) : ""
         return p !== "" ? p : Icons.get("application-x-executable", true)
     }
@@ -435,7 +456,7 @@ Scope {
                             x: dock.edge === "left" ? (app.width - dock.tile) / 2 + 2 : (dock.edge === "right" ? (app.width + dock.tile) / 2 - s - 2 : (app.width - s) / 2)
                             y: dock.vert ? (app.height - s) / 2 : (app.height + dock.tile) / 2 - s - 2
                             size: s
-                            name: modelData.entry ? (modelData.entry.icon || "") : (modelData.tl ? dock.tid(modelData.tl) : "")
+                            name: modelData.entry ? (modelData.entry.icon || "") : (modelData.tl ? dock.tid(modelData.tl) : (modelData.key || ""))
                             keys: [modelData.key, modelData.entry ? modelData.entry.id : "", modelData.entry ? modelData.entry.name : "", modelData.tl ? dock.tid(modelData.tl) : ""]
                             look: dock.look
                             shape: dock.shape
@@ -467,6 +488,7 @@ Scope {
                                 if (m.button === Qt.RightButton) { const p = mapToItem(null, m.x, m.y); edit.menuAt(modelData, p.x, p.y, dockWin); return }
                                 if (modelData.tl) modelData.tl.activate()
                                 else if (modelData.entry) modelData.entry.execute()
+                                else dock.runKey(modelData.key)
                             }
                         }
                     }

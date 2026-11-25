@@ -268,6 +268,7 @@ PanelWindow {
 
     // ---------- opening and closing ----------
     function show() {
+        hoverAt = Qt.point(-1, -1)
         query = ""
         cat = ""
         rsProc.running = true
@@ -277,6 +278,16 @@ PanelWindow {
         focusTimer.restart()
     }
     function hide() { open = false }
+    // V6.11 (issue #34): a result is picked by pointing only when the pointer really moves. The list changes under
+    // a pointer that stands still while you type, and that gave hover events too, so Enter opened whatever happened
+    // to be under it. hoverAt: where the pointer was last; (-1, -1) right after opening.
+    property point hoverAt: Qt.point(-1, -1)
+    function pointerMoved(item, m) {
+        const p = item.mapToItem(null, m.x, m.y), was = hoverAt
+        hoverAt = p
+        if (was.x < 0) return false
+        return Math.abs(p.x - was.x) + Math.abs(p.y - was.y) >= 4
+    }
     Timer { id: focusTimer; interval: 40; onTriggered: m3.input.forceActiveFocus() }
     function bump(id) {
         const n = Object.assign({}, usage); n[id] = (n[id] || 0) + 1; usage = n

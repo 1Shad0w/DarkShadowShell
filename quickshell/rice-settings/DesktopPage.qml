@@ -372,7 +372,7 @@ Item {
             SegRow {
                 label: I18n.t("Style")
                 desc: I18n.t("Round bars, a mirror, a wave or dots")
-                options: [{ label: I18n.t("Bars"), value: "bars" }, { label: I18n.t("Mirror"), value: "mirror" }, { label: I18n.t("Wave"), value: "wave" }, { label: I18n.t("Dots"), value: "dots" }]
+                options: [{ label: I18n.t("Bars"), value: "bars" }, { label: I18n.t("Mirror"), value: "mirror" }, { label: I18n.t("Wave"), value: "wave" }, { label: I18n.t("Dots"), value: "dots" }, { label: I18n.t("Liquid"), value: "liquid" }, { label: I18n.t("Orb"), value: "orb" }]
                 current: page.wv("visualizer", "style", "bars")
                 onChosen: function(v) { page.ctl.dwset("visualizer", "style", v) }
             }
