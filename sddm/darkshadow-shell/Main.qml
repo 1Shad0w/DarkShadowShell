@@ -172,7 +172,7 @@ Rectangle {
     // the clock's look (Settings > Desktop > Idle & Lockscreen > Login screen > Clock, rice-sddm clock):
     // classic (big, bottom left), stacked (hours over minutes, left), center (light and wide, in the middle),
     // pill (a Material 3 pill at the bottom), shapes (hours and minutes in two shapes, the seconds as a ring)
-    readonly property string clockStyle: ["classic", "stacked", "center", "pill", "shapes"].indexOf(cfg("clockStyle", "classic")) >= 0 ? cfg("clockStyle", "classic") : "classic"
+    readonly property string clockStyle: ["classic", "stacked", "center", "pill", "shapes"].indexOf(cfg("clockStyle", "stacked")) >= 0 ? cfg("clockStyle", "stacked") : "stacked"
     readonly property string dateText: { const t = root.now.toLocaleDateString(root.loc, "dddd, d MMMM"); return t.charAt(0).toUpperCase() + t.slice(1) }
     Item {
         id: clock
@@ -180,7 +180,7 @@ Rectangle {
         width: clockFace.width; height: clockFace.height
         readonly property real restX: root.clockStyle === "classic" || root.clockStyle === "stacked" ? 96 * root.s : (root.width - width) / 2
         readonly property real restY: root.clockStyle === "classic" ? root.height - height - 96 * root.s
-                                    : root.clockStyle === "stacked" ? (root.height - height) / 2
+                                    : root.clockStyle === "stacked" ? 72 * root.s
                                     : root.clockStyle === "pill" ? root.height - height - 120 * root.s
                                     : (root.height - height) / 2 - 40 * root.s
         x: root.awake ? (root.width - width) / 2 : restX
@@ -216,8 +216,8 @@ Rectangle {
                 id: stacked
                 visible: root.clockStyle === "stacked"
                 spacing: -44 * root.s
-                Text { text: root.hours; color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(168 * root.s); font.weight: Font.Black }
-                Text { text: root.minutes; color: root.primary; font.family: root.fontName; font.pixelSize: Math.round(168 * root.s); font.weight: Font.Black }
+                Text { text: root.hours; color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(168 * root.s); font.weight: Font.DemiBold }
+                Text { text: root.minutes; color: root.alpha(root.ink, 0.45); font.family: root.fontName; font.pixelSize: Math.round(168 * root.s); font.weight: Font.DemiBold }
                 Text { topPadding: 52 * root.s; x: 6 * root.s; text: root.dateText; color: root.inkVariant; font.family: root.fontName; font.pixelSize: Math.round(22 * root.s); font.weight: Font.Medium
                        opacity: root.awake ? 0 : 1; Behavior on opacity { NumberAnimation { duration: 300 } } }
             }

@@ -118,7 +118,7 @@ Column {
     }
 
     // the clock on it (rice-sddm clock STYLE): a little picture of each
-    property string clock: "classic"
+    property string clock: "stacked"
     Process { running: true; command: ["bash", "-c", "\"$HOME/.local/bin/rice-sddm\" clock 2>/dev/null"]
         stdout: StdioCollector { onStreamFinished: { const v = text.trim(); if (v !== "") card.clock = v } } }
     SettingRow {
