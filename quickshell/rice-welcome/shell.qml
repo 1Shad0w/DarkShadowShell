@@ -160,7 +160,7 @@ ShellRoot {
                 anchors.right: parent.right; anchors.bottom: parent.bottom
                 anchors.margins: 26
                 kind: "mono"
-                text: stage.step >= 4 ? "Enter  take a look      Esc  skip" : "Esc  skip"
+                text: stage.step === 4 ? "Enter  make it yours      Esc  skip" : (stage.step >= 5 ? "" : "Esc  skip")
                 font.pixelSize: 11; font.letterSpacing: 1
                 color: "#5c5f6e"
                 opacity: stage.step >= 1 ? 1 : 0
@@ -170,6 +170,8 @@ ShellRoot {
 
         MultiEffect {
             anchors.fill: parent
+            opacity: stage.step >= 5 && !win.opening ? 0.8 : 1
+            Behavior on opacity { NumberAnimation { duration: 700 } }
             source: scene
             maskEnabled: true
             maskSource: maskShape
@@ -192,8 +194,8 @@ ShellRoot {
             anchors.verticalCenterOffset: -20
             spacing: 6
             visible: stage.step >= 3
-            opacity: root.leaving ? 0 : 1
-            scale: root.leaving ? 1.08 : 1
+            opacity: root.leaving || stage.step >= 5 ? 0 : 1
+            scale: root.leaving ? 1.08 : (stage.step >= 5 ? 0.92 : 1)
             Behavior on opacity { NumberAnimation { duration: 380; easing.type: Easing.InCubic } }
             Behavior on scale { NumberAnimation { duration: 500; easing.type: Easing.InCubic } }
             MoonLogo {
@@ -260,7 +262,7 @@ ShellRoot {
                         anchors.centerIn: parent
                         spacing: goMouse.containsMouse ? 13 : 8
                         Behavior on spacing { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                        T { text: "Take a look"; font.pixelSize: 15; font.bold: true; color: "#0b0c12"; anchors.verticalCenter: parent.verticalCenter }
+                        T { text: "Make it yours"; font.pixelSize: 15; font.bold: true; color: "#0b0c12"; anchors.verticalCenter: parent.verticalCenter }
                         T { kind: "icon"; text: ""; font.pixelSize: 13; color: "#0b0c12"; anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
@@ -269,10 +271,30 @@ ShellRoot {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    enabled: stage.step >= 4 && !root.leaving
-                    onClicked: root.finish(true)
+                    enabled: stage.step === 4 && !root.leaving
+                    onClicked: { Sfx.play("click"); stage.step = 5 }
                 }
             }
+            // or straight to the Settings tour
+            T {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "or take a look around first"
+                font.pixelSize: 13
+                color: skipMouse.containsMouse ? "#E9EAF1" : "#7d8092"
+                opacity: stage.step >= 4 ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 700 } }
+                MouseArea { id: skipMouse; anchors.fill: parent; anchors.margins: -8; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    enabled: stage.step === 4 && !root.leaving; onClicked: root.finish(true) }
+            }
+        }
+
+        // ---------- V5.07: Make it yours (a preset, the dock, the bar) ----------
+        Setup {
+            id: setup
+            anchors.fill: parent
+            shown: stage.step >= 5 && !root.leaving
+            onTour: root.finish(true)
+            onClose: root.finish(false)
         }
 
         // ---------- timeline ----------
@@ -281,11 +303,11 @@ ShellRoot {
             property int step: 0
             focus: true
             Keys.onEscapePressed: root.finish(false)
-            Keys.onReturnPressed: { if (step >= 4) root.finish(true); else stage.step = 4 }
-            Keys.onEnterPressed: { if (step >= 4) root.finish(true); else stage.step = 4 }
+            Keys.onReturnPressed: { if (step >= 4) stage.step = 5; else stage.step = 4 }
+            Keys.onEnterPressed: { if (step >= 4) stage.step = 5; else stage.step = 4 }
             Keys.onSpacePressed: { if (step < 4) stage.step = stage.step + 1 }
             // sounds: night falls, quiet music, the moon draws itself in (Settings > Sfx & sounds)
-            onStepChanged: if (step === 3) Sfx.play("intro/reveal")
+            onStepChanged: { if (step === 3) Sfx.play("intro/reveal"); if (step === 5) setup.forceActiveFocus() }
             Timer { interval: 350; running: true; onTriggered: { Sfx.play("intro/night"); Sfx.music(true) } }
             SequentialAnimation {
                 running: true

@@ -269,6 +269,16 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-hotcorner\" show \"$1\"", "_", modelData.path])
                     }
+                    // V5.07: a GIF of it (next to the video, copied when it is ready)
+                    Rectangle {
+                        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+                        visible: rcMouse.containsMouse || gifMouse.containsMouse
+                        width: gifT.implicitWidth + 20; height: 26; radius: M3.sq ? 0 : 13
+                        color: gifMouse.containsMouse ? M3.primary : Qt.rgba(0, 0, 0, 0.6)
+                        T { id: gifT; anchors.centerIn: parent; text: "GIF"; font.pixelSize: 11; font.bold: true; color: gifMouse.containsMouse ? M3.inkPrimary : "white" }
+                        MouseArea { id: gifMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: { Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-hotcorner\" gif \"$1\"", "_", modelData.path]); if (page.ctl) page.ctl.status = I18n.t("Making a GIF...") } }
+                    }
                 }
             }
         }

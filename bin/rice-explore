@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""rice-explore: themes made by people who use DarkShadow's Shell (Settings > Appearance > Explore), V5.07.
+
+The list is community/index.json in the repo on GitHub; each theme is a .dstheme file there (its settings and its
+wallpaper). Nothing is taken from anywhere else, and every file is checked against the size and the SHA-256 the
+list gives for it before it is used.
+
+  rice-explore list [--refresh]   JSON: the themes (with a small picture of each), which ones you have
+  rice-explore install ID         download one and keep it as one of your own themes; prints its key
+  rice-explore use ID             install it (when it is not yet) and use it
+  rice-explore share [NAME]       your desktop as a theme file to send in, and the page to send it on
+"""
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+
+HOME = os.path.expanduser("~")
+BIN = HOME + "/.local/bin/"
+REPO_RAW = "https://raw.githubusercontent.com/shadowww-dev/DarkShadowShell/main/"
+INDEX_URL = REPO_RAW + "community/index.json"
+SUBMIT_URL = "https://github.com/shadowww-dev/DarkShadowShell/issues/new?template=theme.yml"
+CACHE = HOME + "/.cache/rice/explore"
+STATE = HOME + "/.config/rice/explore.json"
+SHARE_DIR = HOME + "/DarkShadow-themes"
+MAX_FILE = 60 * 1024 * 1024
+MAX_PREVIEW = 3 * 1024 * 1024
+TTL = 6 * 3600
+
+
+def jread(f, d=None):
+    try:
+        return json.load(open(f))
+    except Exception:
+        return {} if d is None else d
+
+
+def jwrite(f, obj):
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    json.dump(obj, open(f + ".tmp", "w"), indent=1)
+    os.replace(f + ".tmp", f)
+
+
+def fetch(url, limit):
+    """only files of the repo on GitHub"""
+    if not url.startswith(REPO_RAW):
+        return None
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "DarkShadowShell"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = r.read(limit + 1)
+        return data if len(data) <= limit else None
+    except Exception:
+        return None
+
+
+def safe_path(p):
+    return isinstance(p, str) and re.match(r"^community/[\w./-]{1,120}$", p) and ".." not in p
+
+
+def index(refresh=False):
+    """the list of themes: from GitHub every few hours, else the copy from last time"""
+    f = CACHE + "/index.json"
+    old = jread(f)
+    if not refresh and old.get("themes") is not None and time.time() - os.path.getmtime(f) < TTL:
+        return old, False
+    data = fetch(INDEX_URL, 2 * 1024 * 1024)
+    try:
+        j = json.loads(data.decode("utf-8")) if data else None
+    except Exception:
+        j = None
+    if not isinstance(j, dict) or not isinstance(j.get("themes"), list):
+        return old if old.get("themes") is not None else {"themes": []}, True
+    good = []
+    for t in j["themes"]:
+        if not isinstance(t, dict) or not re.match(r"^[a-z0-9-]{1,40}$", str(t.get("id", ""))):
+            continue
+        if not safe_path(t.get("file")) or not safe_path(t.get("preview")):
+            continue
+        if not re.match(r"^[0-9a-f]{64}$", str(t.get("sha256", ""))):
+            continue
+        good.append({"id": t["id"], "name": str(t.get("name", t["id"]))[:40], "author": str(t.get("author", ""))[:40],
+                     "desc": str(t.get("desc", ""))[:160], "tags": [str(x)[:16] for x in (t.get("tags") or [])][:4],
+                     "colors": [c for c in (t.get("colors") or []) if re.match(r"^#[0-9a-fA-F]{6}$", str(c))][:3],
+                     "preview": t["preview"], "file": t["file"], "sha256": t["sha256"], "size": int(t.get("size") or 0)})
+    j = {"updated": str(j.get("updated", ""))[:20], "themes": good}
+    jwrite(f, j)
+    return j, False
+
+
+def preview(t):
+    f = CACHE + "/previews/" + t["id"] + ".jpg"
+    if not os.path.isfile(f):
+        data = fetch(REPO_RAW + t["preview"], MAX_PREVIEW)
+        if data and (data[:3] == b"\xff\xd8\xff" or data[:8] == b"\x89PNG\r\n\x1a\n"):
+            os.makedirs(os.path.dirname(f), exist_ok=True)
+            open(f, "wb").write(data)
+    return f if os.path.isfile(f) else ""
+
+
+def themes_now():
+    """(the theme in use, the keys of all themes) or ("", None) when rice-theme cannot say"""
+    try:
+        j = json.loads(subprocess.run([BIN + "rice-theme", "list"], capture_output=True, text=True, timeout=15).stdout)
+        return str(j.get("current", "")), {t.get("key") for t in j.get("themes", [])}
+    except Exception:
+        return "", None
+
+
+def have(keys=None):
+    """the community themes you installed (id -> theme key), only those still among your themes"""
+    st = jread(STATE)
+    mine = st.get("installed") if isinstance(st.get("installed"), dict) else {}
+    if keys is None:
+        keys = themes_now()[1]
+    if keys is not None:
+        mine = {k: v for k, v in mine.items() if v in keys}
+    return mine
+
+
+def cmd_list(refresh):
+    j, offline = index(refresh)
+    cur, keys = themes_now()
+    mine = have(keys)
+    out = []
+    for t in j.get("themes", []):
+        t = dict(t)
+        t["picture"] = preview(t)
+        t["key"] = mine.get(t["id"], "")
+        t["installed"] = t["key"] != ""
+        t["in_use"] = t["installed"] and t["key"] == cur
+        out.append(t)
+    print(json.dumps({"themes": out, "offline": offline, "updated": j.get("updated", ""), "submit": SUBMIT_URL}))
+
+
+def find(tid):
+    j, _ = index()
+    for t in j.get("themes", []):
+        if t["id"] == tid:
+            return t
+    j, _ = index(True)
+    for t in j.get("themes", []):
+        if t["id"] == tid:
+            return t
+    sys.exit("There is no theme " + tid + " in Explore")
+
+
+def install(tid):
+    t = find(tid)
+    data = fetch(REPO_RAW + t["file"], MAX_FILE)
+    if not data:
+        sys.exit("Could not download " + t["name"] + " (no internet?)")
+    if hashlib.sha256(data).hexdigest() != t["sha256"]:
+        sys.exit("The file of " + t["name"] + " is not the one the list names: it was not used")
+    os.makedirs(CACHE + "/files", exist_ok=True)
+    f = CACHE + "/files/" + t["id"] + ".dstheme"
+    open(f, "wb").write(data)
+    r = subprocess.run([BIN + "rice-theme", "import", f], capture_output=True, text=True, timeout=120)
+    key = r.stdout.strip().splitlines()[-1] if r.returncode == 0 and r.stdout.strip() else ""
+    if not key:
+        sys.exit((r.stderr.strip().splitlines() or ["Could not keep the theme"])[-1])
+    st = jread(STATE)
+    st.setdefault("installed", {})[t["id"]] = key
+    jwrite(STATE, st)
+    print(key)
+    return key
+
+
+def use(tid):
+    key = have().get(tid) or install(tid)
+    r = subprocess.run([BIN + "rice-theme", "apply", key], timeout=300)
+    sys.exit(r.returncode)
+
+
+def share(name):
+    name = (name or "My setup").strip()[:40] or "My setup"
+    r = subprocess.run([BIN + "rice-theme", "save", name], capture_output=True, text=True, timeout=60)
+    key = r.stdout.strip().splitlines()[-1] if r.returncode == 0 and r.stdout.strip() else ""
+    if not key:
+        sys.exit((r.stderr.strip().splitlines() or ["Could not keep your setup as a theme"])[-1])
+    r = subprocess.run([BIN + "rice-theme", "export", key, SHARE_DIR], capture_output=True, text=True, timeout=120)
+    f = r.stdout.strip().splitlines()[-1] if r.returncode == 0 and r.stdout.strip() else ""
+    if not f or not os.path.isfile(f):
+        sys.exit("Could not write the theme file")
+    # GitHub takes .zip files, not .dstheme: the same file under that name, to drop on the page
+    z = os.path.splitext(f)[0] + "-for-github.zip"
+    open(z, "wb").write(open(f, "rb").read())
+    for cmd in (["xdg-open", SUBMIT_URL], ["xdg-open", SHARE_DIR]):
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        except Exception:
+            pass
+    print(json.dumps({"file": f, "upload": z, "page": SUBMIT_URL}))
+
+
+def main(a):
+    cmd = a[1] if len(a) > 1 else ""
+    if cmd == "list":
+        cmd_list("--refresh" in a)
+    elif cmd == "install" and len(a) > 2:
+        install(a[2])
+    elif cmd == "use" and len(a) > 2:
+        use(a[2])
+    elif cmd == "share":
+        share(" ".join(a[2:]))
+    else:
+        print(__doc__.strip())
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

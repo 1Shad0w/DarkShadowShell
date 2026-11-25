@@ -1,5 +1,13 @@
 # Changelog
 
+## V5.07: Make it yours, Explore, moving wallpapers, GIFs
+- **New: Make it yours**, a quick setup right after the welcome intro: pick a look (one of the presets, or keep yours), the dock (none, floating or pills) and the bar (dynamic island, edge, notch or pills). The night thins out while you choose, so you see your desktop change behind it. Every step works at once and can be changed later in Settings. "Or take a look around first" still goes straight to the Settings tour
+- **New: Explore** (Settings > Appearance > Explore): themes made by people who use the shell, each a wallpaper and a whole look. **Get** keeps one as your own theme, **Use** puts it on. Four to start with, with wallpapers drawn by a script: **Polar Lights**, **Dunes**, **Orbit** and **Mesh**. Files only come from this repo and are checked against the size and SHA-256 in the list before they are used (`rice-explore`)
+- **Share your setup** (Explore): your desktop becomes a theme file in `~/DarkShadow-themes`, and the GitHub page to send it in opens. Once it is checked, everyone finds it in Explore
+- **New: moving wallpapers drawn by the shell** (Settings > Wallpaper > Moving wallpapers), no video and no mpvpaper needed: **Aurora** (the lights sway), **Starfall** (shooting stars over the Starfall lake), **Orbit** (a ring of light around a black hole) and **Mesh** (soft colors drifting). The colors, the lock screen and the blur take a still picture of it. They stand still in Gaming mode and Light mode, and stay the same at every login (`rice-walls scene NAME|off`)
+- **GIFs of your recordings**: the notification after a recording has a **Make a GIF** button, and Settings > Recorder shows a GIF button on each recording. The GIF is saved next to the video (15 frames a second, at most 960 wide, its own colors) and copied (`rice-hotcorner gif FILE`)
+- Polish translations for the new texts
+
 ## V5.06: 14 new wallpapers, 15 presets, a different wallpaper at every login, a reboot that works
 - **14 new wallpapers** (installed to ~/Pictures/Wallpapers): Starfall Lake, Fuji Dusk, Manga, Torii, Blue Sakura, Plum Blossom, Black Beach, City Night, Evening Sky, Cloud Hill, Dark Forest, Purple Tree, Night Sakura and Teal Street
 - **Presets rebuilt around them**: DarkShadow stays, and every new wallpaper has its own preset (15 in all): **Starfall**, **Fuji**, **Blue Sakura**, **Plum Blossom**, **Evening**, **Cloud Hill**, **Lavender**, **Night Sakura**, **Teal Street**, **City Lights**, **Dark Forest** (a bar down the right edge), **Black Sand**, **Manga** and **Torii**. The colors come from each wallpaper. The old presets with the old wallpapers are gone (the old wallpapers stay in your folder)

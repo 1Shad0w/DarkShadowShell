@@ -1,0 +1,82 @@
+{
+ "format": 1,
+ "updated": "2026-11-25",
+ "themes": [
+  {
+   "id": "polar-lights",
+   "name": "Polar Lights",
+   "author": "DarkShadow",
+   "desc": "Northern lights over a still night. Edge bar, glass notifications.",
+   "tags": [
+    "dark",
+    "cool"
+   ],
+   "colors": [
+    "#0a1020",
+    "#5fe0b0",
+    "#8a7cf0"
+   ],
+   "preview": "community/previews/polar-lights.jpg",
+   "file": "community/themes/polar-lights.dstheme",
+   "sha256": "fe2e0ce0c40b1f998792fa8768d82622e61196597909b8140ffbd5f34858fe2a",
+   "size": 768270
+  },
+  {
+   "id": "dunes",
+   "name": "Dunes",
+   "author": "DarkShadow",
+   "desc": "Warm hills at sunset. Soft corners and a floating island bar.",
+   "tags": [
+    "warm",
+    "soft"
+   ],
+   "colors": [
+    "#2a1830",
+    "#f0a48a",
+    "#c070a0"
+   ],
+   "preview": "community/previews/dunes.jpg",
+   "file": "community/themes/dunes.dstheme",
+   "sha256": "53f7cd4117bfd5819777b4ae1bf061121702808af30bbf9b58feb33c941fa4b2",
+   "size": 596724
+  },
+  {
+   "id": "orbit",
+   "name": "Orbit",
+   "author": "DarkShadow",
+   "desc": "A gold ring around the dark. Black, gold and very little else.",
+   "tags": [
+    "dark",
+    "minimal"
+   ],
+   "colors": [
+    "#0e0a08",
+    "#f0b070",
+    "#8a5a30"
+   ],
+   "preview": "community/previews/orbit.jpg",
+   "file": "community/themes/orbit.dstheme",
+   "sha256": "0a3a903a04467bf2c82cb4602d1693dcd48621117ca5d9fcc083fa3f5edbede6",
+   "size": 606240
+  },
+  {
+   "id": "mesh",
+   "name": "Mesh",
+   "author": "DarkShadow",
+   "desc": "Soft pastel light. A bright desktop with pill bars.",
+   "tags": [
+    "light",
+    "pastel"
+   ],
+   "colors": [
+    "#ece4f8",
+    "#9a7ce0",
+    "#f0a0c8"
+   ],
+   "preview": "community/previews/mesh.jpg",
+   "file": "community/themes/mesh.dstheme",
+   "sha256": "5328d2dafed59f1fd105cf89bb9dae315128b3edee9a68e043cdccc76741811b",
+   "size": 567126
+  }
+ ]
+}

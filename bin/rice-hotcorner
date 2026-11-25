@@ -13,6 +13,8 @@ it also ran the hot corner panel, which was removed in V4.52; the name stays so 
                                             microphone); without the shell: slurp. While recording: it stops
   rice-hotcorner record geo "X,Y WxH"       record this part of the screen (what the record menu hands back)
   rice-hotcorner rec-info                   recorder status + recent recordings (with thumbnails) as JSON
+  rice-hotcorner gif FILE                   V5.07: a GIF of a recording (next to it, 15 frames a second, at most
+                                            960 wide); the notification after a recording offers it too
   rice-hotcorner shot full|region|window     region and window: the screen is frozen and the shell's screenshot
                                             tool opens (Snip.qml); without the shell: slurp
   rice-hotcorner shot-done FILE save|copy|edit|ocr|translate|search|color
@@ -469,7 +471,11 @@ def record(mode, geo=None):
             for p in (REC_PID, REC_INFO):
                 if os.path.exists(p):
                     os.remove(p)
-            notify("Recording saved", f or REC_DIR, "media-record")
+            if f and os.path.isfile(f) and shutil.which("ffmpeg") and shutil.which("notify-send"):
+                # the notification has a "Make a GIF" button: a small helper waits for it
+                bg([sys.executable, os.path.abspath(__file__), "gif-offer", f])
+            else:
+                notify("Recording saved", f or REC_DIR, "media-record")
         return
     # the key (SUPER + SHIFT + R): the shell's record menu, which comes back here with "record geo ..."
     if mode == "region" and not os.environ.get("RICE_SNIP_OFF") and shutil.which("wf-recorder") and snip("region", "rec"):
@@ -825,6 +831,49 @@ def gaming_toggle():
     notify("Gaming mode", "rice-effects is missing. Run ./install.sh --update", "dialog-warning")
 
 
+def gif_offer(f):
+    """the notification after a recording, with a button that makes a GIF of it"""
+    try:
+        r = subprocess.run(["notify-send", "-a", "DarkShadow's Shell", "-i", "media-record", "--action=gif=Make a GIF",
+                            "--action=open=Show it", "--wait", "Recording saved", os.path.basename(f)],
+                           capture_output=True, text=True, timeout=600)
+    except Exception:
+        return
+    pick = r.stdout.strip()
+    if pick == "gif":
+        make_gif(f)
+    elif pick == "open":
+        bg(["xdg-open", os.path.dirname(f)])
+
+
+def make_gif(f):
+    f = os.path.abspath(os.path.expanduser(f))
+    if not os.path.isfile(f):
+        sys.exit("rice-hotcorner gif: not a file: " + f)
+    if not shutil.which("ffmpeg"):
+        notify("Making a GIF needs ffmpeg", "Install the ffmpeg package.", "dialog-warning")
+        sys.exit("rice-hotcorner gif: ffmpeg not found")
+    out = os.path.splitext(f)[0] + ".gif"
+    notify("Making a GIF...", os.path.basename(out), "media-record")
+    # one palette made for this film (the colors it really has), then the frames with it: small and clean
+    vf = ("fps=15,scale='min(960,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];"
+          "[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle")
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f, "-vf", vf, "-loop", "0", out + ".part.gif"],
+                       capture_output=True, text=True, timeout=1800)
+    if r.returncode != 0 or not os.path.isfile(out + ".part.gif"):
+        notify("The GIF did not work", (r.stderr.strip().splitlines() or ["ffmpeg failed"])[-1][:200], "dialog-warning")
+        sys.exit(1)
+    os.replace(out + ".part.gif", out)
+    mb = os.path.getsize(out) / 1048576
+    if shutil.which("wl-copy"):
+        try:
+            subprocess.run(["wl-copy", "--type", "text/uri-list"], input="file://" + out + "\n", text=True, timeout=5)
+        except Exception:
+            pass
+    notify("GIF saved", "%s (%.1f MB, copied)" % (os.path.basename(out), mb), out)
+    print(out)
+
+
 def main(argv):
     cmd = argv[1] if len(argv) > 1 else ""
     arg = argv[2] if len(argv) > 2 else ""
@@ -892,6 +941,10 @@ def main(argv):
         q(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"])
     elif cmd == "record":
         record(arg or "full", argv[3] if len(argv) > 3 else None)
+    elif cmd == "gif" and len(argv) > 2:
+        make_gif(argv[2])
+    elif cmd == "gif-offer" and len(argv) > 2:
+        gif_offer(argv[2])
     elif cmd == "rec-info":
         rec_info()
     elif cmd == "shot":

@@ -13,6 +13,7 @@
   rice-walls slideshow folder DIR only this folder ("" = all of them)
   rice-walls next                 the next wallpaper of the slideshow now
   rice-walls live sound on|off    live wallpapers with or without their sound
+  rice-walls scene NAME|off       V5.07: a moving wallpaper drawn by the shell (aurora|starfall|orbit|mesh), no video
   rice-walls transition STYLE      ripple|wave|wipe|portal|fade|slide|pixel|random|none: how a new one comes in
   rice-walls transition speed X   0.4 (fast) .. 2.5 (slow)
   rice-walls awww-args            the awww options for that (commands.sh uses them)
@@ -49,6 +50,9 @@ LIVE_DIR = CACHE + "/live"
 CURRENT = HOME + "/.cache/hyprquickpaper-current"      # always a picture (for a live wallpaper: one frame of it)
 LIVE = CACHE + "/live-wallpaper"                         # the video, while a live wallpaper is on
 LAST = CACHE + "/slideshow-last"
+SCENE = DIR + "/scene"                                   # the moving wallpaper (V5.07), while one is on
+SCENE_APP = HOME + "/.config/quickshell/rice-scene"
+SCENES = ("aurora", "starfall", "orbit", "mesh")
 APPLY = HOME + "/.config/quickshell/hyprquickpaper/commands.sh"
 WAYPAPER = HOME + "/.config/waypaper/config.ini"
 RUN = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
@@ -347,6 +351,68 @@ def start_live(v, c=None):
     return True
 
 
+def scene_now():
+    n = read(SCENE).strip() if os.path.isfile(SCENE) else ""
+    return n if n in SCENES else ""
+
+
+def stop_scene(forget=True):
+    subprocess.run(["pkill", "-f", "quickshell/rice-scene"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if forget and os.path.exists(SCENE):
+        os.remove(SCENE)
+
+
+def run_scene():
+    if subprocess.run(["pgrep", "-f", "quickshell/rice-scene"], stdout=subprocess.DEVNULL).returncode == 0:
+        return True
+    qs = shutil.which("qs") or shutil.which("quickshell")
+    if not qs or not os.path.isfile(SCENE_APP + "/shell.qml"):
+        return False
+    subprocess.Popen([qs, "-n", "-p", SCENE_APP], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     stdin=subprocess.DEVNULL, start_new_session=True)
+    return True
+
+
+def scene_still(name):
+    """the picture under a moving wallpaper (its colors, the lock screen, the blur)"""
+    if name == "starfall":
+        for d in (pictures_dir() + "/Wallpapers", HOME + "/Pictures/Wallpapers"):
+            if os.path.isfile(d + "/starfall-lake.jpg"):
+                return d + "/starfall-lake.jpg"
+    f = SCENE_APP + "/" + name + ".jpg"
+    return f if os.path.isfile(f) else ""
+
+
+def cmd_scene(name):
+    if not managed():
+        off_note()
+        sys.exit("rice-walls: wallpapers are off (rice-walls manage on)")
+    if name == "off":
+        stop_scene()
+        return
+    if name not in SCENES:
+        sys.exit("rice-walls scene: " + "|".join(SCENES) + "|off")
+    if os.path.exists(LIVE):
+        os.remove(LIVE)
+    stop_live()
+    os.makedirs(DIR, exist_ok=True)
+    open(SCENE, "w").write(name)          # a scene that runs already follows this file
+    still = scene_still(name)
+    if still:
+        apply_picture(still, True)
+    if not run_scene():
+        notify("Moving wallpapers need Quickshell", "The qs command was not found.")
+        sys.exit("rice-walls: qs not found")
+
+
+def pictures_dir():
+    try:
+        p = subprocess.run(["xdg-user-dir", "PICTURES"], capture_output=True, text=True, timeout=3).stdout.strip()
+    except Exception:
+        p = ""
+    return p if p and p != HOME else HOME + "/Pictures"
+
+
 def apply_picture(p, live=False):
     """the picture as wallpaper, and the colors from it (hyprquickpaper's commands.sh)"""
     if os.path.isfile(APPLY):
@@ -388,6 +454,7 @@ def cmd_set(f):
     if not os.path.isfile(f):
         sys.exit("rice-walls: not a file: " + f)
     os.makedirs(CACHE, exist_ok=True)
+    stop_scene()
     if is_video(f):
         if not shutil.which("mpvpaper"):
             notify("Live wallpapers need mpvpaper", "Install the mpvpaper package, then pick the video again.")
@@ -582,6 +649,12 @@ def cmd_start(login=False):
     c = load()
     if not managed(c):
         return
+    if scene_now():
+        # a moving wallpaper stays the same at every login (no random picture over it)
+        run_scene()
+        if c["slideshow"].get("on"):
+            spawn_daemon()
+        return
     if not (login and login_random(c)):
         ensure_wallpaper()
     v = live_now()
@@ -635,6 +708,7 @@ def state():
     print(json.dumps({"dirs": [{"path": d, "from": w} for d, w in dirs(c)], "folders": c["folders"],
                       "waypaper": c["waypaper"], "waypaper_found": bool(waypaper_dirs()), "waypaper_hook": hook,
                       "slideshow": c["slideshow"], "live": dict(c["live"], now=live_now()),
+                      "scene": scene_now(), "scenes": list(SCENES),
                       "manage": managed(c), "picker": c.get("picker") is not False,
                       "transition": c.get("transition") or {}, "login_random": c.get("login_random") is not False,
                       "have": {t: shutil.which(t) is not None for t in ("mpvpaper", "ffmpeg", "matugen", "awww")}
@@ -659,6 +733,8 @@ def main(a):
                 os.remove(LIVE)
             env = dict(os.environ, RICE_COLORS_ONLY="1")
             subprocess.run(["bash", APPLY, p], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    elif cmd == "scene" and arg:
+        cmd_scene(arg)
     elif cmd == "next":
         cmd_next()
     elif cmd == "start":

@@ -1,0 +1,36 @@
+name: Share a theme for Explore
+description: Send in your desktop so everyone can find it in Settings > Appearance > Explore
+title: "Theme: "
+labels: ["theme"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        In Settings > Appearance > Explore, **Share my setup** saves your desktop as a theme in `~/DarkShadow-themes`.
+        Drop the file that ends in **-for-github.zip** in the box below. A screenshot of your desktop helps too.
+  - type: input
+    id: name
+    attributes:
+      label: Name of the theme
+      placeholder: Aurora Glass
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The theme file and a screenshot
+      description: Drop the -for-github.zip file here, and a screenshot if you have one.
+    validations:
+      required: true
+  - type: textarea
+    id: about
+    attributes:
+      label: A line about it (optional)
+      placeholder: Northern lights over a still night, an edge bar and glass notifications.
+  - type: checkboxes
+    id: rights
+    attributes:
+      label: The wallpaper
+      options:
+        - label: I made the wallpaper myself, or its license lets it be shared
+          required: true
