@@ -310,9 +310,9 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         y: (root.height - height) / 2 + (root.awake ? 30 * root.s : 120 * root.s)
         radius: 30 * root.s
-        color: root.alpha(root.surfaceContainer, 0.62)
+        color: root.alpha(root.surfaceContainer, 0.25)
         border.width: 1
-        border.color: root.alpha(root.outline, 0.16)
+        border.color: root.alpha(root.outline, 0.10)
         opacity: root.awake ? 1 : 0
         visible: opacity > 0
         Behavior on y { NumberAnimation { duration: 650; easing.type: Easing.OutExpo } }
