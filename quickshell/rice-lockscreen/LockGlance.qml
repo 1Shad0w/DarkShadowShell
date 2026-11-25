@@ -167,6 +167,12 @@ Item {
                 gradient: Gradient { orientation: Gradient.Horizontal
                     GradientStop { position: 0; color: Qt.rgba(gl.acc.r, gl.acc.g, gl.acc.b, 0.45) }
                     GradientStop { position: 0.6; color: "transparent" } } }
+            // V6.10 Vibe: a liquid ring around the cover moves with the music
+            LockBeat {
+                x: cover.x + cover.width / 2 - width / 2; y: cover.y + cover.height / 2 - height / 2
+                width: cover.width + 40; height: width
+                inner: cover.width; on: !!gl.pl && gl.pl.playing && gl.visible; c1: gl.acc
+            }
             ShapeImage {
                 id: cover
                 x: 18; anchors.verticalCenter: parent.verticalCenter

@@ -254,6 +254,29 @@ Item {
     readonly property bool playing: Player.playing
 
     // ---------- the shape ----------
+    // V6.10 Vibe: while music plays the island's edge breathes with the beat (a soft light around the pill, in
+    // the music's colors), only at rest
+    readonly property bool breathe: Vibe.island && Player.playing && !isl.ghost && !Look.lite && !isl.big && isl.pillMode === "idle"
+    VibeUser { active: isl.breathe }
+    Rectangle {
+        anchors.fill: bg; anchors.margins: -2 - 3 * Vibe.level
+        radius: Look.sq ? 0 : height / 2
+        color: "transparent"
+        border.width: 1.5 + 1.5 * Vibe.level
+        border.color: isl.pal ? isl.pal.primary : Look.accentHi
+        opacity: isl.breathe ? 0.15 + 0.75 * Vibe.level : 0
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+        visible: opacity > 0.01
+    }
+    Rectangle {
+        anchors.fill: bg; anchors.margins: -6 - 6 * Vibe.level
+        radius: Look.sq ? 0 : height / 2
+        color: "transparent"
+        border.width: 4
+        border.color: isl.pal ? isl.pal.primary : Look.accentHi
+        opacity: isl.breathe ? 0.18 * Vibe.level + 0.2 * Vibe.kick : 0
+        visible: opacity > 0.01
+    }
     Shadow { anchors.fill: bg; radius: Look.sq ? 0 : (bg.radius); on: Look.shadows && Look.shadowBar && !isl.flatRest && !isl.ghost; size: Look.shadowSize * 0.5; strength: Look.shadowStrength }
     Rectangle {
         id: bg

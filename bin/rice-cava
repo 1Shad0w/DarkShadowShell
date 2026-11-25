@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # The music for the visualizer (cava), as numbers on stdout. It listens to what your speakers or headphones play
 # (the monitor of the default output), never to the microphone, and follows you when you switch the output.
+# rice-cava small (V6.10): 12 levels, 30 a second, for the beat of the moving wallpapers (rice-scene)
+small=0; [ "${1:-}" = small ] && small=1
 cfg="$HOME/.cache/rice/cava-widget.conf"
 log="$HOME/.cache/rice/cava-widget.log"
+[ "$small" = 1 ] && { cfg="$HOME/.cache/rice/cava-small.conf"; log="$HOME/.cache/rice/cava-small.log"; }
 mkdir -p "$HOME/.cache/rice"
 
 sink() { pactl get-default-sink 2>/dev/null || wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | sed -n 's/.*node.name = "\(.*\)"/\1/p' | head -1; }
@@ -14,9 +17,11 @@ write_cfg() {
   local fps; fps="$(sed -n 's/.*"fps": *\([0-9]*\).*/\1/p' "$HOME/.config/rice/desktop.json" 2>/dev/null | head -1)"
   case "$fps" in ''|*[!0-9]*) fps=60 ;; 0) fps=144 ;; esac
   [ "$fps" -gt 240 ] && fps=240
+  local bars=64
+  [ "$small" = 1 ] && { bars=12; fps=30; }
   cat > "$cfg" <<CONF
 [general]
-bars = 64
+bars = $bars
 framerate = $fps
 # silence for 2 s: cava rests (no frames, almost no CPU) until the music comes back
 sleep_timer = 2
@@ -55,6 +60,7 @@ while :; do
     f="$(sed -n 's/.*"fps": *\([0-9]*\).*/\1/p' "$HOME/.config/rice/desktop.json" 2>/dev/null | head -1)"
     case "$f" in ''|*[!0-9]*) f=60 ;; 0) f=144 ;; esac
     [ "$f" -gt 240 ] && f=240
+    [ "$small" = 1 ] && f=30
     [ "framerate = $f" != "$curfps" ] && { kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; break; }
   done
   kill -0 "$pid" 2>/dev/null || sleep 1

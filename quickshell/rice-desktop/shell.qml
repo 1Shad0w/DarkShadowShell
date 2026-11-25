@@ -28,7 +28,7 @@ ShellRoot {
     // every widget there is (one frame each in Edit mode); free = free width and height instead of scaling
     readonly property var allWidgets: [
         { id: "visualizer", name: "Visualizer", icon: "\udb85\udc7d", free: true,
-          styles: [["bars", "Bars"], ["mirror", "Mirror"], ["wave", "Wave"], ["dots", "Dots"]],
+          styles: [["bars", "Bars"], ["mirror", "Mirror"], ["wave", "Wave"], ["dots", "Dots"], ["liquid", "Liquid"], ["orb", "Orb"]],
           optKey: "color", opts: [["accent", "Theme color"], ["gradient", "Gradient"], ["rainbow", "Rainbow"], ["mono", "White / black"]], optDefault: "accent" },
         { id: "clock", name: "Clock", icon: "\uf017", styles: [["expressive", "Expressive"], ["stacked", "Stacked"], ["shape", "Shape"], ["analog", "Analog"]],
           optKey: "font", opts: [["default", "Font: Default"], ["bebas", "Bebas Neue"], ["orbitron", "Orbitron"], ["outfit", "Outfit"],
@@ -220,9 +220,53 @@ ShellRoot {
     // the rest, so the colors came long after the wallpaper); it flows in (Look.qml)
     function setAccent(ac) {
         if (!/^#[0-9a-fA-F]{6}$/.test(ac)) return
-        if (Look.accent.toString() !== ac.toLowerCase()) Look.accent = ac
+        root.wallAccent = ac.toLowerCase()
+        root.pushAccent()
+        // a new wallpaper puts its own border colors on: while a song plays they go back to the cover's
+        if (Vibe.active) vibeBorder.restart()
         Look.accentReady = true
     }
+    // V6.10 Vibe: while music plays (and Vibe > Colors from the cover is on) the cover's color is the accent of the
+    // whole shell; the wallpaper's comes back after it. It flows in either way (Look.qml)
+    property string wallAccent: ""
+    function pushAccent() {
+        const want = Vibe.active ? Vibe.tint.toString() : root.wallAccent
+        if (want !== "" && Look.accent.toString() !== want) Look.accent = want
+    }
+    Connections { target: Vibe; function onActiveChanged() { root.pushAccent(); vibeBorder.restart() } function onTintChanged() { root.pushAccent(); vibeBorder.restart() }
+        function onBordersChanged() { vibeBorder.restart() } }
+    // the window borders follow (Hyprland; rice-vibe leaves them alone when you picked your own); once per song
+    property bool borderVibed: false
+    Timer {
+        id: vibeBorder
+        interval: 900
+        onTriggered: {
+            const on = Vibe.active && Vibe.borders
+            if (on) {
+                root.borderVibed = true
+                Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-vibe\" border \"$1\" \"$2\"", "_", Vibe.tint.toString(), Vibe.tint2.toString()])
+            } else if (root.borderVibed) {
+                root.borderVibed = false
+                Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-vibe\" border reset"])
+            }
+        }
+    }
+    // after a restart in the middle of a song the borders may still have its colors: they go back, unless music plays
+    Timer { interval: 6000; running: true; onTriggered: if (!Vibe.active) Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-vibe\" border reset --if-set"]) }
+    Trigger { path: root.home + "/.config/rice/vibe.json"; every: 4000
+        onContent: function(t) { let j = {}; try { j = t.trim() !== "" ? JSON.parse(t) : {} } catch (e) { j = {} } Vibe.apply(j) } }
+    // Settings > Vibe > Try: "rain 1764100000" shows that weather for a little while
+    Trigger { name: "vibe-try"; every: 3000
+        onFired: function(line) { const w = line.trim().split(/\s+/).pop(); if (["rain", "snow", "storm", "fog"].indexOf(w) >= 0) { Vibe.tryWeather = w; vibeTry.restart() } } }
+    Timer { id: vibeTry; interval: 15000; onTriggered: Vibe.tryWeather = "" }
+    // the weather outside for Vibe > Weather on the desktop: rice-weather keeps it for 30 minutes and never asks
+    // anything without a place set (Settings > Language & region)
+    Process {
+        id: vibeSky
+        command: ["bash", "-c", "\"$HOME/.local/bin/rice-weather\" json 2>/dev/null"]
+        stdout: StdioCollector { onStreamFinished: { try { Vibe.sky = Vibe.skyOf(JSON.parse(text).cond) } catch (e) { } } }
+    }
+    Timer { interval: 15 * 60000; repeat: true; triggeredOnStart: true; running: Vibe.weather; onTriggered: if (!vibeSky.running) vibeSky.running = true }
     Trigger { path: root.home + "/.config/waybar/colors.css"; every: 2000
         onContent: function(t) { const r = /@define-color accent *(#[0-9a-fA-F]{6})/.exec(t); if (r) root.setAccent(r[1]) } }
     // desktop.json is read as soon as it changes (no more starting a program 5 times a second to look at it);
@@ -663,6 +707,16 @@ ShellRoot {
 
     // reads how bright the wallpaper is in each part of the screen, so every widget can pick dark or light text
     WallLum { path: root.wallpaper; sw: root.sw; sh: root.sh }
+    // V6.10 Vibe: the cover's colors, the light along the bottom edge and the weather on the desktop
+    VibeCover { }
+    Variants {
+        model: Vibe.edge ? Quickshell.screens : []
+        VibeEdge { required property var modelData; screen: modelData }
+    }
+    Variants {
+        model: Vibe.weather || Vibe.tryWeather !== "" ? Quickshell.screens : []
+        VibeWeather { required property var modelData; screen: modelData }
+    }
     // niri: the blurred wallpaper behind the workspaces in the overview (SUPER + Tab)
     NiriBackdrop { path: root.wallpaper }
     // Infinite Desktop: the wallpaper moves with the canvas (Hyprland); every screen is a part of it

@@ -1,7 +1,9 @@
 import Quickshell
 import QtQuick
 
-// Audio visualizer (cava). No background; styles: bars (straight bars like cava in a terminal), mirror, wave, dots.
+// Audio visualizer (cava). No background; styles: bars (straight bars like cava in a terminal), mirror, wave, dots,
+// and (V6.10 Vibe) liquid (one soft shape with a bright edge) and orb (the cover in your shape with a liquid ring
+// that swells around it).
 // colors: accent (your theme color), gradient (it shifts along the bars), rainbow, mono (white, or black on a light wallpaper).
 // flip: grow downwards instead of upwards.
 Item {
@@ -83,6 +85,8 @@ Item {
         function onFrame() {
             const p = CavaFeed.bands
             if (p.length === 0) return
+            if (vz.style === "liquid") { liq.take(p.map(function(v) { return v * vz.gain })); return }
+            if (vz.style === "orb") { orb.take(p.map(function(v) { return v * vz.gain })); return }
             // rises at once, falls softly
             const o = vz.bars, q = []
             let loud = 0
@@ -95,10 +99,39 @@ Item {
         }
     }
 
+    // V6.10: the liquid and orb styles are shapes the graphics card draws (not this canvas)
+    readonly property color k1: colorAt(0)
+    readonly property color k2: colorMode === "accent" ? Qt.hsla((hue + 0.09) % 1, sat, tone, 1) : colorAt(count - 1)
+    LiquidWave {
+        id: liq
+        visible: vz.style === "liquid"
+        anchors.fill: parent
+        mode: vz.flip ? "top" : "bottom"; points: Math.max(16, Math.min(40, vz.count / 2)); floor: 0.02
+        c1: vz.k1; c2: vz.k2; fillA: 0.42; lineW: 3
+    }
+    Item {
+        visible: vz.style === "orb"
+        anchors.fill: parent
+        LiquidRing {
+            id: orb
+            anchors.centerIn: parent
+            width: Math.min(parent.width, parent.height); height: width
+            radius: width * 0.3; amp: width * 0.19
+            c1: vz.k1; c2: vz.k2; fillA: 0.45; lineW: 2.5; points: 30
+            NumberAnimation on spin { running: vz.style === "orb" && vz.listening && Player.playing && !Look.lite; from: 0; to: 360; duration: 60000; loops: Animation.Infinite }
+        }
+        ShapeImage {
+            anchors.centerIn: parent
+            width: orb.radius * 2 - 6; height: width
+            kind: Look.shape; source: Player.art
+            empty: Qt.rgba(vz.k1.r, vz.k1.g, vz.k1.b, 0.25); fallbackColor: vz.k1
+        }
+    }
     // everything is drawn here
     property bool quiet: false
     Canvas {
         id: cv
+        visible: vz.style !== "liquid" && vz.style !== "orb"
         anchors.fill: parent
         onVisibleChanged: requestPaint()
         onPaint: {

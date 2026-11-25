@@ -437,6 +437,6 @@ PanelWindow {
         Btn { icon: "calendar_month"; glyph: String.fromCodePoint(0xF00F0); onHit: function(m) { vb.pop("calendar") } }
     }
     Component { id: cViz
-        BarViz { vertical: true; count: 10; thick: vb.barW - 18; active: vb.on; color: vb.goo ? gp.primary : vb.fg }
+        BarViz { vertical: true; style: Vibe.barStyle === "dots" ? "dots" : "bars"; count: Vibe.barStyle === "dots" ? 8 : 10; thick: vb.barW - 18; active: vb.on; color: vb.goo ? gp.primary : vb.fg }
     }
 }

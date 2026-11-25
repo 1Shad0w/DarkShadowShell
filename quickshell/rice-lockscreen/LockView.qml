@@ -483,6 +483,8 @@ FocusScope {
                 color: pal.surface
                 opacity: lv.stg(5)
                 transform: Translate { y: (1 - lv.stg(5)) * 30 }
+                LockBeat { x: 12 + 40 - width / 2; anchors.verticalCenter: parent.verticalCenter; width: 104; height: 104
+                    inner: 80; on: pl.playing && lv.first; c1: pal.primary }
                 ShapeImage { x: 12; anchors.verticalCenter: parent.verticalCenter; width: 80; height: 80; kind: Look.shape; source: pl.art
                     empty: pal.container; fallbackColor: pal.inkContainer
                     RotationAnimator on rotation { from: 0; to: 360; duration: 24000; loops: Animation.Infinite; running: pl.playing } }

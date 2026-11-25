@@ -573,7 +573,7 @@ Item {
                         ep.root.wset("visualizer", "flip", w.flp ? "on" : "off"); ep.root.saveGeom("visualizer")
                     } }
                 Label { text: Tr.t("Style") }
-                Pills { options: [["bars", "Bars"], ["mirror", "Mirror"], ["wave", "Wave"], ["dots", "Dots"]]; current: ep.root ? ep.root.styleOf("visualizer") : "bars"
+                Pills { options: [["bars", "Bars"], ["mirror", "Mirror"], ["wave", "Wave"], ["dots", "Dots"], ["liquid", "Liquid"], ["orb", "Orb"]]; current: ep.root ? ep.root.styleOf("visualizer") : "bars"
                     onChosen: function(v) { ep.root.setStyle("visualizer", v) } }
                 Label { text: Tr.t("Colors") }
                 Pills { options: [["accent", "Theme"], ["gradient", "Gradient"], ["rainbow", "Rainbow"], ["mono", "Mono"]]

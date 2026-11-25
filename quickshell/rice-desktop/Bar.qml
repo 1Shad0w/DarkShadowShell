@@ -704,7 +704,8 @@ PanelWindow {
     // the music, as a few moving bars (Bar layout > Visualizer)
     Component { id: mViz
         Item { property bool shown: true; width: vz.implicitWidth + 8; height: bar.barH
-            BarViz { id: vz; anchors.centerIn: parent; active: bar.on; thick: Math.round(bar.barH * 0.5); color: bar.goo ? gp.primary : bar.fg }
+            BarViz { id: vz; anchors.centerIn: parent; active: bar.on; style: Vibe.barStyle; size: Vibe.barSize
+                thick: Math.round(bar.barH * (style === "liquid" ? 0.64 : 0.5)); color: bar.goo || style !== "bars" ? gp.primary : bar.fg }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (bar.player) bar.player.togglePlaying() }
         }
     }

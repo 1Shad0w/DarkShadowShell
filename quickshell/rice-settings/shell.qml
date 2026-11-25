@@ -413,7 +413,8 @@ FloatingWindow {
         { name: "Account", icon: "\uf007" },
         { name: "Presets", icon: "\uf0d0" },       // 39 (V5.04)
         { name: "Explore", icon: "\uf14e" },       // 40 (V5.07)
-        { name: "Care", icon: "\uf0f1" }           // 41 (V6.00)
+        { name: "Care", icon: "\uf0f1" },          // 41 (V6.00)
+        { name: "Vibe", icon: "\uf001" }           // 42 (V6.10)
     ]
 
 
@@ -422,7 +423,7 @@ FloatingWindow {
         { page: 0 },
         { sep: true },
         { group: "wall", name: "Wallpaper", icon: "\uf03e", sym: "wallpaper", pages: [18], caption: I18n.t("Wallpaper and the colors it gives") },
-        { group: "look", name: "Appearance", icon: "\udb80\udfd8", sym: "palette", pages: [39, 40, 34, 8, 21, 19, 24, 22, 9, 14], caption: I18n.t("Presets, Explore, themes, colors, fonts, shapes, components, cursors and the dock") },
+        { group: "look", name: "Appearance", icon: "\udb80\udfd8", sym: "palette", pages: [39, 40, 42, 34, 8, 21, 19, 24, 22, 9, 14], caption: I18n.t("Presets, Explore, Vibe, themes, colors, fonts, shapes, components, cursors and the dock") },
         { group: "motion", name: "Motion", icon: "\uf1e6", sym: "animation", pages: [20], caption: I18n.t("How windows and Settings move") },
         { group: "desk", name: "Desktop", icon: "\uf108", sym: "desktop_windows", pages: niri ? [29, 12, 25, 36, 4, 11] : [29, 33, 12, 25, 36, 4, 11], caption: I18n.t("Look & feel, widgets, windows, window rules, %1 and the lock screen", wmLabel) },
         { group: "bar", name: "Bar & launcher", icon: "\uf0c9", sym: "toolbar", pages: [2, 3, 6, 7], caption: I18n.t("The bar, the dynamic island and the launcher") },
@@ -1079,6 +1080,7 @@ FloatingWindow {
             PageSlot { nav: win; idx: 39; cur: win.page; page: Component { PresetsPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 40; cur: win.page; page: Component { ExplorePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 41; cur: win.page; page: Component { CarePage { anchors.fill: parent; ctl: win } } }
+            PageSlot { nav: win; idx: 42; cur: win.page; page: Component { VibePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 35; cur: win.page; page: Component { UpdatePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 36; cur: win.page; page: Component { WindowRulesPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 38; cur: win.page; page: Component { AccountPage { anchors.fill: parent; ctl: win } } }

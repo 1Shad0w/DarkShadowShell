@@ -1,5 +1,19 @@
 # Changelog
 
+## V6.10: Vibe. Your desktop moves with your music
+- **New: Vibe** (Settings > Appearance > Vibe), with a stage at the top that plays a song so you can see every switch at work. Everything in it rests while nothing plays, under windows and in Light mode (`rice-vibe`)
+- **The music's colors**: while a song plays, the bar, the island, the dock, the control center and the widgets take the colors of its cover, and so do the window borders (Hyprland; not when you picked your own). They flow in slowly; a few seconds after the music stops your theme comes back
+- **Visualizer on the bar, new styles**: **Liquid** (one soft shape that swells from the middle, with the low notes in the middle) and **Dots**, next to the classic Bars; small, medium or wide. Every bar style now moves across all its bars, not only the low ones
+- **Edge glow**: a soft light along the bottom of the screen that moves with the music, on the desktop under your windows. Glow or Liquid, as high as you like
+- **The island breathes**: its edge glows softly with the beat while music plays
+- **Moving wallpapers dance**: the aurora flares on the low notes, shooting stars fall on the beat, the orbit's ring pulses and the mesh breathes. Their own small cava (12 levels, 30 a second) runs only while music plays and a scene can be seen
+- **Lock screen ring**: a liquid ring around the cover on the lock screen (Glance and Classic), a liquid line over it in the Cards style
+- **Visualizer widget, new styles**: **Liquid** and **Orb** (the cover in your shape with a liquid ring around it)
+- **Weather on the desktop**: when it rains outside it rains on your desktop, and the same with snow, a storm with lightning, and fog. Slow and soft, under your windows. It uses the place in Language & region, and **Try** shows each one for 15 seconds
+- The new shapes are drawn by the graphics card, so a frame costs a few dozen points, not a canvas full of pixels
+- A moving wallpaper that runs starts again when the desktop does, so updates reach it
+- Polish translations for all of it
+
 ## V6.01: Fixes for Care, Update Center and notifications
 - **Clean up works without pacman-contrib**: the old package files are now worked out by the shell itself (of every package the installed version and the newest other one stay; packages that are gone leave nothing), so the size it shows is what really goes. It used to fall back to `pacman -Sc`, which stopped on the folders pacman leaves behind when a download breaks ("could not open file ... download-XXXX"): those folders are removed too now, never while pacman is busy
 - **Care looks again once the terminal is done**: after a clean-up or an update it waits for the terminal and then shows the new sizes and updates (it looked again at once, before your password was even typed, so nothing seemed to change)

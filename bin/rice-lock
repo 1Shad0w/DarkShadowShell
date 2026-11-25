@@ -479,7 +479,9 @@ SHOT = HOME + "/.cache/rice/lock-shot.png"
 FALLBACK = HOME + "/.cache/rice/lock-fallback"
 # the parts it shares with the desktop shell (copied from rice-desktop when they are newer)
 SHARED = ["Look", "Fonts", "DashFont", "MIcon", "T", "Blob", "ShapeImage", "WavyLine", "WavyArc",
-          "RoundImage", "NPal", "Trigger", "Shadow", "Tr"]
+          "RoundImage", "NPal", "Trigger", "Shadow", "Tr",
+          # V6.10 Vibe: the ring around the cover (LockBeat.qml)
+          "CavaFeed", "CavaUser", "LiquidWave", "LiquidRing"]
 
 
 def sync_shared():

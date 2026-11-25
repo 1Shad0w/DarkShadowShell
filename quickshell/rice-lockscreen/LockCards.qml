@@ -133,6 +133,13 @@ Item {
                 kind: "square"; source: pl.art; empty: Qt.rgba(1, 1, 1, 0.06); fallbackColor: lc.dim
                 opacity: 0.95
             }
+            // V6.10 Vibe: the music as a liquid line over the bottom of the cover
+            LockBeat {
+                kind: "strip"
+                x: art.x + 12; width: art.width - 24; height: 46
+                y: art.y + art.height - height - 10
+                on: !!pl && pl.playing; c1: lc.acc
+            }
             Text {
                 x: 22; y: 16; width: parent.width - 40
                 text: pl.title; color: lc.fg; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight

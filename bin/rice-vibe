@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""rice-vibe: the desktop goes with your music (Settings > Appearance > Vibe), V6.10.
+
+  rice-vibe state                 the settings as JSON (~/.config/rice/vibe.json, with the defaults filled in)
+  rice-vibe set KEY VALUE         cover | borders | edge | island | beat | lock | weather   on|off
+                                  bar bars|liquid|dots   bar_size small|medium|wide
+                                  edge_style glow|liquid   edge_height 0.06..0.4
+  rice-vibe try rain|snow|storm|fog   that weather on the desktop for 15 seconds, to see it
+  rice-vibe border HEX HEX        the window borders in the cover's colors (Hyprland; the desktop shell runs this
+                                  once per song). Not when you picked your own border colors, not on niri
+  rice-vibe border reset [--if-set]   the wallpaper's border colors again (border-sync); --if-set: only when the
+                                  cover's colors were put on them (the desktop shell checks this when it starts)
+
+The desktop shell, the moving wallpapers and the lock screen read vibe.json themselves when it changes.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+HOME = os.path.expanduser("~")
+CFG = HOME + "/.config/rice/vibe.json"
+TRY = HOME + "/.cache/rice/vibe-try"
+FLAG = HOME + "/.cache/rice/vibe-border"
+DEF = {"cover": True, "borders": True, "bar": "liquid", "bar_size": "medium", "edge": False, "edge_style": "glow",
+       "edge_height": 0.16, "island": True, "beat": True, "lock": True, "weather": False}
+BOOL = {"cover", "borders", "edge", "island", "beat", "lock", "weather"}
+CHOICE = {"bar": ["bars", "liquid", "dots"], "bar_size": ["small", "medium", "wide"], "edge_style": ["glow", "liquid"]}
+
+
+def load():
+    try:
+        j = json.load(open(CFG))
+        return j if isinstance(j, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def state():
+    j = dict(DEF)
+    j.update({k: v for k, v in load().items() if k in DEF})
+    return j
+
+
+def save(j):
+    os.makedirs(os.path.dirname(CFG), exist_ok=True)
+    tmp = CFG + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(j, f, indent=1)
+    os.replace(tmp, CFG)
+
+
+def set_key(k, v):
+    j = load()
+    if k in BOOL:
+        if v not in ("on", "off", "true", "false"):
+            sys.exit("rice-vibe set %s on|off" % k)
+        j[k] = v in ("on", "true")
+    elif k in CHOICE:
+        if v not in CHOICE[k]:
+            sys.exit("rice-vibe set %s %s" % (k, "|".join(CHOICE[k])))
+        j[k] = v
+    elif k == "edge_height":
+        try:
+            j[k] = round(max(0.06, min(0.4, float(v))), 3)
+        except ValueError:
+            sys.exit("rice-vibe set edge_height 0.06..0.4")
+    else:
+        sys.exit(__doc__)
+    save(j)
+
+
+def wm():
+    try:
+        return subprocess.run([HOME + "/.local/bin/rice-wm"], capture_output=True, text=True, timeout=3).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def border(a, b):
+    if a == "reset":
+        if b == "--if-set" and not os.path.exists(FLAG):
+            return
+        try:
+            os.remove(FLAG)
+        except OSError:
+            pass
+        sync = HOME + "/.local/bin/border-sync"
+        if os.path.exists(sync):
+            subprocess.run([sync], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        return
+    if not re.fullmatch(r"#?[0-9a-fA-F]{6}", a or "") or not re.fullmatch(r"#?[0-9a-fA-F]{6}", b or ""):
+        sys.exit("rice-vibe border HEX HEX|reset")
+    if os.path.exists(HOME + "/.config/rice/border-custom") or not state()["borders"] or wm() == "niri":
+        return
+    a, b = a.lstrip("#").lower(), b.lstrip("#").lower()
+    mini = ""
+    try:
+        mini = open(HOME + "/.config/rice/minimal.json").read()
+    except OSError:
+        pass
+    if re.search(r'"on":\s*true', mini):
+        al = "b0" if re.search(r'"frame":\s*"thin"', mini) else "ff"
+        lua = 'hl.config({ general = { col = { active_border = "rgba(%s%s)" } } })' % (a, al)
+    else:
+        lua = 'hl.config({ general = { col = { active_border = { colors = {"rgba(%sff)", "rgba(%sff)"}, angle = 45 } } } })' % (a, b)
+    subprocess.run(["hyprctl", "eval", lua], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+    os.makedirs(os.path.dirname(FLAG), exist_ok=True)
+    open(FLAG, "w").close()
+
+
+def main(a):
+    cmd = a[1] if len(a) > 1 else "state"
+    if cmd == "state":
+        print(json.dumps(state()))
+    elif cmd == "set" and len(a) == 4:
+        set_key(a[2], a[3])
+    elif cmd == "try" and len(a) == 3 and a[2] in ("rain", "snow", "storm", "fog"):
+        os.makedirs(os.path.dirname(TRY), exist_ok=True)
+        with open(TRY, "w") as f:
+            f.write("%d %s\n" % (time.time(), a[2]))
+    elif cmd == "border" and len(a) in (3, 4):
+        border(a[2], a[3] if len(a) == 4 else "")
+    else:
+        print(__doc__)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
