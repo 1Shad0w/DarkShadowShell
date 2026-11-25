@@ -8,7 +8,9 @@ Rectangle {
     id: root
     width: 1920
     height: 1080
-    readonly property real s: Math.max(0.6, Math.min(width / 1920, height / 1080) * 1.0)
+    // the shell's lock screen caps its scale at 1.12 so a 1440p/4K screen does not blow the UI up (height / 1080 keeps
+    // this login screen the same size on 1080p as before, only the too-large high-resolution sizes come down)
+    readonly property real s: Math.max(0.62, Math.min(1.12, height / 1080))
 
     function cfg(k, d) { const v = config[k]; return v !== undefined && v !== null && String(v).length > 0 ? String(v) : d }
     readonly property color primary: cfg("primary", "#b7c8e8")
@@ -193,29 +195,30 @@ Rectangle {
             width: classic.visible ? classic.width : stacked.visible ? stacked.width : center.visible ? center.width : pill.visible ? pill.width : shapes.width
             height: classic.visible ? classic.height : stacked.visible ? stacked.height : center.visible ? center.height : pill.visible ? pill.height : shapes.height
 
-            // classic: as before
+            // classic: the date small above, the time big (as the shell's lock screen)
             Column {
                 id: classic
                 visible: root.clockStyle === "classic"
-                spacing: 4 * root.s
+                spacing: 2 * root.s
+                Text { x: 6 * root.s; text: root.dateText; color: root.inkVariant; font.family: root.fontName
+                       font.pixelSize: Math.round(22 * root.s); font.weight: Font.Medium; font.letterSpacing: 1
+                       opacity: root.awake ? 0 : 1; Behavior on opacity { NumberAnimation { duration: 300 } } }
                 Row {
-                    Text { text: root.hours; color: root.ink; font.family: root.fontName; font.pixelSize: 210 * root.s; font.weight: Font.DemiBold }
-                    Text { text: ":"; color: root.primary; font.family: root.fontName; font.pixelSize: 210 * root.s; font.weight: Font.Light
+                    Text { text: root.hours; color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(160 * root.s); font.weight: Font.DemiBold }
+                    Text { text: ":"; color: root.primary; font.family: root.fontName; font.pixelSize: Math.round(160 * root.s); font.weight: Font.Light
                            opacity: root.now.getSeconds() % 2 === 0 ? 1 : 0.45
                            Behavior on opacity { NumberAnimation { duration: 300 } } }
-                    Text { text: root.minutes; color: root.primary; font.family: root.fontName; font.pixelSize: 210 * root.s; font.weight: Font.DemiBold }
+                    Text { text: root.minutes; color: root.primary; font.family: root.fontName; font.pixelSize: Math.round(160 * root.s); font.weight: Font.DemiBold }
                 }
-                Text { x: 10 * root.s; text: root.dateText; color: root.inkVariant; font.family: root.fontName; font.pixelSize: 40 * root.s
-                       opacity: root.awake ? 0 : 1; Behavior on opacity { NumberAnimation { duration: 300 } } }
             }
             // stacked: hours over minutes, heavy, the minutes in your color
             Column {
                 id: stacked
                 visible: root.clockStyle === "stacked"
-                spacing: -70 * root.s
-                Text { text: root.hours; color: root.ink; font.family: root.fontName; font.pixelSize: 260 * root.s; font.weight: Font.Black }
-                Text { text: root.minutes; color: root.primary; font.family: root.fontName; font.pixelSize: 260 * root.s; font.weight: Font.Black }
-                Text { topPadding: 70 * root.s; x: 8 * root.s; text: root.dateText; color: root.inkVariant; font.family: root.fontName; font.pixelSize: 34 * root.s
+                spacing: -44 * root.s
+                Text { text: root.hours; color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(168 * root.s); font.weight: Font.Black }
+                Text { text: root.minutes; color: root.primary; font.family: root.fontName; font.pixelSize: Math.round(168 * root.s); font.weight: Font.Black }
+                Text { topPadding: 52 * root.s; x: 6 * root.s; text: root.dateText; color: root.inkVariant; font.family: root.fontName; font.pixelSize: Math.round(22 * root.s); font.weight: Font.Medium
                        opacity: root.awake ? 0 : 1; Behavior on opacity { NumberAnimation { duration: 300 } } }
             }
             // center: light, wide, in the middle, the date in small letters above it
@@ -224,39 +227,39 @@ Rectangle {
                 visible: root.clockStyle === "center"
                 spacing: 0
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.dateText.toUpperCase(); color: root.inkVariant
-                       font.family: root.fontName; font.pixelSize: 26 * root.s; font.letterSpacing: 6 * root.s; font.weight: Font.Medium
+                       font.family: root.fontName; font.pixelSize: Math.round(18 * root.s); font.letterSpacing: 5 * root.s; font.weight: Font.Medium
                        opacity: root.awake ? 0 : 1; Behavior on opacity { NumberAnimation { duration: 300 } } }
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.hours + ":" + root.minutes; color: root.ink
-                       font.family: root.fontName; font.pixelSize: 240 * root.s; font.weight: Font.Light; font.letterSpacing: -4 * root.s }
+                       font.family: root.fontName; font.pixelSize: Math.round(150 * root.s); font.weight: Font.Light; font.letterSpacing: -3 * root.s }
             }
             // pill: the time in a big tonal pill, the date beside it
             Rectangle {
                 id: pill
                 visible: root.clockStyle === "pill"
-                width: pillRow.width + 72 * root.s; height: 150 * root.s; radius: height / 2
+                width: pillRow.width + 60 * root.s; height: 120 * root.s; radius: height / 2
                 color: root.alpha(root.primaryContainer, 0.9)
                 Row {
                     id: pillRow
-                    anchors.centerIn: parent; spacing: 28 * root.s
+                    anchors.centerIn: parent; spacing: 24 * root.s
                     Text { anchors.verticalCenter: parent.verticalCenter; text: root.hours + ":" + root.minutes; color: root.inkPrimaryC
-                           font.family: root.fontName; font.pixelSize: 108 * root.s; font.weight: Font.DemiBold }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3 * root.s; height: 70 * root.s; radius: 2; color: root.alpha(root.inkPrimaryC, 0.3)
+                           font.family: root.fontName; font.pixelSize: Math.round(92 * root.s); font.weight: Font.DemiBold }
+                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3 * root.s; height: 58 * root.s; radius: 2; color: root.alpha(root.inkPrimaryC, 0.3)
                                 visible: !root.awake }
                     Text { anchors.verticalCenter: parent.verticalCenter; visible: !root.awake; text: root.dateText; color: root.inkPrimaryC
-                           font.family: root.fontName; font.pixelSize: 30 * root.s; width: Math.min(implicitWidth, 480 * root.s); wrapMode: Text.WordWrap }
+                           font.family: root.fontName; font.pixelSize: Math.round(24 * root.s); width: Math.min(implicitWidth, 420 * root.s); wrapMode: Text.WordWrap }
                 }
             }
             // shapes: the hours in a soft square, the minutes in a circle with the seconds running round it
             Row {
                 id: shapes
                 visible: root.clockStyle === "shapes"
-                spacing: 24 * root.s
+                spacing: 20 * root.s
                 Rectangle {
-                    width: 260 * root.s; height: width; radius: 72 * root.s; color: root.alpha(root.primaryContainer, 0.92)
-                    Text { anchors.centerIn: parent; text: root.hours; color: root.inkPrimaryC; font.family: root.fontName; font.pixelSize: 150 * root.s; font.weight: Font.Bold }
+                    width: 210 * root.s; height: width; radius: 60 * root.s; color: root.alpha(root.primaryContainer, 0.92)
+                    Text { anchors.centerIn: parent; text: root.hours; color: root.inkPrimaryC; font.family: root.fontName; font.pixelSize: Math.round(120 * root.s); font.weight: Font.Bold }
                 }
                 Item {
-                    width: 260 * root.s; height: width
+                    width: 210 * root.s; height: width
                     Rectangle { anchors.fill: parent; radius: width / 2; color: root.alpha(root.primary, 0.92) }
                     Canvas {
                         id: secRing
@@ -265,54 +268,63 @@ Rectangle {
                         onSecChanged: requestPaint()
                         onPaint: {
                             const c = getContext("2d"); c.reset()
-                            const r = width / 2 - 10 * root.s
-                            c.lineWidth = 7 * root.s; c.lineCap = "round"
+                            const r = width / 2 - 8 * root.s
+                            c.lineWidth = 6 * root.s; c.lineCap = "round"
                             c.strokeStyle = root.alpha(root.inkPrimary, 0.25); c.beginPath(); c.arc(width / 2, height / 2, r, 0, Math.PI * 2); c.stroke()
                             c.strokeStyle = root.inkPrimary; c.beginPath(); c.arc(width / 2, height / 2, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.01, sec / 60)); c.stroke()
                         }
                     }
-                    Text { anchors.centerIn: parent; text: root.minutes; color: root.inkPrimary; font.family: root.fontName; font.pixelSize: 150 * root.s; font.weight: Font.Bold }
+                    Text { anchors.centerIn: parent; text: root.minutes; color: root.inkPrimary; font.family: root.fontName; font.pixelSize: Math.round(120 * root.s); font.weight: Font.Bold }
                 }
             }
         }
     }
     // the resting hint
     Row {
-        anchors.right: parent.right; anchors.rightMargin: 96 * root.s
-        anchors.bottom: parent.bottom; anchors.bottomMargin: 110 * root.s
-        spacing: 12 * root.s
+        anchors.right: parent.right; anchors.rightMargin: 64 * root.s
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 88 * root.s
+        spacing: 10 * root.s
         opacity: root.awake ? 0 : 0.85
         Behavior on opacity { NumberAnimation { duration: 300 } }
         Rectangle {
-            width: 44 * root.s; height: 44 * root.s; radius: width / 2
+            width: 38 * root.s; height: 38 * root.s; radius: width / 2
             color: root.alpha(root.primary, 0.9)
             anchors.verticalCenter: parent.verticalCenter
             Glyph { anchors.centerIn: parent; kind: "arrow"; color: root.inkPrimary }
             SequentialAnimation on anchors.verticalCenterOffset {
                 running: !root.awake; loops: Animation.Infinite
-                NumberAnimation { to: -5; duration: 900; easing.type: Easing.InOutSine }
+                NumberAnimation { to: -4; duration: 900; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 900; easing.type: Easing.InOutSine }
             }
         }
-        Text { text: root.tr("Press any key to sign in"); color: root.ink; font.family: root.fontName; font.pixelSize: 20 * root.s; anchors.verticalCenter: parent.verticalCenter }
+        Text { text: root.tr("Press any key to sign in"); color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(16 * root.s); font.weight: Font.Medium
+               anchors.verticalCenter: parent.verticalCenter }
     }
 
     // ---------------- the card ----------------
+    // a frosted glass card, like the shell's desktop widgets: translucent, a thin light edge, a soft shine on top
     Rectangle {
         id: card
-        width: 440 * root.s
-        height: cardCol.height + 64 * root.s
+        width: 424 * root.s
+        height: cardCol.height + 56 * root.s
         anchors.horizontalCenter: parent.horizontalCenter
         y: (root.height - height) / 2 + (root.awake ? 30 * root.s : 120 * root.s)
-        radius: 40 * root.s
-        color: root.alpha(root.surfaceContainer, 0.88)
+        radius: 30 * root.s
+        color: root.alpha(root.surfaceContainer, 0.62)
         border.width: 1
-        border.color: root.alpha(root.outline, 0.25)
+        border.color: root.alpha(root.outline, 0.16)
         opacity: root.awake ? 1 : 0
         visible: opacity > 0
         Behavior on y { NumberAnimation { duration: 650; easing.type: Easing.OutExpo } }
         Behavior on opacity { NumberAnimation { duration: 400 } }
         transform: Translate { id: shakeT; x: 0 }
+        Rectangle {
+            anchors.fill: parent; radius: parent.radius; opacity: 0.6
+            gradient: Gradient {
+                GradientStop { position: 0; color: root.alpha(root.ink, 0.07) }
+                GradientStop { position: 0.5; color: "transparent" }
+            }
+        }
         SequentialAnimation {
             id: shake
             NumberAnimation { target: shakeT; property: "x"; to: -14; duration: 50 }
@@ -324,14 +336,14 @@ Rectangle {
 
         Column {
             id: cardCol
-            width: parent.width - 64 * root.s
+            width: parent.width - 56 * root.s
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 32 * root.s
-            spacing: 18 * root.s
+            y: 28 * root.s
+            spacing: 16 * root.s
 
             // the avatar, in a slowly turning Material "cookie" shape
             Item {
-                width: 150 * root.s; height: 150 * root.s
+                width: 104 * root.s; height: 104 * root.s
                 anchors.horizontalCenter: parent.horizontalCenter
                 Canvas {
                     id: cookie
@@ -356,7 +368,7 @@ Rectangle {
                 Canvas {
                     id: face
                     anchors.centerIn: parent
-                    width: 116 * root.s; height: width
+                    width: 80 * root.s; height: width
                     // the shell's copy of your picture first, then the one SDDM knows
                     readonly property var tries: [root.cfg("avatarDir", "") ? root.cfg("avatarDir", "") + "/" + root.userName + ".png" : "",
                                                   users.currentItem ? users.currentItem.uicon : ""].filter(function(p) { return p.length > 0 })
@@ -390,7 +402,7 @@ Rectangle {
                     text: root.userShown.length ? root.userShown.charAt(0).toUpperCase() : "?"
                     color: root.inkPrimaryC
                     font.family: root.fontName
-                    font.pixelSize: 56 * root.s
+                    font.pixelSize: Math.round(38 * root.s)
                     font.weight: Font.DemiBold
                 }
             }
@@ -410,7 +422,7 @@ Rectangle {
                     text: root.userShown
                     color: root.ink
                     font.family: root.fontName
-                    font.pixelSize: 30 * root.s
+                    font.pixelSize: Math.round(22 * root.s)
                     font.weight: Font.Medium
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -426,23 +438,23 @@ Rectangle {
             // the password
             Rectangle {
                 width: parent.width
-                height: 60 * root.s
+                height: 56 * root.s
                 radius: height / 2
-                color: root.surfaceHigh
+                color: root.alpha(root.surfaceHigh, 0.92)
                 border.width: pw.activeFocus ? 2 : 1
-                border.color: root.message.length > 0 ? root.errorColor : (pw.activeFocus ? root.primary : root.alpha(root.outline, 0.5))
+                border.color: root.message.length > 0 ? root.errorColor : (pw.activeFocus ? root.primary : root.alpha(root.outline, 0.35))
                 Behavior on border.color { ColorAnimation { duration: 160 } }
                 TextInput {
                     id: pw
-                    anchors.left: parent.left; anchors.leftMargin: 26 * root.s
-                    anchors.right: go.left; anchors.rightMargin: 12 * root.s
+                    anchors.left: parent.left; anchors.leftMargin: 22 * root.s
+                    anchors.right: go.left; anchors.rightMargin: 10 * root.s
                     anchors.verticalCenter: parent.verticalCenter
                     echoMode: TextInput.Password
                     passwordCharacter: "●"
                     color: root.ink
                     selectionColor: root.primary
                     font.family: root.fontName
-                    font.pixelSize: 20 * root.s
+                    font.pixelSize: Math.round(16 * root.s)
                     font.letterSpacing: 3
                     clip: true
                     enabled: !root.busy
@@ -458,14 +470,14 @@ Rectangle {
                     color: root.inkVariant
                     opacity: 0.8
                     font.family: root.fontName
-                    font.pixelSize: 18 * root.s
+                    font.pixelSize: Math.round(15 * root.s)
                 }
                 // sign in: the arrow turns into a spinner while it checks
                 Rectangle {
                     id: go
-                    width: 46 * root.s; height: width
-                    radius: goM.pressed ? 14 * root.s : width / 2
-                    anchors.right: parent.right; anchors.rightMargin: 7 * root.s
+                    width: 40 * root.s; height: width
+                    radius: goM.pressed ? 13 * root.s : width / 2
+                    anchors.right: parent.right; anchors.rightMargin: 6 * root.s
                     anchors.verticalCenter: parent.verticalCenter
                     color: pw.text.length > 0 || root.busy ? root.primary : root.surfaceHighest
                     Behavior on color { ColorAnimation { duration: 180 } }
@@ -474,7 +486,7 @@ Rectangle {
                     Canvas {
                         id: spin
                         anchors.centerIn: parent
-                        width: 24 * root.s; height: width
+                        width: 20 * root.s; height: width
                         visible: root.busy
                         RotationAnimation on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: root.busy }
                         onPaint: { const c = getContext("2d"); c.reset(); c.strokeStyle = root.inkPrimary; c.lineWidth = 3; c.lineCap = "round"
@@ -487,7 +499,7 @@ Rectangle {
             // what went wrong, or caps lock
             Item {
                 width: parent.width
-                height: 22 * root.s
+                height: 20 * root.s
                 visible: msgText.text.length > 0
                 Text {
                     id: msgText
@@ -495,7 +507,7 @@ Rectangle {
                     text: root.message.length > 0 ? root.message : (keyboard.capsLock ? root.tr("Caps Lock is on") : (root.busy ? root.tr("Signing in...") : ""))
                     color: root.message.length > 0 ? root.errorColor : root.inkVariant
                     font.family: root.fontName
-                    font.pixelSize: 15 * root.s
+                    font.pixelSize: Math.round(13 * root.s)
                 }
             }
         }
@@ -505,8 +517,8 @@ Rectangle {
     Item {
         id: bottom
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-        anchors.margins: 40 * root.s
-        height: 56 * root.s
+        anchors.margins: 32 * root.s
+        height: 48 * root.s
         opacity: root.awake ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 400 } }
@@ -519,18 +531,18 @@ Rectangle {
             // the session: click to go to the next one
             Rectangle {
                 visible: sessions.count > 0
-                height: 48 * root.s
-                width: sRow.width + 36 * root.s
-                radius: sM.pressed ? 14 * root.s : height / 2
+                height: 40 * root.s
+                width: sRow.width + 30 * root.s
+                radius: sM.pressed ? 12 * root.s : height / 2
                 color: sM.containsMouse ? root.surfaceHighest : root.alpha(root.surfaceHigh, 0.9)
                 Behavior on radius { NumberAnimation { duration: 160 } }
                 Row {
                     id: sRow
                     anchors.centerIn: parent
-                    spacing: 10 * root.s
-                    Glyph { kind: "desktop"; color: root.primary; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: root.sessionName; color: root.ink; font.family: root.fontName; font.pixelSize: 16 * root.s; anchors.verticalCenter: parent.verticalCenter }
-                    Glyph { kind: "right"; visible: sessions.count > 1; color: root.inkVariant; width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter }
+                    spacing: 8 * root.s
+                    Glyph { kind: "desktop"; width: 17; height: 17; color: root.primary; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: root.sessionName; color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(13 * root.s); anchors.verticalCenter: parent.verticalCenter }
+                    Glyph { kind: "right"; visible: sessions.count > 1; color: root.inkVariant; width: 14; height: 14; anchors.verticalCenter: parent.verticalCenter }
                 }
                 MouseArea { id: sM; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: { sessions.currentIndex = (sessions.currentIndex + 1) % Math.max(1, sessions.count); pw.forceActiveFocus() } }
@@ -538,18 +550,18 @@ Rectangle {
             // the keyboard layout
             Rectangle {
                 visible: keyboard.layouts && keyboard.layouts.length > 1
-                height: 48 * root.s
-                width: kRow.width + 36 * root.s
-                radius: kM.pressed ? 14 * root.s : height / 2
+                height: 40 * root.s
+                width: kRow.width + 30 * root.s
+                radius: kM.pressed ? 12 * root.s : height / 2
                 color: kM.containsMouse ? root.surfaceHighest : root.alpha(root.surfaceHigh, 0.9)
                 Row {
                     id: kRow
                     anchors.centerIn: parent
-                    spacing: 10 * root.s
-                    Glyph { kind: "keyboard"; color: root.primary; anchors.verticalCenter: parent.verticalCenter }
+                    spacing: 8 * root.s
+                    Glyph { kind: "keyboard"; width: 17; height: 17; color: root.primary; anchors.verticalCenter: parent.verticalCenter }
                     Text {
                         text: keyboard.layouts && keyboard.layouts.length > keyboard.currentLayout ? String(keyboard.layouts[keyboard.currentLayout].shortName).toUpperCase() : ""
-                        color: root.ink; font.family: root.fontName; font.pixelSize: 16 * root.s; anchors.verticalCenter: parent.verticalCenter
+                        color: root.ink; font.family: root.fontName; font.pixelSize: Math.round(13 * root.s); anchors.verticalCenter: parent.verticalCenter
                     }
                 }
                 MouseArea { id: kM; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -562,11 +574,11 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 10 * root.s
             property string fontName: root.fontName
-            IconButton { kind: "sleep"; tip: root.tr("Sleep"); visible: sddm.canSuspend; width: 52 * root.s; height: width
+            IconButton { kind: "sleep"; tip: root.tr("Sleep"); visible: sddm.canSuspend; width: 46 * root.s; height: width
                          tone: root.alpha(root.surfaceHigh, 0.9); hoverTone: root.surfaceHighest; ink: root.ink; onClicked: sddm.suspend() }
-            IconButton { kind: "restart"; tip: root.tr("Restart"); visible: sddm.canReboot; width: 52 * root.s; height: width
+            IconButton { kind: "restart"; tip: root.tr("Restart"); visible: sddm.canReboot; width: 46 * root.s; height: width
                          tone: root.alpha(root.surfaceHigh, 0.9); hoverTone: root.surfaceHighest; ink: root.ink; onClicked: sddm.reboot() }
-            IconButton { kind: "power"; tip: root.tr("Shut down"); visible: sddm.canPowerOff; width: 52 * root.s; height: width
+            IconButton { kind: "power"; tip: root.tr("Shut down"); visible: sddm.canPowerOff; width: 46 * root.s; height: width
                          tone: root.secondaryContainer; hoverTone: Qt.lighter(root.secondaryContainer, 1.25); ink: root.ink; onClicked: sddm.powerOff() }
         }
     }
