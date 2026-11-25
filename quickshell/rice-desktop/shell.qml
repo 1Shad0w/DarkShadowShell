@@ -777,6 +777,11 @@ ShellRoot {
     LazyPanel { name: "snip-open"; Snip { } }
     // what the screenshot tool read (text, a translation, a color)
     LazyPanel { name: "snip-result"; SnipResult { } }
+    // V6.55: after a screenshot: the preview card, the editor, and pictures pinned on the screen
+    LazyPanel { name: "shot-card"; ShotCard { } }
+    LazyPanel { name: "shot-edit"; ShotEditor { } }
+    LazyPanel { name: "shot-pin"; keep: 600000; ShotPin { } }
+    LazyPanel { name: "theme-wave"; keep: 20000; ThemeWave { } }
     // SUPER + /: every key on one sheet
     LazyPanel { name: "keys-open"; Cheatsheet { } }
     LazyPanel { name: "volume-open"; VolumeMenu { } }

@@ -17,10 +17,14 @@ it also ran the hot corner panel, which was removed in V4.52; the name stays so 
                                             960 wide); the notification after a recording offers it too
   rice-hotcorner shot full|region|window     region and window: the screen is frozen and the shell's screenshot
                                             tool opens (Snip.qml); without the shell: slurp
-  rice-hotcorner shot-done FILE save|copy|edit|ocr|translate|search|color
+  rice-hotcorner shot-done FILE save|copy|edit|ocr|translate|search|color|pin|qr
                                             what the shell's tool hands back: keeps, copies or edits the crop, reads
                                             the text in it (tesseract), translates that text, looks the picture up
-                                            on the web, or copies the color of the pixel
+                                            on the web, or copies the color of the pixel. V6.55: pin keeps it on top
+                                            of everything (ShotPin.qml), qr reads a QR code in it (zbarimg), and a
+                                            saved one shows a preview card in the corner (ShotCard.qml); edit opens
+                                            the shell's own editor (ShotEditor.qml)
+  rice-hotcorner shot-card FILE | shot-edit FILE | shot-pin FILE   the same, for a picture already saved
   rice-hotcorner show PATH | folder recordings|screenshots
 """
 import fcntl
@@ -737,9 +741,48 @@ def png_pixel(src):
     return raw[1], raw[2], raw[3]      # the first pixel of the first row has no neighbors: every filter leaves it as it is
 
 
+def tell_shell(name, path):
+    """one line for a panel of the desktop shell (LazyPanel): the time and the picture"""
+    os.makedirs(CACHE, exist_ok=True)
+    with open(CACHE + "/" + name, "w") as fh:
+        fh.write("%.3f %s\n" % (time.time(), path))
+
+
+def shell_up():
+    return subprocess.run(["pgrep", "-f", "quickshell/rice-desktop"], stdout=subprocess.DEVNULL).returncode == 0
+
+
+PIN_DIR = CACHE + "/pins"
+
+
 def shot_done(src, what):
     """the crop from the shell's tool: save (and copy, Settings > Dashboard), copy only, or open it in an editor"""
     if not os.path.isfile(src):
+        return
+    if what == "qr":
+        try:
+            if not shutil.which("zbarimg"):
+                notify("QR codes need zbar", "Install the zbar package (zbarimg) and try again", "dialog-warning")
+                return
+            r = subprocess.run(["zbarimg", "-q", "--raw", src], capture_output=True, text=True, timeout=20)
+            text = r.stdout.strip()
+            if text:
+                copy_text(text)
+                show_result("text", text, "QR")
+                notify("QR code copied", text[:200], "edit-copy")
+            else:
+                notify("No QR code found", "Put the whole code inside the box", "dialog-information")
+        finally:
+            try:
+                os.remove(src)
+            except OSError:
+                pass
+        return
+    if what == "pin":
+        os.makedirs(PIN_DIR, exist_ok=True)
+        f = time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png")
+        shutil.move(src, f)
+        tell_shell("shot-pin", f)
         return
     if what in ("ocr", "translate", "search", "color"):
         try:
@@ -787,6 +830,10 @@ def shot_done(src, what):
     f = time.strftime(SHOT_DIR + "/Screenshot_%Y-%m-%d_%H-%M-%S.png")
     shutil.move(src, f)
     if what == "edit":
+        # V6.55: the shell's own editor; satty or swappy only when the shell is not running
+        if shell_up():
+            tell_shell("shot-edit", f)
+            return
         for ed, args in (("satty", ["--filename", f, "--output-filename", f]), ("swappy", ["-f", f, "-o", f])):
             if shutil.which(ed):
                 bg([ed] + args)
@@ -795,6 +842,8 @@ def shot_done(src, what):
         with open(f, "rb") as fh:
             subprocess.run(["wl-copy", "--type", "image/png"], stdin=fh, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     notify("Screenshot saved", os.path.basename(f) + (" (copied)" if c["clipboard"] else ""), f)
+    # V6.55: a preview card in the corner: edit, copy, pin, the folder, delete
+    tell_shell("shot-card", f)
 
 
 def shot_take(mode):
@@ -951,6 +1000,13 @@ def main(argv):
         shot(arg or "full")
     elif cmd == "shot-done":
         shot_done(arg, argv[3] if len(argv) > 3 else "save")
+    elif cmd in ("shot-card", "shot-edit", "shot-pin") and arg and os.path.isfile(arg) and arg.lower().endswith(".png"):
+        if cmd == "shot-pin":
+            os.makedirs(PIN_DIR, exist_ok=True)
+            f = time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png")
+            shutil.copyfile(arg, f)
+            arg = f
+        tell_shell(cmd, os.path.abspath(arg))
     elif cmd == "scheme":
         if arg:
             bg([HOME + "/.local/bin/rice-colors", "mode", arg])

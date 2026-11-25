@@ -147,39 +147,39 @@ Item {
         // ---------- at rest ----------
         SectionTitle { text: I18n.t("At rest"); sub: I18n.t("The island is your clock. Click it for Today, right-click for System, scroll on it for the volume.") }
         ToggleRow { label: I18n.t("Weather"); desc: I18n.t("The weather icon and temperature beside the time")
-            checked: page.v("island_weather", true) !== false; onToggled: function(x) { page.setv("island_weather", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_weather", true) !== false; onToggled: function(x) { page.setv("island_weather", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Date"); desc: I18n.t("The day and date, with the time in a pill (like the bar date)")
-            checked: page.v("island_date", true) !== false; onToggled: function(x) { page.setv("island_date", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_date", true) !== false; onToggled: function(x) { page.setv("island_date", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Seconds"); desc: I18n.t("Show seconds in the time")
-            checked: page.v("seconds", false) === true; onToggled: function(x) { page.setv("seconds", x ? "on" : "off") } }
+            dflt: false; checked: page.v("seconds", false) === true; onToggled: function(x) { page.setv("seconds", x ? "on" : "off") } }
 
         // ---------- moments ----------
         SectionTitle { text: I18n.t("It grows into"); sub: I18n.t("For a moment, then it is the clock again.") }
         ToggleRow { label: I18n.t("Dynamic island"); desc: I18n.t("Off: only the clock. It grows into nothing; volume and notifications pop up as usual, a click still opens Today")
-            checked: page.v("island_dynamic", true) !== false; onToggled: function(x) { page.setv("island_dynamic", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_dynamic", true) !== false; onToggled: function(x) { page.setv("island_dynamic", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Music on hover"); desc: I18n.t("Point at the island while something plays to open the player")
             enabled: page.v("island_dynamic", true) !== false; opacity: enabled ? 1 : 0.45
-            checked: page.v("island_hover", true) !== false; onToggled: function(x) { page.setv("island_hover", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_hover", true) !== false; onToggled: function(x) { page.setv("island_hover", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Volume and microphone"); desc: I18n.t("A wavy level you can drag, instead of the pop-up at the bottom")
             enabled: page.v("island_dynamic", true) !== false; opacity: enabled ? 1 : 0.45
-            checked: page.v("island_volume", true) !== false; onToggled: function(x) { page.setv("island_volume", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_volume", true) !== false; onToggled: function(x) { page.setv("island_volume", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Workspaces"); desc: I18n.t("Which workspace you switched to, in your workspace style and its own color")
             enabled: page.v("island_dynamic", true) !== false; opacity: enabled ? 1 : 0.45
-            checked: page.v("island_ws", true) !== false; onToggled: function(x) { page.setv("island_ws", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_ws", true) !== false; onToggled: function(x) { page.setv("island_ws", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Notifications"); desc: I18n.t("They grow out of the island instead of popping up (urgent ones still pop up). Needs Shown by: DarkShadow")
             enabled: page.v("island_dynamic", true) !== false; opacity: enabled ? 1 : 0.45
-            checked: page.v("island_notifs", true) !== false; onToggled: function(x) { page.setv("island_notifs", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_notifs", true) !== false; onToggled: function(x) { page.setv("island_notifs", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Charger"); desc: I18n.t("Plugging the charger in or out shows the battery as a wave (laptops)")
             enabled: page.v("island_dynamic", true) !== false; opacity: enabled ? 1 : 0.45
-            checked: page.v("island_charge", true) !== false; onToggled: function(x) { page.setv("island_charge", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island_charge", true) !== false; onToggled: function(x) { page.setv("island_charge", x ? "on" : "off") } }
 
         // ---------- the card ----------
         SectionTitle { text: I18n.t("The card"); sub: I18n.t("What a click opens. Esc, a click on the desktop or another window closes it.") }
         SegRow { label: I18n.t("Opens on"); desc: I18n.t("The tab a click on the island opens")
             options: [ { label: I18n.t("Today"), value: "today" }, { label: I18n.t("System"), value: "system" }, { label: I18n.t("About"), value: "about" } ]
-            current: page.v("island_tab", "today"); onChosen: function(x) { page.setv("island_tab", x) } }
+            dflt: "today"; current: page.v("island_tab", "today"); onChosen: function(x) { page.setv("island_tab", x) } }
         SliderRow { label: I18n.t("Closes after"); desc: I18n.t("Seconds after the pointer leaves it")
-            from: 2; to: 10; step: 1; unit: " s"; value: page.v("island_close", 4)
+            from: 2; to: 10; step: 1; unit: " s"; dflt: 4; value: page.v("island_close", 4)
             onCommitted: function(x) { page.setv("island_close", Math.round(x)) } }
     }
 }

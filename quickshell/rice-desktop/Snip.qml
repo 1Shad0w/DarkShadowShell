@@ -11,6 +11,8 @@ import QtQuick
 // editor (satty or swappy, when you have one), Esc cancels. 1 / 2 / 3 (or R / W / S) switch the mode.
 // More than a picture: T reads the text in the box (tesseract) and copies it, L translates that text to your language,
 // G looks the picture up on the web, and the Color mode (4 or C) copies the color of the pixel you click.
+// V6.55: Q reads a QR code (zbarimg), P pins the picture on top of everything (ShotPin.qml), E opens the shell's own
+// editor (ShotEditor.qml), and a saved one shows a preview card in the corner (ShotCard.qml).
 // The same tool is the record menu (SUPER + SHIFT + R, purpose "rec"): nothing is frozen, you choose a region, a
 // window or the screen, sound and microphone, and Record starts it (rice-hotcorner record geo).
 // rice-hotcorner takes the frozen picture with grim and writes "TIME PICTURE OUTPUT SCALE MODE PURPOSE X Y" to
@@ -107,7 +109,8 @@ PanelWindow {
     Process {
         id: editProc
         command: ["bash", "-c", "command -v satty >/dev/null || command -v swappy >/dev/null"]
-        onExited: function(code) { sn.canEdit = code === 0 }
+        // V6.55: the shell has its own editor (ShotEditor.qml), so Edit is always there
+        onExited: function(code) { sn.canEdit = true }
     }
     // the record menu: sound and microphone as they are set (Settings > Dashboard > Recorder)
     Process {
@@ -459,6 +462,8 @@ PanelWindow {
             IconBtn { anchors.verticalCenter: parent.verticalCenter; visible: !sn.rec && sn.mode !== "color"; icon: "text_fields"; glyph: String.fromCodePoint(0xF0284); tip: Tr.t("Copy the text") + "  T"; onClicked: sn.finish("ocr") }
             IconBtn { anchors.verticalCenter: parent.verticalCenter; visible: !sn.rec && sn.mode !== "color"; icon: "translate"; glyph: String.fromCodePoint(0xF05CA); tip: Tr.t("Translate") + "  L"; onClicked: sn.finish("translate") }
             IconBtn { anchors.verticalCenter: parent.verticalCenter; visible: !sn.rec && sn.mode !== "color"; icon: "image_search"; glyph: String.fromCodePoint(0xF0349); tip: Tr.t("Search with the picture") + "  G"; onClicked: sn.finish("search") }
+            IconBtn { anchors.verticalCenter: parent.verticalCenter; visible: !sn.rec && sn.mode !== "color"; icon: "qr_code_scanner"; glyph: String.fromCodePoint(0xF0432); tip: Tr.t("Read a QR code") + "  Q"; onClicked: sn.finish("qr") }
+            IconBtn { anchors.verticalCenter: parent.verticalCenter; visible: !sn.rec && sn.mode !== "color"; icon: "push_pin"; glyph: String.fromCodePoint(0xF0403); tip: Tr.t("Pin it on the screen") + "  P"; onClicked: sn.finish("pin") }
             IconBtn { anchors.verticalCenter: parent.verticalCenter; visible: sn.canEdit && !sn.rec; icon: "edit"; glyph: String.fromCodePoint(0xF03EB); tip: Tr.t("Edit") + "  E"; onClicked: sn.finish("edit") }
             // the main action: a filled pill in your key color
             Rectangle {
@@ -514,6 +519,8 @@ PanelWindow {
             else if (k === Qt.Key_T && !sn.rec) sn.finish("ocr")
             else if (k === Qt.Key_L && !sn.rec) sn.finish("translate")
             else if (k === Qt.Key_G && !sn.rec) sn.finish("search")
+            else if (k === Qt.Key_Q && !sn.rec) sn.finish("qr")
+            else if (k === Qt.Key_P && !sn.rec) sn.finish("pin")
             else if (k === Qt.Key_4 || k === Qt.Key_C) sn.setMode("color")
             else if (k === Qt.Key_1 || k === Qt.Key_R) sn.setMode("region")
             else if (k === Qt.Key_2 || k === Qt.Key_W) sn.setMode("window")

@@ -9,6 +9,7 @@ Singleton {
     id: stats
     property var st: ({ cpu: 0, ram: 0, gpu: 0, temp: 0, gtemp: 0, ramu: 0, ramt: 0 })
     property bool haveGpu: false
+    property var hist: ({ cpu: [], ram: [], gpu: [], temp: [] })
     // how many widgets show the numbers right now (StatsHold.qml): 0 = no rice-stats process at all
     property int users: 0
     function hold() { users++ }
@@ -22,6 +23,10 @@ Singleton {
                     const j = JSON.parse(l)
                     stats.st = j
                     if (!stats.haveGpu && (j.gpu > 0 || j.gtemp > 0)) stats.haveGpu = true
+                    // V6.55: the last two minutes (a reading every 2 s), for the graphs of the bar's system card
+                    const h = {}
+                    for (const k of ["cpu", "ram", "gpu", "temp"]) h[k] = (stats.hist[k] || []).concat([Number(j[k]) || 0]).slice(-60)
+                    stats.hist = h
                 } catch (e) { }
             }
         }

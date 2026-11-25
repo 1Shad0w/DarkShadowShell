@@ -206,40 +206,40 @@ Item {
                 visible: ["blackhole", "moon"].indexOf(page.v("logo", "auto")) >= 0
                 label: I18n.t("The logo moves all the time")
                 desc: I18n.t("Off: the black hole and the moon move while the pointer is on them. On, the bar is drawn again every frame of the screen")
-                checked: page.v("logo_move", false) === true
+                dflt: false; checked: page.v("logo_move", false) === true
                 onToggled: function(x) { page.setv("logo_move", x ? "on" : "off") }
             }
             ToggleRow {
                 visible: page.v("style", "dynamic") === "edge"
                 label: I18n.t("Frame along the edge")
                 desc: I18n.t("Edge style: the dark parts that join the bar to the screen edge. Off: only the pills stay")
-                checked: page.v("edge_frame", true) !== false
+                dflt: true; checked: page.v("edge_frame", true) !== false
                 onToggled: function(x) { page.setv("edge_frame", x ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Auto-hide")
                 desc: I18n.t("The bar slides away and windows get the space; point at the screen edge to bring it back")
-                checked: page.v("autohide", false) === true
+                dflt: false; checked: page.v("autohide", false) === true
                 onToggled: function(x) { page.setv("autohide", x ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Shadow")
                 desc: I18n.t("A soft shadow under the bar so it floats above the wallpaper")
-                checked: page.v("shadow", true) !== false
+                dflt: true; checked: page.v("shadow", true) !== false
                 onToggled: function(x) { page.setv("shadow", x ? "on" : "off") }
             }
             SegRow {
                 label: I18n.t("App icon by the title")
                 desc: I18n.t("The icon of the window's app, next to its title (the Window title module)")
                 options: [ { label: I18n.t("Left"), value: "left" }, { label: I18n.t("Right"), value: "right" }, { label: I18n.t("Off"), value: "off" } ]
-                current: page.v("title_icon", "right")
+                dflt: "right"; current: page.v("title_icon", "right")
                 onChosen: function(x) { page.setv("title_icon", x) }
             }
             SegRow {
                 label: I18n.t("Position")
                 desc: I18n.t("Which edge of the screen. Left and right: a standing bar (the window title and the island's cards stay with the top bar)")
                 options: [ { label: I18n.t("Top"), value: "top" }, { label: I18n.t("Bottom"), value: "bottom" }, { label: I18n.t("Left"), value: "left" }, { label: I18n.t("Right"), value: "right" } ]
-                current: page.v("position", "top")
+                dflt: "top"; current: page.v("position", "top")
                 onChosen: function(x) { page.setv("position", x) }
             }
             SegRow {
@@ -253,14 +253,14 @@ Item {
                 label: I18n.t("Tray icon size")
                 desc: I18n.t("How big the app icons in the tray are")
                 from: 12; to: 28; step: 1; decimals: 0
-                value: page.v("tray_size", 18)
+                dflt: 18; value: page.v("tray_size", 18)
                 onCommitted: function(x) { page.setv("tray_size", Math.round(x)) }
             }
             SliderRow {
                 label: I18n.t("Transparency")
                 desc: I18n.t("Lower is more see-through. Blur sits behind it when blur is on")
                 from: 0.3; to: 1; step: 0.02; decimals: 2
-                value: page.v("opacity", 0.72)
+                dflt: 0.72; value: page.v("opacity", 0.72)
                 onCommitted: function(x) { page.setv("opacity", x.toFixed(2)) }
             }
 
@@ -336,13 +336,13 @@ Item {
                 label: I18n.t("Workspace style")
                 desc: I18n.t("Dots, Pac-Man running to the workspace you open, letters or numbers")
                 options: [ { label: I18n.t("Dots"), value: "dots" }, { label: I18n.t("Pac-Man"), value: "pacman" }, { label: I18n.t("Letters"), value: "letters" }, { label: I18n.t("Numbers"), value: "numbers" } ]
-                current: page.v("ws_style", "dots")
+                dflt: "dots"; current: page.v("ws_style", "dots")
                 onChosen: function(x) { page.setv("ws_style", x) }
             }
             ToggleRow {
                 label: I18n.t("Seconds")
                 desc: I18n.t("Show seconds in the clock")
-                checked: page.v("seconds", false) === true
+                dflt: false; checked: page.v("seconds", false) === true
                 onToggled: function(x) { page.setv("seconds", x ? "on" : "off") }
             }
 

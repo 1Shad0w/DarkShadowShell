@@ -17,7 +17,11 @@ Item {
     readonly property bool joinable: true
     readonly property bool hasIcon: icon.length > 0 || sym.length > 0
     readonly property real textX: hasIcon ? 70 : 20
-    readonly property real textW: Math.max(40, width - textX - 18 - reserved)
+    // V6.55: a setting changed from its default shows a dot by its name and a reset button (↺) beside the control.
+    // ToggleRow, SegRow and SliderRow work it out from their `dflt` (none set: nothing shows)
+    property bool changed: false
+    signal resetAsked()
+    readonly property real textW: Math.max(40, width - textX - 18 - reserved - (changed ? 32 : 0))
     // the list of children does not tell a binding when it changes: look again when the Column adds,
     // removes, shows or hides one
     property int look: 0
@@ -68,6 +72,33 @@ Item {
                 color: row.lit ? M3.inkPrimaryC : M3.inkDim
                 Behavior on color { ColorAnimation { duration: 200 } }
             }
+        }
+        // changed from the default: a dot in the key color before the name
+        Rectangle {
+            x: row.textX - 12; width: 6; height: 6; radius: 3
+            y: face.height / 2 - (row.desc.length > 0 ? 12 : 3)
+            color: M3.primary
+            opacity: row.changed ? 1 : 0
+            scale: row.changed ? 1 : 0.2
+            Behavior on opacity { NumberAnimation { duration: 200 } }
+            Behavior on scale { NumberAnimation { duration: M3.d(320); easing.type: M3.springy; easing.overshoot: 2 * Prefs.bounce } }
+        }
+        // ... and ↺ to put it back
+        Rectangle {
+            id: rst
+            visible: opacity > 0.01
+            opacity: row.changed ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 200 } }
+            width: 34; height: 34; radius: M3.sq ? 0 : (rstM.containsMouse ? 12 : 17)
+            Behavior on radius { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            anchors.verticalCenter: parent.verticalCenter
+            x: parent.width - row.reserved - width + 8
+            color: rstM.containsMouse ? M3.secondaryContainer : "transparent"
+            Icon { anchors.centerIn: parent; name: "restart_alt"; glyph: "\uf0e2"; size: 17; color: rstM.containsMouse ? M3.inkSecondaryC : M3.inkDim
+                rotation: rstM.pressed ? -120 : 0
+                Behavior on rotation { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } } }
+            MouseArea { id: rstM; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: row.changed
+                onClicked: row.resetAsked() }
         }
         Column {
             x: row.textX

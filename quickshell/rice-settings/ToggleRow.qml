@@ -3,7 +3,10 @@ import QtQuick
 SettingRow {
     id: row
     property bool checked: false
+    property var dflt: undefined
     signal toggled(bool value)
+    changed: dflt !== undefined && checked !== (dflt === true)
+    onResetAsked: toggled(dflt === true)
     reserved: 96
 
     Tog {

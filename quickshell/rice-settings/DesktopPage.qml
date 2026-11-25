@@ -448,13 +448,13 @@ Item {
             ToggleRow {
                 label: I18n.t("Enable")
                 desc: I18n.t("Show a clock on the desktop")
-                checked: page.cv("enabled", false) === true
+                dflt: false; checked: page.cv("enabled", false) === true
                 onToggled: function(v) { page.ctl.dset("clock", "enabled", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Show only when locked")
                 desc: I18n.t("Hide it on the desktop")
-                checked: page.cv("onlyLocked", false) === true
+                dflt: false; checked: page.cv("onlyLocked", false) === true
                 onToggled: function(v) { page.ctl.dset("clock", "onlyLocked", v ? "on" : "off") }
             }
             SegRow {
@@ -465,7 +465,7 @@ Item {
                     { label: I18n.t("Least busy"), value: "leastBusy" },
                     { label: I18n.t("Most busy"), value: "mostBusy" }
                 ]
-                current: page.cv("placement", "draggable")
+                dflt: "draggable"; current: page.cv("placement", "draggable")
                 onChosen: function(v) { page.ctl.dset("clock", "placement", v) }
             }
             SegRow {

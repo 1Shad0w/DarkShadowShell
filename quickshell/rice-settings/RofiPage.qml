@@ -241,14 +241,14 @@ Item {
                     { label: I18n.t("Center"), value: "center" },
                     { label: I18n.t("Bottom"), value: "bottom" }
                 ]
-                current: page.v("position", "center")
+                dflt: "center"; current: page.v("position", "center")
                 onChosen: function(x) { page.setv("position", x) }
             }
             SliderRow {
                 label: I18n.t("Width")
                 desc: I18n.t("How wide the launcher is (the side sheet keeps close to its own width)")
                 from: 360; to: 1200; step: 20
-                value: page.v("width", 620)
+                dflt: 620; value: page.v("width", 620)
                 unit: " px"
                 onCommitted: function(x) { page.setv("width", Math.round(x)) }
             }
@@ -256,7 +256,7 @@ Item {
                 label: I18n.t("Rows")
                 desc: I18n.t("How many results are visible")
                 from: 3; to: 14; step: 1
-                value: page.v("lines", 8)
+                dflt: 8; value: page.v("lines", 8)
                 onCommitted: function(x) { page.setv("lines", Math.round(x)) }
             }
 
@@ -265,7 +265,7 @@ Item {
             ToggleRow {
                 label: I18n.t("Transparency")
                 desc: I18n.t("Translucent background; off makes it solid")
-                checked: page.v("transparency", true) === true
+                dflt: true; checked: page.v("transparency", true) === true
                 onToggled: function(x) { page.setv("transparency", x ? "on" : "off") }
             }
             SliderRow {
@@ -273,13 +273,13 @@ Item {
                 desc: I18n.t("Lower is more transparent")
                 from: 0.3; to: 1.0; step: 0.02
                 decimals: 2
-                value: page.v("opacity", 0.82)
+                dflt: 0.82; value: page.v("opacity", 0.82)
                 onCommitted: function(x) { page.setv("opacity", x.toFixed(2)) }
             }
             ToggleRow {
                 label: I18n.t("Blur")
                 desc: I18n.t("Blur whatever is behind the launcher (needs transparency)")
-                checked: page.v("blur", true) === true
+                dflt: true; checked: page.v("blur", true) === true
                 onToggled: function(x) { page.setv("blur", x ? "on" : "off") }
             }
             SliderRow {
@@ -287,7 +287,7 @@ Item {
                 label: I18n.t("Corner radius")
                 desc: I18n.t("Roundness of the window")
                 from: 0; to: 32; step: 1
-                value: page.v("radius", 18)
+                dflt: 18; value: page.v("radius", 18)
                 unit: " px"
                 onCommitted: function(x) { page.setv("radius", Math.round(x)) }
             }
@@ -299,14 +299,14 @@ Item {
                 label: I18n.t("Font size")
                 desc: I18n.t("The font comes from Services > Fonts (monospace)")
                 from: 9; to: 20; step: 1
-                value: page.v("font_size", 13)
+                dflt: 13; value: page.v("font_size", 13)
                 unit: " pt"
                 onCommitted: function(x) { page.setv("font_size", Math.round(x)) }
             }
             ToggleRow {
                 label: I18n.t("App icons")
                 desc: I18n.t("Icons next to what it finds; their style and shape: Edit mode > Icons")
-                checked: page.v("icons", true) === true
+                dflt: true; checked: page.v("icons", true) === true
                 onToggled: function(x) { page.setv("icons", x ? "on" : "off") }
             }
 

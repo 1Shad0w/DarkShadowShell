@@ -11,6 +11,9 @@ SettingRow {
     readonly property bool dragging: sld.dragging
     readonly property real shown: sld.shown      // the value while it is being dragged
     signal committed(real v)
+    property var dflt: undefined
+    changed: dflt !== undefined && isFinite(value) && Math.abs(value - Number(dflt)) > Math.max(1e-6, step / 2)
+    onResetAsked: committed(Number(dflt))
     reserved: 300
 
     Row {

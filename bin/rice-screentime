@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""rice-screentime: how long you use each app (Settings > System > Screen time), V6.55.
+
+  rice-screentime watch          counts (rice-desktop starts it; only one runs): every 10 seconds, the app of the
+                                 window you are in gets 10 seconds, unless the screen is locked or you are away
+                                 (no input for 5 minutes, when Hyprland can tell)
+  rice-screentime today          JSON: today's apps (seconds, the biggest first), the total and the hours
+  rice-screentime week           JSON: the last 7 days (total and the top apps of each), and the average
+  rice-screentime off|on         stop or start counting (nothing is kept while it is off)
+  rice-screentime clear          forget everything counted so far
+
+It stays on this computer, in ~/.local/share/rice/screentime (one small file a day, the last 60 days are kept).
+"""
+import fcntl
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+HOME = os.path.expanduser("~")
+DIR = HOME + "/.local/share/rice/screentime"
+OFF = HOME + "/.config/rice/screentime-off"
+STEP = 10
+KEEP_DAYS = 60
+
+
+def day_file(day):
+    return os.path.join(DIR, day + ".json")
+
+
+def load(day):
+    try:
+        j = json.load(open(day_file(day)))
+        if isinstance(j, dict) and isinstance(j.get("apps"), dict):
+            h = j.get("hours") if isinstance(j.get("hours"), list) else []
+            j["hours"] = ([int(x) if isinstance(x, (int, float)) else 0 for x in h] + [0] * 24)[:24]
+            j["apps"] = {str(k): int(v) for k, v in j["apps"].items() if isinstance(v, (int, float))}
+            return j
+    except (OSError, ValueError):
+        pass
+    return {"apps": {}, "hours": [0] * 24}
+
+
+def save(day, j):
+    os.makedirs(DIR, exist_ok=True)
+    tmp = day_file(day) + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(j, f)
+    os.replace(tmp, day_file(day))
+
+
+def run(cmd, t=3):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+        return r.stdout if r.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def app_now():
+    """the app of the focused window (its class), or "" """
+    if os.environ.get("NIRI_SOCKET"):
+        try:
+            w = json.loads(run(["niri", "msg", "-j", "focused-window"]) or "null")
+            return (w or {}).get("app_id") or ""
+        except ValueError:
+            return ""
+    try:
+        w = json.loads(run(["hyprctl", "-j", "activewindow"]) or "{}")
+        return (w or {}).get("class") or (w or {}).get("initialClass") or ""
+    except ValueError:
+        return ""
+
+
+def locked():
+    return bool(run(["pgrep", "-f", "quickshell/rice-lockscreen|^hyprlock"]).strip())
+
+
+def away():
+    """no keyboard or mouse for 5 minutes: Hyprland's idle time when it tells it (hyprctl, newer versions)"""
+    try:
+        j = json.loads(run(["hyprctl", "-j", "idle"]) or "{}")
+        ms = j.get("idle_ms", j.get("idle", None)) if isinstance(j, dict) else None
+        return isinstance(ms, (int, float)) and ms > 300000
+    except ValueError:
+        return False
+
+
+def clean_name(a):
+    a = re.sub(r"\.desktop$", "", a.strip())
+    return a[:80]
+
+
+def watch():
+    os.makedirs(HOME + "/.cache/rice", exist_ok=True)
+    lock = open(HOME + "/.cache/rice/screentime.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        sys.exit(0)
+    pending, last_flush = {}, time.time()
+    hours = [0] * 24
+    day = time.strftime("%Y-%m-%d")
+    while True:
+        time.sleep(STEP)
+        if os.path.exists(OFF):
+            pending, hours = {}, [0] * 24
+            continue
+        a = clean_name(app_now())
+        if a and not locked() and not away():
+            pending[a] = pending.get(a, 0) + STEP
+            hours[time.localtime().tm_hour] += STEP
+        now_day = time.strftime("%Y-%m-%d")
+        if pending and (time.time() - last_flush >= 60 or now_day != day):
+            j = load(day)
+            for k, v in pending.items():
+                j["apps"][k] = j["apps"].get(k, 0) + v
+            j["hours"] = [a + b for a, b in zip(j["hours"], hours)]
+            save(day, j)
+            pending, hours, last_flush = {}, [0] * 24, time.time()
+            prune()
+        day = now_day
+
+
+def prune():
+    try:
+        old = time.strftime("%Y-%m-%d", time.localtime(time.time() - KEEP_DAYS * 86400))
+        for f in os.listdir(DIR):
+            if f.endswith(".json") and f[:-5] < old:
+                os.remove(os.path.join(DIR, f))
+    except OSError:
+        pass
+
+
+def today():
+    d = time.strftime("%Y-%m-%d")
+    j = load(d)
+    apps = sorted(j["apps"].items(), key=lambda x: -x[1])
+    print(json.dumps({"day": d, "total": sum(v for _, v in apps), "apps": [{"app": k, "s": v} for k, v in apps],
+                      "hours": j["hours"], "off": os.path.exists(OFF)}))
+
+
+def week():
+    out = []
+    for i in range(6, -1, -1):
+        t = time.time() - i * 86400
+        d = time.strftime("%Y-%m-%d", time.localtime(t))
+        j = load(d)
+        apps = sorted(j["apps"].items(), key=lambda x: -x[1])
+        out.append({"day": d, "wd": time.strftime("%a", time.localtime(t)), "total": sum(v for _, v in apps),
+                    "top": [{"app": k, "s": v} for k, v in apps[:3]]})
+    used = [x["total"] for x in out if x["total"] > 0]
+    print(json.dumps({"days": out, "avg": int(sum(used) / len(used)) if used else 0, "off": os.path.exists(OFF)}))
+
+
+def main(a):
+    cmd = a[1] if len(a) > 1 else "today"
+    if cmd == "watch":
+        watch()
+    elif cmd == "today":
+        today()
+    elif cmd == "week":
+        week()
+    elif cmd == "off":
+        os.makedirs(os.path.dirname(OFF), exist_ok=True)
+        open(OFF, "w").close()
+    elif cmd == "on":
+        try:
+            os.remove(OFF)
+        except OSError:
+            pass
+    elif cmd == "clear":
+        if os.path.isdir(DIR):
+            for f in os.listdir(DIR):
+                if f.endswith(".json"):
+                    os.remove(os.path.join(DIR, f))
+    else:
+        print(__doc__.strip())
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

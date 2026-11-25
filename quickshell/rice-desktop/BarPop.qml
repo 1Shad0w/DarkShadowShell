@@ -5,7 +5,8 @@ import QtQuick
 // The small cards the bar's own modules open under them (Bar layout > Music, Weather, System, Date):
 //   music     the song, its lyrics, the progress and the buttons (MusicPop.qml)
 //   weather   now, how it feels, high / low and the next hours (rice-weather json)
-//   system    CPU, RAM, disk and swap, each in a tile with a bar and the numbers (rice-stats)
+//   system    CPU, RAM, disk and swap, each in a tile with the numbers; CPU and RAM with a graph of the last two
+//             minutes (V6.55), disk and swap with a bar (rice-stats)
 //   calendar  the month, this week with today, your to-do tasks (rice-todo) and how long the computer is up
 // It grows out of the bar under the module and closes with Esc, a click outside or the same module again.
 Item {
@@ -169,7 +170,16 @@ Item {
                 Column { x: 14; y: 42; width: parent.width - 28; spacing: 1
                     Text { text: md.n; color: bp.fg; font.family: Fonts.main; font.pixelSize: 13; font.weight: Font.DemiBold }
                     Text { width: parent.width; elide: Text.ElideRight; text: md.d; color: bp.dim; font.family: Fonts.main; font.pixelSize: 10 } }
+                // V6.55: CPU and RAM show the last two minutes as a graph; disk and swap keep their bar
+                Sparkline {
+                    visible: index < 2
+                    x: 14; width: parent.width - 28; height: 26
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: 10
+                    values: index === 0 ? Stats.hist.cpu : Stats.hist.ram
+                    color: md.v >= 90 ? "#e06c75" : bp.acc
+                }
                 Rectangle {
+                    visible: index >= 2
                     x: 14; width: parent.width - 28; height: 6; radius: Look.sq ? 0 : (3)
                     anchors.bottom: parent.bottom; anchors.bottomMargin: 13
                     color: Qt.rgba(bp.acc.r, bp.acc.g, bp.acc.b, 0.2)

@@ -1,5 +1,14 @@
 # Changelog
 
+## V6.55: Styles, profiles, a new screenshot tool and screen time
+- **11 new styles** in Settings > Appearance > Themes: the palettes everyone knows (**Catppuccin**, **Rosé Pine**, **Tokyo Night**, **Gruvbox**, **Nord**, **Everforest**, **Kanagawa**) and four of our own: **Luxe** (gold on black), **OLED** (true black), **Brutal** (square, thick borders, no softness) and **Sakura** (blossom pink). A style now also brings its notifications' colors, the lock screen look and the minimal mode, and gives back yours when you move to a style that does not set them. A ring of the new color sweeps over the screen when one goes on. New color schemes: Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa and Dracula
+- **Settings show what you changed**: a small dot next to every setting that is not at its default, and a button to put it back with one click (107 settings in Bar, Desktop, Idle, Interface, Island, Notifications, Recorder, Launcher, Sounds and Vibe)
+- **Profiles** (Settings > System > Profiles): save how your whole desktop looks now under a name (Gaming, Work, Night...), change it, save that too, and switch with one click. Switching keeps the profile you leave with its changes. From a keybind or a script: `rice-profile use NAME`
+- **Wallpapers in coverflow**: the picker can show your wallpapers as a tilted 3D row (the button at the top switches), and has **favourites**: the star on a wallpaper or Ctrl+S, and Tab goes through all, pictures, moving and favourites
+- **Screenshots, upgraded**: after a shot a **card** comes up in the corner (edit, copy, pin, open the folder or delete) and goes away by itself. **Our own editor**: pen, highlighter, arrow, box, blur, numbered steps and text, five colors and three sizes, undo; Enter saves it and puts it on the clipboard. **Pin it on the screen**: the shot floats over your windows; drag it, scroll to resize, double click to close. **Read a QR code** (Q in the screenshot tool): the text or link goes to your clipboard (needs `zbar`)
+- **Screen time** (Settings > System > Screen time): how long you used the computer today and against your average, at what hours, which apps, and the last seven days. Counted only while the screen is not locked, kept only on your computer for 60 days, and you can turn it off or forget it all (`rice-screentime`)
+- **The system card of the bar draws graphs**: CPU and RAM show the last two minutes
+- Polish translations for all of it
 ## V6.13: The installer shows the download
 - **No more "stuck" at Retrieving packages...**: the system update and the package install now show pacman's (and dnf's) download bars live, with the speed and what is left. Before, the output went through a pipe, pacman printed nothing while it downloaded, and a big first update (often over 1 GB) looked frozen for many minutes
 - The same output still goes into the install log

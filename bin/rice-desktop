@@ -23,6 +23,7 @@ case "$1" in
     [ -x "$HOME/.local/bin/rice-ws-watch" ] && setsid -f "$HOME/.local/bin/rice-ws-watch" >/dev/null 2>&1
     [ -x "$HOME/.local/bin/rice-rules" ] && setsid -f "$HOME/.local/bin/rice-rules" watch >/dev/null 2>&1
     [ -x "$HOME/.local/bin/rice-update" ] && setsid -f "$HOME/.local/bin/rice-update" watch >/dev/null 2>&1
+    [ -x "$HOME/.local/bin/rice-screentime" ] && setsid -f "$HOME/.local/bin/rice-screentime" watch >/dev/null 2>&1
     [ -x "$HOME/.local/bin/rice-welcome" ] && "$HOME/.local/bin/rice-welcome" start >/dev/null 2>&1 &
     # the language and keyboard chosen in Settings (rice-region): the programs started from here (launcher, keybinds,
     # menus) speak it too. Terminals that are already open keep the old one until they start again
@@ -82,10 +83,12 @@ case "$1" in
     pkill -f "\.local/bin/rice-ws-watch" 2>/dev/null
     pkill -f "\.local/bin/rice-rules watch" 2>/dev/null
     pkill -f "\.local/bin/rice-update watch" 2>/dev/null
+    pkill -f "\.local/bin/rice-screentime watch" 2>/dev/null
     sleep 0.2
     [ -x "$HOME/.local/bin/rice-ws-watch" ] && setsid -f "$HOME/.local/bin/rice-ws-watch" >/dev/null 2>&1
     [ -x "$HOME/.local/bin/rice-rules" ] && setsid -f "$HOME/.local/bin/rice-rules" watch >/dev/null 2>&1
     [ -x "$HOME/.local/bin/rice-update" ] && setsid -f "$HOME/.local/bin/rice-update" watch >/dev/null 2>&1
+    [ -x "$HOME/.local/bin/rice-screentime" ] && setsid -f "$HOME/.local/bin/rice-screentime" watch >/dev/null 2>&1
     for _ in 1 2 3 4 5 6 7 8 9 10; do running || break; sleep 0.2; done
     setsid -f "$HOME/.local/bin/rice-desktop" keep >/dev/null 2>&1
     # V6.10: a moving wallpaper that runs starts again too, so an update reaches it (it is drawn by its own

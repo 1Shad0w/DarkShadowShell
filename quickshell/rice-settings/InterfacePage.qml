@@ -128,7 +128,7 @@ Item {
             ToggleRow {
                 label: I18n.t("Enable")
                 desc: I18n.t("A minimal dock with your apps on a screen edge (bottom, left or right)")
-                checked: page.dv("enabled", false) === true
+                dflt: false; checked: page.dv("enabled", false) === true
                 onToggled: function(v) { page.ctl.dset("dock", "enabled", v ? "on" : "off") }
             }
             SegRow {
@@ -142,13 +142,13 @@ Item {
                 label: I18n.t("Style")
                 desc: I18n.t("Sizes, spacing and icons: Edit mode, Dock and Icons tabs (right click on the dock)")
                 options: [{ label: I18n.t("Floating"), value: "floating" }, { label: I18n.t("Pills"), value: "pills" }, { label: I18n.t("Full"), value: "full" }]
-                current: page.dv("style", "floating")
+                dflt: "floating"; current: page.dv("style", "floating")
                 onChosen: function(x) { page.ctl.dset("dock", "style", x) }
             }
             ToggleRow {
                 label: I18n.t("Background")
                 desc: I18n.t("Draw a panel behind the icons")
-                checked: page.dv("background", true) === true
+                dflt: true; checked: page.dv("background", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "background", v ? "on" : "off") }
             }
             SliderRow {
@@ -161,13 +161,13 @@ Item {
             ToggleRow {
                 label: I18n.t("Blur")
                 desc: I18n.t("Blur the desktop behind the dock")
-                checked: page.dv("blur", true) === true
+                dflt: true; checked: page.dv("blur", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "blur", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Hover to reveal")
                 desc: I18n.t("Hide the dock and slide it in when the pointer touches its screen edge")
-                checked: page.dv("hover", true) === true
+                dflt: true; checked: page.dv("hover", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "hover", v ? "on" : "off") }
             }
             ToggleRow {
@@ -175,13 +175,13 @@ Item {
                 visible: page.dv("hover", true) !== true || page.dv("pinnedStartup", false) === true
                 label: I18n.t("Keep room for it")
                 desc: I18n.t("While the dock stays out, windows end next to it instead of under it (like the bar)")
-                checked: page.dv("reserve", true) === true
+                dflt: true; checked: page.dv("reserve", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "reserve", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Pinned on startup")
                 desc: I18n.t("Start with the dock held open")
-                checked: page.dv("pinnedStartup", false) === true
+                dflt: false; checked: page.dv("pinnedStartup", false) === true
                 onToggled: function(v) { page.ctl.dset("dock", "pinnedStartup", v ? "on" : "off") }
             }
 
@@ -190,31 +190,31 @@ Item {
             ToggleRow {
                 label: I18n.t("Media player")
                 desc: I18n.t("The song cover and a play / pause button in the dock")
-                checked: page.dv("media", true) === true
+                dflt: true; checked: page.dv("media", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "media", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Now playing text")
                 desc: I18n.t("Write the song title and artist in the dock while something plays")
-                checked: page.dv("nowText", true) === true
+                dflt: true; checked: page.dv("nowText", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "nowText", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Show pin button")
                 desc: I18n.t("Button that holds the dock open")
-                checked: page.dv("pinButton", true) === true
+                dflt: true; checked: page.dv("pinButton", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "pinButton", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("Show apps button")
                 desc: I18n.t("Button that opens the app launcher")
-                checked: page.dv("appsButton", true) === true
+                dflt: true; checked: page.dv("appsButton", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "appsButton", v ? "on" : "off") }
             }
             ToggleRow {
                 label: I18n.t("App menu")
                 desc: I18n.t("The apps button opens the dock's own app menu (with pins); off: it opens the launcher")
-                checked: page.dv("appMenu", true) === true
+                dflt: true; checked: page.dv("appMenu", true) === true
                 onToggled: function(v) { page.ctl.dset("dock", "appMenu", v ? "on" : "off") }
             }
 
@@ -309,14 +309,14 @@ Item {
             ToggleRow {
                 label: I18n.t("Tint app icons")
                 desc: I18n.t("Paint icons in a single neutral tone")
-                checked: page.dv("tint", false) === true
+                dflt: false; checked: page.dv("tint", false) === true
                 onToggled: function(v) { page.ctl.dset("dock", "tint", v ? "on" : "off"); page.ctl.dset("icons", "look", "auto") }
             }
             ToggleRow {
                 visible: page.dv("tint", false) !== true
                 label: I18n.t("Match the wallpaper")
                 desc: I18n.t("App icons take a shade of your wallpaper's color")
-                checked: page.dv("shade", true) !== false
+                dflt: true; checked: page.dv("shade", true) !== false
                 onToggled: function(v) { page.ctl.dset("dock", "shade", v ? "on" : "off"); page.ctl.dset("icons", "look", "auto") }
             }
 

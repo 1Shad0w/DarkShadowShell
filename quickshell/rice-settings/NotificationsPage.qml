@@ -149,35 +149,35 @@ Item {
         SegRow {
             label: I18n.t("Side"); desc: I18n.t("Of the screen")
             options: [{ label: I18n.t("Left"), value: "left" }, { label: I18n.t("Middle"), value: "center" }, { label: I18n.t("Right"), value: "right" }]
-            current: page.v("pos_x", "right")
+            dflt: "right"; current: page.v("pos_x", "right")
             onChosen: function(x) { page.setv("pos_x", x) }
         }
         SegRow {
             label: I18n.t("Edge"); desc: I18n.t("Top or bottom")
             options: [{ label: I18n.t("Top"), value: "top" }, { label: I18n.t("Bottom"), value: "bottom" }]
-            current: page.v("pos_y", "top")
+            dflt: "top"; current: page.v("pos_y", "top")
             onChosen: function(x) { page.setv("pos_y", x) }
         }
         SliderRow {
             label: I18n.t("Width"); desc: I18n.t("How wide a pop-up is")
             from: 300; to: 520; step: 10; unit: " px"
-            value: page.v("popup_width", 380)
+            dflt: 380; value: page.v("popup_width", 380)
             onCommitted: function(x) { page.setv("popup_width", Math.round(x)) }
         }
         SliderRow {
             label: I18n.t("Time on screen"); desc: I18n.t("Seconds before a pop-up goes (a thin line shows what is left)")
             from: 2; to: 30; step: 1; unit: " s"
-            value: page.v("timeout", 6)
+            dflt: 6; value: page.v("timeout", 6)
             onCommitted: function(x) { page.setv("timeout", Math.round(x)) }
         }
         ToggleRow {
             label: I18n.t("Important ones stay"); desc: I18n.t("Urgent notifications wait until you close them")
-            checked: page.v("critical_sticky", true) === true
+            dflt: true; checked: page.v("critical_sticky", true) === true
             onToggled: function(x) { page.setv("critical_sticky", x ? "on" : "off") }
         }
         ToggleRow {
             label: I18n.t("Pictures"); desc: I18n.t("Show the picture a notification brings (screenshots, covers)")
-            checked: page.v("images", true) === true
+            dflt: true; checked: page.v("images", true) === true
             onToggled: function(x) { page.setv("images", x ? "on" : "off") }
         }
 
@@ -216,13 +216,13 @@ Item {
         SliderRow {
             label: I18n.t("Text size"); desc: I18n.t("Of the pop-ups and the notifications in the control center")
             from: 10; to: 18; step: 1; unit: " px"
-            value: page.v("font_size", 13)
+            dflt: 13; value: page.v("font_size", 13)
             onCommitted: function(x) { page.setv("font_size", Math.round(x)) }
         }
         SliderRow {
             label: I18n.t("Corners"); desc: I18n.t("How round the pop-ups are")
             from: 4; to: 32; step: 1; unit: " px"
-            value: page.v("radius", 22)
+            dflt: 22; value: page.v("radius", 22)
             onCommitted: function(x) { page.setv("radius", Math.round(x)) }
         }
 
@@ -231,23 +231,23 @@ Item {
         SliderRow {
             label: I18n.t("Pop-ups"); desc: I18n.t("Lower is more see-through")
             from: 0.3; to: 1; step: 0.02; decimals: 2
-            value: page.v("popup_opacity", 0.85)
+            dflt: 0.85; value: page.v("popup_opacity", 0.85)
             onCommitted: function(x) { page.setv("popup_opacity", x.toFixed(2)) }
         }
         ToggleRow {
             label: I18n.t("Blur behind pop-ups"); desc: I18n.t("Frosted glass")
-            checked: page.v("blur_popups", true) === true
+            dflt: true; checked: page.v("blur_popups", true) === true
             onToggled: function(x) { page.setv("blur_popups", x ? "on" : "off") }
         }
         SliderRow {
             label: I18n.t("Control center"); desc: I18n.t("Lower is more see-through")
             from: 0.3; to: 1; step: 0.02; decimals: 2
-            value: page.v("opacity", 0.8)
+            dflt: 0.8; value: page.v("opacity", 0.8)
             onCommitted: function(x) { page.setv("opacity", x.toFixed(2)) }
         }
         ToggleRow {
             label: I18n.t("Blur behind the control center"); desc: I18n.t("Frosted glass")
-            checked: page.v("blur", true) === true
+            dflt: true; checked: page.v("blur", true) === true
             onToggled: function(x) { page.setv("blur", x ? "on" : "off") }
         }
 
@@ -257,7 +257,7 @@ Item {
             visible: page.engine === "swaync"
             label: I18n.t("Keep notifications when clicked")
             desc: I18n.t("Clicking opens the app and the notification stays in swaync's panel")
-            checked: page.v("keep_clicked", true)
+            dflt: true; checked: page.v("keep_clicked", true)
             onToggled: function(x) { page.setv("keep_clicked", x ? "on" : "off") }
         }
 
@@ -286,7 +286,7 @@ Item {
             label: I18n.t("Notification sound volume")
             desc: I18n.t("How loud the notification sound is, on top of your system volume")
             from: 0; to: 100; step: 5; unit: " %"
-            value: page.v("sound_volume", 45)
+            dflt: 45; value: page.v("sound_volume", 45)
             onCommitted: function(x) { page.setv("sound_volume", Math.round(x)); page.hear(page.v("sound", "glass"), Math.round(x)) }
         }
     }

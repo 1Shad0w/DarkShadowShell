@@ -212,19 +212,19 @@ Item {
         // ---------- colors ----------
         SectionTitle { text: I18n.t("The music's colors"); sub: I18n.t("While music plays, the bar, the island, the dock, the control center and the widgets take the colors of its cover. A few seconds after it stops your theme comes back.") }
         ToggleRow { label: I18n.t("Colors from the cover"); desc: I18n.t("Every song brings its own colors; they flow in slowly")
-            checked: page.v("cover", true) !== false; onToggled: function(x) { page.setv("cover", x ? "on" : "off") } }
+            dflt: true; checked: page.v("cover", true) !== false; onToggled: function(x) { page.setv("cover", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Window borders too"); desc: I18n.t("Hyprland. Not when you picked your own border colors")
             enabled: page.v("cover", true) !== false; opacity: enabled ? 1 : 0.45
-            checked: page.v("borders", true) !== false; onToggled: function(x) { page.setv("borders", x ? "on" : "off") } }
+            dflt: true; checked: page.v("borders", true) !== false; onToggled: function(x) { page.setv("borders", x ? "on" : "off") } }
 
         // ---------- the bar ----------
         SectionTitle { text: I18n.t("Visualizer on the bar"); sub: I18n.t("The music on your bar, while it plays.") }
         SegRow { label: I18n.t("Style"); desc: I18n.t("Liquid: one soft shape that swells from the middle. Dots: a row of dots. Bars: the classic")
             options: [ { label: I18n.t("Liquid"), value: "liquid" }, { label: I18n.t("Dots"), value: "dots" }, { label: I18n.t("Bars"), value: "bars" } ]
-            current: page.v("bar", "liquid"); onChosen: function(x) { page.setv("bar", x) } }
+            dflt: "liquid"; current: page.v("bar", "liquid"); onChosen: function(x) { page.setv("bar", x) } }
         SegRow { label: I18n.t("Size"); desc: I18n.t("How much of the bar it takes")
             options: [ { label: I18n.t("Small"), value: "small" }, { label: I18n.t("Medium"), value: "medium" }, { label: I18n.t("Wide"), value: "wide" } ]
-            current: page.v("bar_size", "medium"); onChosen: function(x) { page.setv("bar_size", x) } }
+            dflt: "medium"; current: page.v("bar_size", "medium"); onChosen: function(x) { page.setv("bar_size", x) } }
         Row {
             visible: !page.vizOnBar && page.bq.layout !== undefined
             spacing: 12
@@ -235,39 +235,39 @@ Item {
         // ---------- the desktop ----------
         SectionTitle { text: I18n.t("On the desktop"); sub: I18n.t("Under your windows, so it never gets in the way.") }
         ToggleRow { label: I18n.t("Moving wallpapers dance"); desc: I18n.t("Aurora flares on the low notes, shooting stars fall on the beat, the orbit's ring pulses, the mesh breathes")
-            checked: page.v("beat", true) !== false; onToggled: function(x) { page.setv("beat", x ? "on" : "off") } }
+            dflt: true; checked: page.v("beat", true) !== false; onToggled: function(x) { page.setv("beat", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Edge glow"); desc: I18n.t("A soft light along the bottom of the screen that moves with the music")
-            checked: page.v("edge", false) === true; onToggled: function(x) { page.setv("edge", x ? "on" : "off") } }
+            dflt: false; checked: page.v("edge", false) === true; onToggled: function(x) { page.setv("edge", x ? "on" : "off") } }
         SegRow { label: I18n.t("Edge style"); desc: I18n.t("Glow rises and fades; Liquid is a clear shape with a bright edge")
             enabled: page.v("edge", false) === true; opacity: enabled ? 1 : 0.45
             options: [ { label: I18n.t("Glow"), value: "glow" }, { label: I18n.t("Liquid"), value: "liquid" } ]
-            current: page.v("edge_style", "glow"); onChosen: function(x) { page.setv("edge_style", x) } }
+            dflt: "glow"; current: page.v("edge_style", "glow"); onChosen: function(x) { page.setv("edge_style", x) } }
         SliderRow { label: I18n.t("Edge height"); desc: I18n.t("How high it may rise, in % of the screen")
             enabled: page.v("edge", false) === true; opacity: enabled ? 1 : 0.45
-            from: 6; to: 40; step: 1; unit: " %"; value: Math.round(page.v("edge_height", 0.16) * 100)
+            from: 6; to: 40; step: 1; unit: " %"; dflt: 16; value: Math.round(page.v("edge_height", 0.16) * 100)
             onCommitted: function(x) { page.setv("edge_height", (Math.round(x) / 100).toFixed(2)) } }
         ToggleRow { label: I18n.t("The island breathes"); desc: I18n.t("Its edge glows softly with the beat while music plays")
-            checked: page.v("island", true) !== false; onToggled: function(x) { page.setv("island", x ? "on" : "off") } }
+            dflt: true; checked: page.v("island", true) !== false; onToggled: function(x) { page.setv("island", x ? "on" : "off") } }
         ToggleRow { label: I18n.t("Lock screen ring"); desc: I18n.t("A liquid ring around the cover on the lock screen (a line over it in the Cards style)")
-            checked: page.v("lock", true) !== false; onToggled: function(x) { page.setv("lock", x ? "on" : "off") } }
+            dflt: true; checked: page.v("lock", true) !== false; onToggled: function(x) { page.setv("lock", x ? "on" : "off") } }
         T { width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12; color: M3.inkDim
             text: I18n.t("The visualizer widget has two new styles too: Liquid and Orb (the cover with a ring around it). Edit mode > Visualizer.") }
 
         // ---------- lyrics on the desktop (V6.11) ----------
         SectionTitle { text: I18n.t("Lyrics on the desktop"); sub: I18n.t("The line being sung, big and low on your desktop, like the words in a music video. Its words rise in one after another and fill with color as they are sung.") }
         ToggleRow { label: I18n.t("Lyrics on the desktop"); desc: I18n.t("Synced lyrics from LRCLIB, for songs that have them. Under your windows; gone for a full-screen one")
-            checked: page.v("lyrics", false) === true; onToggled: function(x) { page.setv("lyrics", x ? "on" : "off") } }
+            dflt: false; checked: page.v("lyrics", false) === true; onToggled: function(x) { page.setv("lyrics", x ? "on" : "off") } }
         SegRow { label: I18n.t("Size"); desc: I18n.t("How big the words are")
             enabled: page.v("lyrics", false) === true; opacity: enabled ? 1 : 0.45
             options: [ { label: I18n.t("Small"), value: "small" }, { label: I18n.t("Medium"), value: "medium" }, { label: I18n.t("Large"), value: "large" } ]
-            current: page.v("lyrics_size", "medium"); onChosen: function(x) { page.setv("lyrics_size", x) } }
+            dflt: "medium"; current: page.v("lyrics_size", "medium"); onChosen: function(x) { page.setv("lyrics_size", x) } }
         T { width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12; color: M3.inkDim
             text: I18n.t("The music card of the bar and the Lyrics widget show the words the same way now: one big line at a time.") }
 
         // ---------- the weather and more ----------
         SectionTitle { text: I18n.t("Weather on the desktop"); sub: I18n.t("When it rains outside, it rains on your desktop. Or pick what always falls: rain, snow, a storm, fog, cherry petals or fireflies that glow with the beat.") }
         ToggleRow { label: I18n.t("Weather on the desktop"); desc: I18n.t("Under your windows, slow and soft; it rests for a full-screen window and in Light mode")
-            checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
+            dflt: false; checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
         // what falls: the weather outside, or always one of them
         Flow {
             width: parent.width

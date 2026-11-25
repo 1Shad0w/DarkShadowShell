@@ -282,24 +282,24 @@ Item {
             label: I18n.t("Lock after")
             desc: I18n.t("Currently: ") + page.mins(page.v("lock_after", 5))
             from: 0; to: 60; step: 1; unit: " min"
-            value: page.v("lock_after", 5)
+            dflt: 5; value: page.v("lock_after", 5)
             onCommitted: function(x) { page.setv("lock_after", Math.round(x)) }
         }
         SliderRow {
             label: I18n.t("Turn screen off after")
             desc: I18n.t("Currently: ") + page.mins(page.v("screen_off_after", 0))
             from: 0; to: 60; step: 1; unit: " min"
-            value: page.v("screen_off_after", 0)
+            dflt: 0; value: page.v("screen_off_after", 0)
             onCommitted: function(x) { page.setv("screen_off_after", Math.round(x)) }
         }
         SliderRow {
             label: I18n.t("Sleep after")
             desc: I18n.t("Currently: ") + page.mins(page.v("suspend_after", 15))
             from: 0; to: 120; step: 5; unit: " min"
-            value: page.v("suspend_after", 15)
+            dflt: 15; value: page.v("suspend_after", 15)
             onCommitted: function(x) { page.setv("suspend_after", Math.round(x)) }
         }
-        ToggleRow { label: I18n.t("Lock before sleep"); desc: I18n.t("Always lock the screen before the computer sleeps"); checked: page.v("lock_before_sleep", true) === true; onToggled: function(x) { page.setv("lock_before_sleep", x ? "on" : "off") } }
+        ToggleRow { label: I18n.t("Lock before sleep"); desc: I18n.t("Always lock the screen before the computer sleeps"); dflt: true; checked: page.v("lock_before_sleep", true) === true; onToggled: function(x) { page.setv("lock_before_sleep", x ? "on" : "off") } }
 
         // ---------- lock screen ----------
         SectionTitle { text: I18n.t("Lock screen"); sub: I18n.t("Changes show up the next time you lock. Preview shows it without locking.") }
@@ -307,7 +307,7 @@ Item {
             label: I18n.t("Style")
             desc: I18n.t("Cards: the month, the time and your music on tall cards. Glance: a big clock with your music and the week. Classic: one column")
             options: [{ label: I18n.t("Cards"), value: "cards" }, { label: I18n.t("Glance"), value: "glance" }, { label: I18n.t("Classic"), value: "classic" }]
-            current: page.v("style", "cards")
+            dflt: "cards"; current: page.v("style", "cards")
             onChosen: function(x) { page.setv("style", x) }
         }
         SegRow {
@@ -315,7 +315,7 @@ Item {
             label: I18n.t("Layout")
             desc: I18n.t("Everything centered, or on the left side")
             options: [{ label: I18n.t("Center"), value: "center" }, { label: I18n.t("Left"), value: "left" }]
-            current: page.v("layout", "center")
+            dflt: "center"; current: page.v("layout", "center")
             onChosen: function(x) { page.setv("layout", x) }
         }
         SegRow {
@@ -323,7 +323,7 @@ Item {
             label: I18n.t("Clock style")
             desc: I18n.t("Big, stacked hours over minutes, small, or inside your shape")
             options: [{ label: I18n.t("Big"), value: "big" }, { label: I18n.t("Stacked"), value: "stacked" }, { label: I18n.t("Minimal"), value: "minimal" }, { label: I18n.t("Shape"), value: "shape" }]
-            current: page.v("clock", "big")
+            dflt: "big"; current: page.v("clock", "big")
             onChosen: function(x) { page.setv("clock", x) }
         }
         // ---------- clock font ----------
@@ -377,16 +377,16 @@ Item {
                 }
             }
         }
-        ToggleRow { label: I18n.t("24-hour clock"); checked: page.v("clock_24h", true) === true; onToggled: function(x) { page.setv("clock_24h", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic; label: I18n.t("Accent clock"); desc: I18n.t("Color the clock with your Theme"); checked: page.v("accent_clock", false) === true; onToggled: function(x) { page.setv("accent_clock", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Date"); checked: page.v("date", true) === true; onToggled: function(x) { page.setv("date", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Greeting"); desc: I18n.t("Good morning / evening with your name"); checked: page.v("greeting", true) === true; onToggled: function(x) { page.setv("greeting", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Profile picture"); desc: I18n.t("Your avatar from Home"); checked: page.v("avatar", true) === true; onToggled: function(x) { page.setv("avatar", x ? "on" : "off") } }
+        ToggleRow { label: I18n.t("24-hour clock"); dflt: true; checked: page.v("clock_24h", true) === true; onToggled: function(x) { page.setv("clock_24h", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic; label: I18n.t("Accent clock"); desc: I18n.t("Color the clock with your Theme"); dflt: false; checked: page.v("accent_clock", false) === true; onToggled: function(x) { page.setv("accent_clock", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Date"); dflt: true; checked: page.v("date", true) === true; onToggled: function(x) { page.setv("date", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Greeting"); desc: I18n.t("Good morning / evening with your name"); dflt: true; checked: page.v("greeting", true) === true; onToggled: function(x) { page.setv("greeting", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Profile picture"); desc: I18n.t("Your avatar from Home"); dflt: true; checked: page.v("avatar", true) === true; onToggled: function(x) { page.setv("avatar", x ? "on" : "off") } }
         SegRow {
             visible: page.classic
             label: I18n.t("Password field")
             options: [{ label: I18n.t("Pill"), value: "pill" }, { label: I18n.t("Box"), value: "box" }, { label: I18n.t("Line"), value: "line" }]
-            current: page.v("input", "pill")
+            dflt: "pill"; current: page.v("input", "pill")
             onChosen: function(x) { page.setv("input", x) }
         }
         ToggleRow {
@@ -394,38 +394,38 @@ Item {
             desc: page.fpInfo.ok ? I18n.t("Touch the reader to unlock, or type your password: whichever comes first")
                                  : (page.fpInfo.why ? I18n.t(page.fpInfo.why) : I18n.t("Looking for a fingerprint reader ..."))
             enabled: page.fpInfo.ok || page.v("fingerprint", false) === true
-            checked: page.v("fingerprint", false) === true
+            dflt: false; checked: page.v("fingerprint", false) === true
             onToggled: function(x) { page.setv("fingerprint", x ? "on" : "off") }
         }
-        ToggleRow { label: I18n.t("Power buttons"); desc: I18n.t("Sleep, restart and shut down (in red); restart and shut down ask for a second click"); checked: page.v("power", true) === true; onToggled: function(x) { page.setv("power", x ? "on" : "off") } }
+        ToggleRow { label: I18n.t("Power buttons"); desc: I18n.t("Sleep, restart and shut down (in red); restart and shut down ask for a second click"); dflt: true; checked: page.v("power", true) === true; onToggled: function(x) { page.setv("power", x ? "on" : "off") } }
 
         SectionTitle { text: I18n.t("Background") }
         SegRow {
             label: I18n.t("Source")
             desc: I18n.t("Blurred screenshot, your wallpaper, or a plain color")
             options: [{ label: I18n.t("Screenshot"), value: "screenshot" }, { label: I18n.t("Wallpaper"), value: "wallpaper" }, { label: I18n.t("Color"), value: "color" }]
-            current: page.v("background", "screenshot")
+            dflt: "screenshot"; current: page.v("background", "screenshot")
             onChosen: function(x) { page.setv("background", x) }
         }
         SliderRow {
             label: I18n.t("Blur")
             from: 0; to: 4; step: 1
-            value: page.v("blur", 3)
+            dflt: 3; value: page.v("blur", 3)
             onCommitted: function(x) { page.setv("blur", Math.round(x)) }
         }
         SliderRow {
             label: I18n.t("Brightness")
             desc: I18n.t("Lower makes the background darker")
             from: 0.2; to: 1.0; step: 0.05; decimals: 2
-            value: page.v("dim", 0.5)
+            dflt: 0.5; value: page.v("dim", 0.5)
             onCommitted: function(x) { page.setv("dim", x.toFixed(2)) }
         }
 
         SectionTitle { text: I18n.t("Widgets"); sub: page.classic ? I18n.t("Small lines at the bottom of the lock screen.") : (page.glance ? I18n.t("Glance shows the apps with notifications (only their icons), your music and the week.") : I18n.t("Cards shows your music on its own card.")) }
-        ToggleRow { label: I18n.t("Media"); desc: I18n.t("What is playing right now"); checked: page.v("media", true) === true; onToggled: function(x) { page.setv("media", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Resources"); desc: I18n.t("CPU, RAM and GPU usage"); checked: page.v("resources", false) === true; onToggled: function(x) { page.setv("resources", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Notifications"); desc: I18n.t("How many notifications are waiting"); checked: page.v("notifications", true) === true; onToggled: function(x) { page.setv("notifications", x ? "on" : "off") } }
-        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Weather"); desc: I18n.t("Current weather from wttr.in"); checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
+        ToggleRow { label: I18n.t("Media"); desc: I18n.t("What is playing right now"); dflt: true; checked: page.v("media", true) === true; onToggled: function(x) { page.setv("media", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Resources"); desc: I18n.t("CPU, RAM and GPU usage"); dflt: false; checked: page.v("resources", false) === true; onToggled: function(x) { page.setv("resources", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Notifications"); desc: I18n.t("How many notifications are waiting"); dflt: true; checked: page.v("notifications", true) === true; onToggled: function(x) { page.setv("notifications", x ? "on" : "off") } }
+        ToggleRow { visible: page.classic || page.glance; label: I18n.t("Weather"); desc: I18n.t("Current weather from wttr.in"); dflt: false; checked: page.v("weather", false) === true; onToggled: function(x) { page.setv("weather", x ? "on" : "off") } }
 
         LoginScreenCard { ctl: page.ctl }
 

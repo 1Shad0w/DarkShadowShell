@@ -172,21 +172,21 @@ Item {
             label: I18n.t("Resolution")
             desc: I18n.t("Native keeps your screen's size; smaller is lighter")
             options: [{ label: I18n.t("Native"), value: "native" }, { label: "1440p", value: "1440" }, { label: "1080p", value: "1080" }, { label: "720p", value: "720" }]
-            current: page.v("rec_res", "native")
+            dflt: "native"; current: page.v("rec_res", "native")
             onChosen: function(x) { page.setv("rec_res", x) }
         }
         SegRow {
             label: I18n.t("Frame rate")
             desc: I18n.t("60 fps is smoother for games and moving windows")
             options: [{ label: I18n.t("30 fps"), value: "30" }, { label: I18n.t("60 fps"), value: "60" }]
-            current: page.v("rec_fps", "60")
+            dflt: "60"; current: page.v("rec_fps", "60")
             onChosen: function(x) { page.setv("rec_fps", x) }
         }
         SegRow {
             label: I18n.t("Quality")
             desc: I18n.t("How sharp the picture stays; the file size follows")
             options: [{ label: I18n.t("Best"), value: "best" }, { label: I18n.t("High"), value: "high" }, { label: I18n.t("Balanced"), value: "balanced" }, { label: I18n.t("Small"), value: "small" }]
-            current: page.v("rec_quality", "high")
+            dflt: "high"; current: page.v("rec_quality", "high")
             onChosen: function(x) { page.setv("rec_quality", x) }
         }
         SegRow {
@@ -199,8 +199,8 @@ Item {
 
         // ---------- sound ----------
         SectionTitle { text: I18n.t("Sound") }
-        ToggleRow { label: I18n.t("Record sound"); desc: I18n.t("The sound of your computer: games, videos, calls"); checked: page.v("rec_sound", true) === true; onToggled: function(x) { page.setv("rec_sound", x ? "on" : "off") } }
-        ToggleRow { label: I18n.t("Record microphone"); desc: I18n.t("Your voice instead (with wf-recorder only one of the two; gpu-screen-recorder can take both)"); checked: page.v("rec_mic", false) === true; onToggled: function(x) { page.setv("rec_mic", x ? "on" : "off") } }
+        ToggleRow { label: I18n.t("Record sound"); desc: I18n.t("The sound of your computer: games, videos, calls"); dflt: true; checked: page.v("rec_sound", true) === true; onToggled: function(x) { page.setv("rec_sound", x ? "on" : "off") } }
+        ToggleRow { label: I18n.t("Record microphone"); desc: I18n.t("Your voice instead (with wf-recorder only one of the two; gpu-screen-recorder can take both)"); dflt: false; checked: page.v("rec_mic", false) === true; onToggled: function(x) { page.setv("rec_mic", x ? "on" : "off") } }
 
         T {
             visible: page.noTool

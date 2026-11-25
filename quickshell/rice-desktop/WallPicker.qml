@@ -12,6 +12,9 @@ import QtQuick.Effects
 // previews of rice-walls, and only the big card loads the wallpaper itself (sharp). The cards are cut round by one
 // mask for all of them, not one graphics effect per card.
 // Settings > Wallpaper can turn this picker off, or the shell's wallpapers altogether (rice-walls picker|manage).
+// V6.55: two ways to look (the button beside shuffle): the carousel, or Coverflow (the cards turn in 3D around the
+// one in the middle). A star on the big card (or Ctrl+S) keeps it in Favourites, a tab of its own. Both are kept
+// in ~/.config/rice/walls-view and walls-favs.json.
 PanelWindow {
     screen: Mon.screen
     id: wp
@@ -23,7 +26,7 @@ PanelWindow {
     readonly property real et: ease(t)
     onOpenChanged: {
         t = open ? 1 : 0
-        if (open) { query = ""; search.text = ""; kind = "all"; centered = false; list.running = true; focusT.restart() }
+        if (open) { query = ""; search.text = ""; kind = "all"; centered = false; list.running = true; prefsP.running = true; focusT.restart() }
     }
     NPal { id: pal; theme: "shell"; alpha: 0.94 }
 
@@ -47,13 +50,37 @@ PanelWindow {
     property int dirs: 1
     property bool loaded: false
     property string query: ""
-    property string kind: "all"                       // all | pics | live
+    property string kind: "all"                       // all | pics | live | favs
+    // V6.55: the view, and your favourites (paths)
+    property string view: "carousel"                  // carousel | coverflow
+    readonly property bool flow: view === "coverflow"
+    property var favs: []
+    function isFav(path) { return favs.indexOf(path) >= 0 }
+    function keep(file, text) { Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/.config/rice\" && printf '%s\\n' \"$2\" > \"$HOME/.config/rice/$1\"", "_", file, text]) }
+    function toggleFav(path) {
+        if (!path) return
+        favs = isFav(path) ? favs.filter(function(x) { return x !== path }) : favs.concat([path])
+        keep("walls-favs.json", JSON.stringify(favs))
+        Sfx.play("click")
+        starPop.restart()
+    }
+    function setView(v) { view = v; keep("walls-view", v); go(sel, true) }
+    Process {
+        id: prefsP
+        command: ["bash", "-c", "cat \"$HOME/.config/rice/walls-view\" 2>/dev/null; echo; cat \"$HOME/.config/rice/walls-favs.json\" 2>/dev/null"]
+        stdout: StdioCollector { onStreamFinished: {
+            const l = text.split("\n")
+            wp.view = (l[0] || "").trim() === "coverflow" ? "coverflow" : "carousel"
+            try { const f = JSON.parse(l.slice(1).join("\n").trim() || "[]"); if (Array.isArray(f)) wp.favs = f.filter(function(x) { return typeof x === "string" }) } catch (e) { }
+        } }
+    }
     readonly property int nLive: all.filter(function(w) { return w.live === true }).length
     readonly property var shown: {
         const q = query.toLowerCase()
         return all.filter(function(w) {
             if (wp.kind === "pics" && w.live === true) return false
             if (wp.kind === "live" && w.live !== true) return false
+            if (wp.kind === "favs" && wp.favs.indexOf(w.path) < 0) return false
             return q === "" || w.name.toLowerCase().indexOf(q) >= 0
         })
     }
@@ -138,9 +165,14 @@ PanelWindow {
     }
     function anchorW(a) { return a <= 0 ? heroW : (a <= 1 ? l1W : stripW) }
     function lerp(f, a, b) { return a + (b - a) * f }
-    function cx(d) { const ad = Math.abs(d), a = Math.floor(ad), f = ad - a; return (d < 0 ? -1 : 1) * lerp(f, anchorC(a), anchorC(a + 1)) }
-    function cw(d) { const ad = Math.abs(d), a = Math.floor(ad), f = ad - a; return lerp(f, anchorW(a), anchorW(a + 1)) }
-    function chh(d) { return carH * (1 - 0.1 * Math.min(1, Math.abs(d)) - 0.025 * Math.max(0, Math.min(3, Math.abs(d) - 1))) }
+    // Coverflow (V6.55): every card as big, the side ones turned toward the middle and stacked close together
+    readonly property real cfW: Math.min(width * 0.42, carH * 1.5)
+    function cfx(d) { const ad = Math.abs(d), s = d < 0 ? -1 : 1; return s * (ad <= 1 ? ad * cfW * 0.66 : cfW * 0.66 + (ad - 1) * cfW * 0.17) }
+    function cx(d) { if (flow) return cfx(d); const ad = Math.abs(d), a = Math.floor(ad), f = ad - a; return (d < 0 ? -1 : 1) * lerp(f, anchorC(a), anchorC(a + 1)) }
+    function cw(d) { if (flow) return cfW; const ad = Math.abs(d), a = Math.floor(ad), f = ad - a; return lerp(f, anchorW(a), anchorW(a + 1)) }
+    function chh(d) { if (flow) return carH * (1 - 0.24 * Math.min(1, Math.abs(d))); return carH * (1 - 0.1 * Math.min(1, Math.abs(d)) - 0.025 * Math.max(0, Math.min(3, Math.abs(d) - 1))) }
+    function ry(d) { return flow ? -Math.max(-1, Math.min(1, d)) * 44 : 0 }
+    function zz(d) { return flow ? 50 - Math.abs(d) * 4 : 0 }
     // opening: the hero rises first, the others follow outwards; a new list: the same, quicker
     function cin(d) { const k = Math.min(Math.abs(d), 6); return Math.min(wp.ease((wp.t - k * 0.06) / 0.6), wp.ease((wp.ft - k * 0.05) / 0.55)) }
     readonly property int base: Math.round(pos)
@@ -173,6 +205,8 @@ PanelWindow {
                     width: wp.cw(d); height: wp.chh(d)
                     x: car.width / 2 + wp.cx(d) - width / 2
                     y: (car.height - height) / 2 + (1 - it) * 70
+                    z: wp.zz(d)
+                    transform: Rotation { origin.x: pc.width / 2; origin.y: pc.height / 2; axis.x: 0; axis.y: 1; axis.z: 0; angle: wp.ry(pc.d) }
                     Rectangle { anchors.fill: parent; color: pal.card }
                     Image {
                         anchors.fill: parent
@@ -192,9 +226,10 @@ PanelWindow {
                 id: hero
                 readonly property var w: wp.shown.length > 0 && wp.sel < wp.shown.length ? wp.shown[wp.sel] : null
                 readonly property bool still: Math.abs(wp.pos - wp.sel) < 0.01
-                width: wp.heroW; height: wp.carH
+                width: wp.cw(wp.sel - wp.pos); height: wp.chh(wp.sel - wp.pos)
                 x: (car.width - width) / 2 + wp.cx(wp.sel - wp.pos)
-                y: (1 - wp.cin(0)) * 70
+                y: (car.height - height) / 2 + (1 - wp.cin(0)) * 70
+                z: 100
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true
@@ -213,6 +248,7 @@ PanelWindow {
             Repeater {
                 model: wp.slots
                 delegate: Rectangle {
+                    id: mk
                     readonly property int idx: wp.base + modelData
                     readonly property real d: idx - wp.pos
                     readonly property real it: wp.cin(d)
@@ -220,6 +256,8 @@ PanelWindow {
                     width: wp.cw(d); height: wp.chh(d)
                     x: car.width / 2 + wp.cx(d) - width / 2
                     y: (car.height - height) / 2 + (1 - it) * 70
+                    z: wp.zz(d)
+                    transform: Rotation { origin.x: mk.width / 2; origin.y: mk.height / 2; axis.x: 0; axis.y: 1; axis.z: 0; angle: wp.ry(mk.d) }
                     radius: Look.sq ? 0 : (Math.min(width / 2, wp.lerp(Math.min(1, Math.abs(d)), 30, 22)))
                     color: "white"
                 }
@@ -250,6 +288,8 @@ PanelWindow {
                 width: wp.cw(d); height: wp.chh(d)
                 x: car.width / 2 + wp.cx(d) - width / 2
                 y: (car.height - height) / 2 + (1 - it) * 70
+                z: wp.zz(d)
+                transform: Rotation { origin.x: card.width / 2; origin.y: card.height / 2; axis.x: 0; axis.y: 1; axis.z: 0; angle: wp.ry(card.d) }
                 opacity: it * (1 - wp.clamp01((Math.abs(d) - wp.reach + 1.5) / 2))
 
                 // picking it: a flash of your key color
@@ -286,6 +326,21 @@ PanelWindow {
                     Blob { anchors.fill: parent; kind: Look.shape; color: pal.primary }
                     MIcon { anchors.centerIn: parent; size: 18; filled: true; name: "check"; glyph: ""; color: pal.inkPrimary }
                 }
+                // V6.55: a favourite: a star; on the big one you can click it
+                Rectangle {
+                    id: starB
+                    readonly property bool fav: card.w !== null && wp.isFav(card.w.path)
+                    visible: card.width > 90 && (card.focus0 || fav)
+                    anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 14
+                    width: 40; height: 40; radius: Look.sq ? 0 : (stM.containsMouse ? 14 : 20)
+                    color: fav ? pal.primary : Qt.rgba(0, 0, 0, 0.5)
+                    Behavior on radius { NumberAnimation { duration: 200 } }
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                    scale: card.focus0 ? 1 + 0.25 * starS.v : 1
+                    MIcon { anchors.centerIn: parent; size: 20; filled: starB.fav; name: "star"; glyph: ""; color: starB.fav ? pal.inkPrimary : "white" }
+                    MouseArea { id: stM; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: card.focus0
+                        onClicked: if (card.w) wp.toggleFav(card.w.path) }
+                }
                 // the name, on the big one
                 Rectangle {
                     anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 14
@@ -317,7 +372,8 @@ PanelWindow {
                 Blob { anchors.fill: parent; kind: Look.shape; color: pal.container }
                 MIcon { anchors.centerIn: parent; size: 32; filled: true; name: wp.all.length === 0 ? "wallpaper" : "search_off"; glyph: ""; color: pal.inkContainer } }
             Text { anchors.horizontalCenter: parent.horizontalCenter
-                text: wp.all.length === 0 ? Tr.t("No wallpapers yet") : (wp.kind === "live" && wp.nLive === 0 ? Tr.t("No live wallpapers: put videos in a wallpaper folder") : Tr.t("Nothing matches"))
+                text: wp.all.length === 0 ? Tr.t("No wallpapers yet") : (wp.kind === "live" && wp.nLive === 0 ? Tr.t("No live wallpapers: put videos in a wallpaper folder")
+                    : (wp.kind === "favs" && wp.favs.length === 0 ? Tr.t("No favourites yet: the star on a wallpaper (or Ctrl+S) keeps it here") : Tr.t("Nothing matches")))
                 color: "white"; font.family: Fonts.main; font.pixelSize: 15; font.weight: Font.Medium }
         }
         // still reading the list: three soft cards breathe
@@ -334,6 +390,12 @@ PanelWindow {
     }
     // picking one: a flash of your key color on the big card
     QtObject { id: flashS; property real v: 0 }
+    QtObject { id: starS; property real v: 0 }
+    SequentialAnimation {
+        id: starPop
+        NumberAnimation { target: starS; property: "v"; to: 1; duration: 120; easing.type: Easing.OutQuad }
+        NumberAnimation { target: starS; property: "v"; to: 0; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 2.5 }
+    }
     SequentialAnimation {
         id: pulse
         NumberAnimation { target: flashS; property: "v"; to: 0.42; duration: 90; easing.type: Easing.OutQuad }
@@ -378,8 +440,9 @@ PanelWindow {
                         else if (k === Qt.Key_PageUp) wp.go(wp.sel - 5)
                         else if (k === Qt.Key_Home && search.text === "") wp.go(0)
                         else if (k === Qt.Key_End && search.text === "") wp.go(wp.shown.length - 1)
-                        else if (k === Qt.Key_Tab) wp.kind = wp.kind === "all" ? "pics" : (wp.kind === "pics" ? "live" : "all")
-                        else if (k === Qt.Key_Backtab) wp.kind = wp.kind === "all" ? "live" : (wp.kind === "live" ? "pics" : "all")
+                        else if (k === Qt.Key_S && (e.modifiers & Qt.ControlModifier)) { if (wp.shown[wp.sel]) wp.toggleFav(wp.shown[wp.sel].path) }
+                        else if (k === Qt.Key_Tab) wp.kind = ({ all: "pics", pics: "live", live: "favs", favs: "all" })[wp.kind] || "all"
+                        else if (k === Qt.Key_Backtab) wp.kind = ({ all: "favs", favs: "live", live: "pics", pics: "all" })[wp.kind] || "all"
                         else return
                         e.accepted = true
                     }
@@ -390,7 +453,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 4
                 Repeater {
-                    model: [{ k: "all", n: Tr.t("All"), i: "apps" }, { k: "pics", n: Tr.t("Pictures"), i: "image" }, { k: "live", n: Tr.t("Live"), i: "play_circle" }]
+                    model: [{ k: "all", n: Tr.t("All"), i: "apps" }, { k: "pics", n: Tr.t("Pictures"), i: "image" }, { k: "live", n: Tr.t("Live"), i: "play_circle" }, { k: "favs", n: Tr.t("Favourites"), i: "star" }]
                     delegate: Rectangle {
                         id: ch
                         readonly property bool on: wp.kind === modelData.k
@@ -414,6 +477,7 @@ PanelWindow {
                     }
                 }
             }
+            IconBtn { icon: wp.flow ? "view_carousel" : "view_array"; onHit: wp.setView(wp.flow ? "carousel" : "coverflow") }
             IconBtn { icon: "shuffle"; onHit: wp.shuffle() }
             IconBtn { icon: "close"; onHit: wp.open = false }
         }
@@ -432,7 +496,7 @@ PanelWindow {
             spacing: 2
             Text { text: (wp.sel + 1) + " / " + wp.shown.length + (wp.dirs > 1 ? "  ·  " + wp.dirs + Tr.t(" folders") : "")
                 color: "white"; font.family: Fonts.main; font.pixelSize: 14; font.weight: Font.DemiBold }
-            Text { text: Tr.t("Enter sets it  ·  Tab: All, Pictures, Live"); color: Qt.rgba(1, 1, 1, 0.6); font.family: Fonts.main; font.pixelSize: 11 }
+            Text { text: Tr.t("Enter sets it  ·  Ctrl+S: favourite  ·  Tab: All, Pictures, Live, Favourites"); color: Qt.rgba(1, 1, 1, 0.6); font.family: Fonts.main; font.pixelSize: 11 }
         }
         // Set as wallpaper, or "In use" when it is the one you have (the button turns into a pill with a check)
         Rectangle {

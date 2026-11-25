@@ -65,6 +65,15 @@ SCHEMES = [
     ("aqua",     "Aqua",     "color", "scheme-fidelity",   "#00bcd4", A, ["#06161a", "#5fe0f0", "#dcf8fc"]),
     ("neon",     "Neon",     "color", "scheme-fruit-salad", "#c51162", A, ["#14091a", "#ff7ad9", "#ffe3f6"]),
     ("rainbow",  "Rainbow",  "color", "scheme-rainbow",    "#5c6bc0", A, ["#0f1018", "#ffb86b", "#e9eaff"]),
+    # V6.55: the palettes people love on GitHub (their key colors, made into a full scheme by matugen)
+    ("catppuccin", "Catppuccin", "color", "scheme-tonal-spot", "#cba6f7", A, ["#1e1e2e", "#cba6f7", "#cdd6f4"]),
+    ("rosepine",   "Rosé Pine",  "color", "scheme-tonal-spot", "#c4a7e7", A, ["#191724", "#ebbcba", "#e0def4"]),
+    ("tokyonight", "Tokyo Night", "color", "scheme-fidelity",  "#7aa2f7", A, ["#1a1b26", "#7aa2f7", "#c0caf5"]),
+    ("gruvbox",    "Gruvbox",    "color", "scheme-fidelity",   "#d79921", A, ["#282828", "#fabd2f", "#ebdbb2"]),
+    ("nord",       "Nord",       "color", "scheme-neutral",    "#81a1c1", A, ["#2e3440", "#88c0d0", "#eceff4"]),
+    ("everforest", "Everforest", "color", "scheme-tonal-spot", "#a7c080", A, ["#2d353b", "#a7c080", "#d3c6aa"]),
+    ("kanagawa",   "Kanagawa",   "color", "scheme-neutral",    "#7e9cd8", A, ["#1f1f28", "#7e9cd8", "#dcd7ba"]),
+    ("dracula",    "Dracula",    "color", "scheme-fidelity",   "#bd93f9", A, ["#282a36", "#bd93f9", "#f8f8f2"]),
 ]
 BY_KEY = {s[0]: s for s in SCHEMES}
 

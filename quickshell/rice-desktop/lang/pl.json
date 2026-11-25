@@ -558,5 +558,17 @@
  "week ": "tydzień ",
  "windows": "okien",
  "words": "słów",
- "← → move a part, also past your apps": "← → przesuwa element, także na drugą stronę aplikacji"
+ "← → move a part, also past your apps": "← → przesuwa element, także na drugą stronę aplikacji",
+ "Favourites": "Ulubione",
+ "No favourites yet: the star on a wallpaper (or Ctrl+S) keeps it here": "Jeszcze brak ulubionych: gwiazdka na tapecie (albo Ctrl+S) trzyma ją tutaj",
+ "Enter sets it  ·  Ctrl+S: favourite  ·  Tab: All, Pictures, Live, Favourites": "Enter ustawia  ·  Ctrl+S: ulubiona  ·  Tab: Wszystkie, Obrazy, Żywe, Ulubione",
+ "Click again to delete": "Kliknij jeszcze raz, żeby usunąć",
+ "Delete": "Usuń",
+ "Enter saves  ·  Ctrl+Z undo  ·  1-7 the tools  ·  Esc closes": "Enter zapisuje  ·  Ctrl+Z cofa  ·  1-7 narzędzia  ·  Esc zamyka",
+ "Open the folder": "Otwórz folder",
+ "Pin it on the screen": "Przypnij na ekranie",
+ "QR code": "Kod QR",
+ "Read a QR code": "Odczytaj kod QR",
+ "Screenshot saved": "Zrzut ekranu zapisany",
+ "Your changes are in it, and it is on the clipboard": "Twoje zmiany są w nim i jest w schowku"
 }

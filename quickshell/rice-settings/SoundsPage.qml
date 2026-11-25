@@ -159,16 +159,16 @@ Item {
             label: I18n.t("Volume")
             desc: I18n.t("How loud the interface sounds are, on top of your system volume")
             from: 0; to: 100; step: 5; unit: " %"
-            value: page.v("volume", 45)
+            dflt: 45; value: page.v("volume", 45)
             onCommitted: function(x) { page.setv("volume", Math.round(x)); Sfx.play("select") }
         }
 
         SectionTitle { text: I18n.t("When to play"); sub: I18n.t("Turn single sounds on or off.") }
-        ToggleRow { label: I18n.t("Clicks"); desc: I18n.t("Buttons, cards, the sidebar and the dashboard"); checked: page.v("click", true); onToggled: function(x) { page.setv("click", x) } }
-        ToggleRow { label: I18n.t("Switches"); desc: I18n.t("A soft up when something turns on, down when it turns off"); checked: page.v("switch", true); onToggled: function(x) { page.setv("switch", x) } }
-        ToggleRow { label: I18n.t("Sliders"); desc: I18n.t("A tiny tick for every step while you drag"); checked: page.v("slider", true); onToggled: function(x) { page.setv("slider", x) } }
-        ToggleRow { label: I18n.t("Typing"); desc: I18n.t("Search fields and text boxes"); checked: page.v("typing", true); onToggled: function(x) { page.setv("typing", x) } }
-        ToggleRow { label: I18n.t("Welcome music"); desc: I18n.t("Quiet music during the welcome intro and the Settings tour"); checked: page.v("music", true); onToggled: function(x) { page.setv("music", x) } }
+        ToggleRow { label: I18n.t("Clicks"); desc: I18n.t("Buttons, cards, the sidebar and the dashboard"); dflt: true; checked: page.v("click", true); onToggled: function(x) { page.setv("click", x) } }
+        ToggleRow { label: I18n.t("Switches"); desc: I18n.t("A soft up when something turns on, down when it turns off"); dflt: true; checked: page.v("switch", true); onToggled: function(x) { page.setv("switch", x) } }
+        ToggleRow { label: I18n.t("Sliders"); desc: I18n.t("A tiny tick for every step while you drag"); dflt: true; checked: page.v("slider", true); onToggled: function(x) { page.setv("slider", x) } }
+        ToggleRow { label: I18n.t("Typing"); desc: I18n.t("Search fields and text boxes"); dflt: true; checked: page.v("typing", true); onToggled: function(x) { page.setv("typing", x) } }
+        ToggleRow { label: I18n.t("Welcome music"); desc: I18n.t("Quiet music during the welcome intro and the Settings tour"); dflt: true; checked: page.v("music", true); onToggled: function(x) { page.setv("music", x) } }
 
         Row {
             spacing: 10
@@ -216,7 +216,7 @@ Item {
             label: I18n.t("Notification sound volume")
             desc: I18n.t("How loud the notification sound is, on top of your system volume")
             from: 0; to: 100; step: 5; unit: " %"
-            value: page.nv("sound_volume", 45)
+            dflt: 45; value: page.nv("sound_volume", 45)
             onCommitted: function(x) {
                 page.setn("sound_volume", Math.round(x))
                 if (page.nv("sound", "glass") !== "off") page.previewNote(page.nv("sound", "glass"), Math.round(x))

@@ -414,7 +414,9 @@ FloatingWindow {
         { name: "Presets", icon: "\uf0d0" },       // 39 (V5.04)
         { name: "Explore", icon: "\uf14e" },       // 40 (V5.07)
         { name: "Care", icon: "\uf0f1" },          // 41 (V6.00)
-        { name: "Vibe", icon: "\uf001" }           // 42 (V6.10)
+        { name: "Vibe", icon: "\uf001" },          // 42 (V6.10)
+        { name: "Profiles", icon: "\uf0c0" },      // 43 (V6.55)
+        { name: "Screen time", icon: "\uf017" }    // 44 (V6.55)
     ]
 
 
@@ -428,7 +430,7 @@ FloatingWindow {
         { group: "desk", name: "Desktop", icon: "\uf108", sym: "desktop_windows", pages: niri ? [29, 12, 25, 36, 4, 11] : [29, 33, 12, 25, 36, 4, 11], caption: I18n.t("Look & feel, widgets, windows, window rules, %1 and the lock screen", wmLabel) },
         { group: "bar", name: "Bar & launcher", icon: "\uf0c9", sym: "toolbar", pages: [2, 3, 6, 7], caption: I18n.t("The bar, the dynamic island and the launcher") },
         { group: "snd", name: "Sound & language", icon: "\uf028", sym: "graphic_eq", pages: [1, 10, 26], caption: I18n.t("Sounds, notifications, language and region") },
-        { group: "sys", name: "System", icon: "\uf013", sym: "settings", pages: [41, 38, 30, 31, 28, 5, 23, 15], caption: I18n.t("Care, your account, keybinds, languages, monitors, recording, keyboard and services") },
+        { group: "sys", name: "System", icon: "\uf013", sym: "settings", pages: [41, 43, 44, 38, 30, 31, 28, 5, 23, 15], caption: I18n.t("Care, profiles, screen time, your account, keybinds, languages, monitors, recording, keyboard and services") },
         { group: "game", name: "Gaming", icon: "\uf11b", sym: "sports_esports", pages: [16], caption: I18n.t("Play without distractions") },
         { group: "about", name: "About", icon: "\uf05a", sym: "info", pages: [17], caption: I18n.t("Version, system and credits") },
         { group: "upd", name: "Update Center", icon: "\uf021", sym: "system_update_alt", pages: [35], caption: I18n.t("Get the newest version, right here") }
@@ -1081,6 +1083,8 @@ FloatingWindow {
             PageSlot { nav: win; idx: 40; cur: win.page; page: Component { ExplorePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 41; cur: win.page; page: Component { CarePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 42; cur: win.page; page: Component { VibePage { anchors.fill: parent; ctl: win } } }
+            PageSlot { nav: win; idx: 43; cur: win.page; page: Component { ProfilesPage { anchors.fill: parent; ctl: win } } }
+            PageSlot { nav: win; idx: 44; cur: win.page; page: Component { ScreenTimePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 35; cur: win.page; page: Component { UpdatePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 36; cur: win.page; page: Component { WindowRulesPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 38; cur: win.page; page: Component { AccountPage { anchors.fill: parent; ctl: win } } }

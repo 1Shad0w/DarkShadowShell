@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""rice-profile: your whole setup under a name, and switch between them (Settings > System > Profiles), V6.55.
+
+  rice-profile list               JSON: the profiles (name, when made, the wallpaper), and the one in use
+  rice-profile save NAME          how everything is right now, kept as NAME (an existing NAME is updated)
+  rice-profile use NAME           switch to NAME: the profile you leave is kept first (with its changes), then
+                                  every setting, the theme, the bar, the widgets and the wallpaper of NAME come back
+  rice-profile delete NAME        take a profile away
+  rice-profile rename OLD NEW
+
+A profile is a backup (rice-backup) under a name, in ~/.local/share/rice/profiles. For example Gaming (Game mode,
+a calm bar, no widgets), Work (a busy bar, Do not disturb) and Study.
+"""
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import sys
+
+HOME = os.path.expanduser("~")
+DIR = HOME + "/.local/share/rice/profiles"
+ACTIVE = DIR + "/active"
+NAME_RE = re.compile(r"^[\w][\w .+-]{0,39}$", re.UNICODE)
+
+
+def backup():
+    here = os.path.dirname(os.path.realpath(__file__))
+    for p in (here + "/rice-backup", HOME + "/.local/bin/rice-backup"):
+        if os.path.isfile(p):
+            loader = importlib.machinery.SourceFileLoader("rice_backup", p)
+            spec = importlib.util.spec_from_loader("rice_backup", loader)
+            m = importlib.util.module_from_spec(spec)
+            loader.exec_module(m)
+            return m
+    sys.exit("rice-profile: rice-backup is missing")
+
+
+def check(name):
+    name = (name or "").strip()
+    if not NAME_RE.match(name) or name in (".", "..") or name == "active":
+        sys.exit("rice-profile: a name of letters, numbers, spaces, . + - (up to 40)")
+    return name
+
+
+def path_of(name):
+    return os.path.join(DIR, name + ".dsbackup")
+
+
+def active():
+    try:
+        return open(ACTIVE).read().strip()
+    except OSError:
+        return ""
+
+
+def set_active(name):
+    os.makedirs(DIR, exist_ok=True)
+    with open(ACTIVE + ".tmp", "w") as f:
+        f.write(name + "\n")
+    os.replace(ACTIVE + ".tmp", ACTIVE)
+
+
+def save(name, quiet=False):
+    rb = backup()
+    os.makedirs(DIR, exist_ok=True)
+    made = rb.save(DIR, True)
+    os.replace(made, path_of(name))
+    if not quiet:
+        print(json.dumps({"saved": name}))
+
+
+def cmd_list():
+    rb = backup()
+    out = []
+    if os.path.isdir(DIR):
+        for f in sorted(os.listdir(DIR), key=str.lower):
+            if not f.endswith(".dsbackup"):
+                continue
+            meta = rb.read_meta(os.path.join(DIR, f)) or {}
+            out.append({"name": f[:-len(".dsbackup")], "made": meta.get("made", ""), "wallpaper": meta.get("wallpaper", ""),
+                        "size": os.path.getsize(os.path.join(DIR, f))})
+    a = active()
+    print(json.dumps({"profiles": out, "active": a if any(p["name"] == a for p in out) else ""}))
+
+
+def use(name):
+    p = path_of(name)
+    if not os.path.isfile(p):
+        sys.exit("rice-profile: no profile " + name)
+    # the one you leave keeps what you changed in it
+    cur = active()
+    if cur and cur != name and os.path.isfile(path_of(cur)):
+        save(cur, quiet=True)
+    set_active(name)
+    backup().restore(p, before=False, out=False)
+    print(json.dumps({"using": name}))
+
+
+def main(a):
+    cmd = a[1] if len(a) > 1 else "list"
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "save" and len(a) > 2:
+        n = check(" ".join(a[2:]))
+        save(n)
+        if not active():
+            set_active(n)
+    elif cmd == "use" and len(a) > 2:
+        use(check(" ".join(a[2:])))
+    elif cmd == "delete" and len(a) > 2:
+        n = check(" ".join(a[2:]))
+        try:
+            os.remove(path_of(n))
+        except OSError:
+            sys.exit("rice-profile: no profile " + n)
+        if active() == n:
+            os.remove(ACTIVE)
+        print(json.dumps({"deleted": n}))
+    elif cmd == "rename" and len(a) == 4:
+        o, n = check(a[2]), check(a[3])
+        if not os.path.isfile(path_of(o)):
+            sys.exit("rice-profile: no profile " + o)
+        if os.path.exists(path_of(n)):
+            sys.exit("rice-profile: there is a profile " + n + " already")
+        os.replace(path_of(o), path_of(n))
+        if active() == o:
+            set_active(n)
+        print(json.dumps({"renamed": n}))
+    else:
+        print(__doc__.strip())
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

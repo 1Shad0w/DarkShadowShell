@@ -106,7 +106,7 @@ PanelWindow {
                 }
                 Column {
                     anchors.left: badge.right; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
-                    Text { text: sr.kind === "translation" ? Tr.t("Translation") : sr.kind === "color" ? Tr.t("Color") : Tr.t("Text from the screen")
+                    Text { text: sr.kind === "translation" ? Tr.t("Translation") : sr.kind === "color" ? Tr.t("Color") : (sr.source === "QR" ? Tr.t("QR code") : Tr.t("Text from the screen"))
                         color: pal.fg; font.family: Fonts.main; font.pixelSize: 14; font.weight: Font.DemiBold }
                     Text { text: (sr.kind === "translation" && sr.lang !== "" ? sr.lang + " · " : "") + (sr.copied ? Tr.t("Copied") : Tr.t("It is on the clipboard"))
                         color: pal.dim; font.family: Fonts.main; font.pixelSize: 11 }

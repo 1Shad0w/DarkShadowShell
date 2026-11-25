@@ -26,6 +26,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 import zipfile
 
@@ -78,8 +79,82 @@ THEMES = {
         "bar": "dynamic", "bar_opacity": 0.6, "widgets": "shadow", "notify": "glass", "notify_radius": 20,
         "rounding": 12, "gaps_in": 5, "gaps_out": 10, "border": 1, "font": UI_FONT,
         "preview": ["#101518", "#8fa8b8", "#e2eaf0"]},
+    # ---------- V6.55: more complete styles ----------
+    "luxe": {
+        "name": "Luxe", "desc": "Gold on black, thin lines, slow and calm: a watch, not a toy",
+        "colors": "gold", "corners": 0.7, "shape": "gem", "wavy": False, "motion": "standard", "bounce": 0.2,
+        "bar": "island", "bar_opacity": 0.92, "widgets": "outline", "notify": "outline", "notify_radius": 12,
+        "rounding": 8, "gaps_in": 5, "gaps_out": 12, "border": 1, "font": UI_FONT,
+        "extra": {"notify_colors": "black", "lock_style": "glance"},
+        "preview": ["#0d0b07", "#e6b84a", "#f8efd8"]},
+    "oled": {
+        "name": "OLED", "desc": "Pure black, nothing see-through, thin outlines: dark rooms and OLED screens",
+        "colors": "ink", "corners": 0.9, "shape": "circle", "wavy": False, "motion": "standard", "bounce": 0.3,
+        "bar": "flat", "bar_opacity": 1.0, "widgets": "outline", "notify": "solid", "notify_radius": 16,
+        "rounding": 10, "gaps_in": 3, "gaps_out": 6, "border": 1, "font": UI_FONT,
+        "extra": {"notify_colors": "black"},
+        "preview": ["#000000", "#8a8a8a", "#f2f2f2"]},
+    "brutal": {
+        "name": "Brutal", "desc": "Square everything, thick borders, loud lime: no curves, no excuses",
+        "colors": "lime", "corners": 0.0, "shape": "square", "wavy": False, "motion": "standard", "bounce": 0.0,
+        "bar": "flat", "bar_opacity": 1.0, "widgets": "outline", "notify": "outline", "notify_radius": 0,
+        "rounding": 0, "gaps_in": 6, "gaps_out": 12, "border": 3, "font": UI_FONT,
+        "extra": {"minimal": {"on": True, "frame": "double"}},
+        "preview": ["#12150a", "#b5d85a", "#eef5d8"]},
+    "sakura": {
+        "name": "Sakura", "desc": "Soft pinks, flower shapes, floating islands and a lively bounce",
+        "colors": "blush", "corners": 1.25, "shape": "flower", "wavy": True, "motion": "expressive", "bounce": 1.2,
+        "bar": "islands", "bar_opacity": 0.6, "widgets": "shadow", "notify": "glass", "notify_radius": 22,
+        "rounding": 14, "gaps_in": 6, "gaps_out": 12, "border": 2, "font": UI_FONT,
+        "preview": ["#1a1215", "#ffc1d0", "#fff0f3"]},
+    "catppuccin": {
+        "name": "Catppuccin", "desc": "The pastel favourite: Mocha's mauve, soft round cookies, a dynamic island",
+        "colors": "catppuccin", "corners": 1.15, "shape": "cookie12", "wavy": True, "motion": "expressive", "bounce": 0.9,
+        "bar": "dynamic", "bar_opacity": 0.8, "widgets": "shadow", "notify": "glass", "notify_radius": 18,
+        "rounding": 12, "gaps_in": 5, "gaps_out": 10, "border": 2, "font": UI_FONT,
+        "preview": ["#1e1e2e", "#cba6f7", "#cdd6f4"]},
+    "rosepine": {
+        "name": "Rosé Pine", "desc": "Muted rose and iris on deep night: soho vibes, quiet pills",
+        "colors": "rosepine", "corners": 1.0, "shape": "clover", "wavy": True, "motion": "standard", "bounce": 0.5,
+        "bar": "pills", "bar_opacity": 0.75, "widgets": "shadow", "notify": "glass", "notify_radius": 16,
+        "rounding": 10, "gaps_in": 5, "gaps_out": 10, "border": 2, "font": UI_FONT,
+        "preview": ["#191724", "#ebbcba", "#e0def4"]},
+    "tokyonight": {
+        "name": "Tokyo Night", "desc": "Neon blue city lights on navy, a monospace font, a sharp edge bar",
+        "colors": "tokyonight", "corners": 0.6, "shape": "hexagon", "wavy": False, "motion": "standard", "bounce": 0.3,
+        "bar": "edge", "bar_opacity": 0.9, "widgets": "outline", "notify": "outline", "notify_radius": 8,
+        "rounding": 6, "gaps_in": 4, "gaps_out": 8, "border": 2, "font": MONO_FONT,
+        "preview": ["#1a1b26", "#7aa2f7", "#c0caf5"]},
+    "gruvbox": {
+        "name": "Gruvbox", "desc": "Retro groove: warm yellows and browns, solid cards, a little grit",
+        "colors": "gruvbox", "corners": 0.5, "shape": "pentagon", "wavy": False, "motion": "standard", "bounce": 0.2,
+        "bar": "island", "bar_opacity": 0.95, "widgets": "shadow", "notify": "solid", "notify_radius": 8,
+        "rounding": 4, "gaps_in": 4, "gaps_out": 8, "border": 2, "font": MONO_FONT,
+        "preview": ["#282828", "#fabd2f", "#ebdbb2"]},
+    "nord": {
+        "name": "Nord", "desc": "Arctic, north-bluish calm: frosted panels and gentle motion",
+        "colors": "nord", "corners": 1.0, "shape": "softburst", "wavy": True, "motion": "standard", "bounce": 0.4,
+        "bar": "dynamic", "bar_opacity": 0.7, "widgets": "shadow", "notify": "glass", "notify_radius": 18,
+        "rounding": 10, "gaps_in": 5, "gaps_out": 10, "border": 1, "font": UI_FONT,
+        "preview": ["#2e3440", "#88c0d0", "#eceff4"]},
+    "everforest": {
+        "name": "Everforest", "desc": "Green and easy on the eyes, like a forest at dusk: soft and round",
+        "colors": "everforest", "corners": 1.1, "shape": "flower", "wavy": True, "motion": "expressive", "bounce": 0.7,
+        "bar": "islands", "bar_opacity": 0.75, "widgets": "shadow", "notify": "glass", "notify_radius": 20,
+        "rounding": 12, "gaps_in": 5, "gaps_out": 10, "border": 2, "font": UI_FONT,
+        "preview": ["#2d353b", "#a7c080", "#d3c6aa"]},
+    "kanagawa": {
+        "name": "Kanagawa", "desc": "Ink and wave blues from Hokusai's print: quiet, deep, a notch in the bar",
+        "colors": "kanagawa", "corners": 0.85, "shape": "puffy", "wavy": True, "motion": "standard", "bounce": 0.5,
+        "bar": "notch", "bar_opacity": 0.85, "widgets": "shadow", "notify": "solid", "notify_radius": 14,
+        "rounding": 8, "gaps_in": 4, "gaps_out": 9, "border": 2, "font": UI_FONT,
+        "preview": ["#1f1f28", "#7e9cd8", "#dcd7ba"]},
 }
-ORDER = ["darkshadow", "terminal", "glass", "neon", "ember", "frost"]
+ORDER = ["darkshadow", "terminal", "glass", "neon", "ember", "frost", "luxe", "oled", "brutal", "sakura",
+         "catppuccin", "rosepine", "tokyonight", "gruvbox", "nord", "everforest", "kanagawa"]
+# V6.55: what a style changes beyond its own keys (Minimal mode, the notification colors, the lock screen style) goes
+# back to how you had it when the next style does not set it, so leaving Brutal gives your round corners back
+EXTRA_KEYS = ("minimal", "notify_colors", "lock_style")
 PRESETS = DIR + "/presets.json"
 
 
@@ -196,6 +271,20 @@ def apply_extra(ex):
         tool("rice-lock", "set", "style", ex["lock_style"])
 
 
+def current_extra(k):
+    """how one of the extras is set now (to give it back later)"""
+    if k == "minimal":
+        m = jread(DIR + "/minimal.json")
+        return {"on": m.get("on") is True, "frame": m.get("frame") if m.get("frame") in FRAMES else "double"}
+    if k == "notify_colors":
+        v = jread(DIR + "/notify.json").get("colors", "shell")
+        return v if v in NOTIFY_COLORS else "shell"
+    if k == "lock_style":
+        v = jread(DIR + "/lock.json").get("style", "cards")
+        return v if v in LOCK_STYLES else "cards"
+    return None
+
+
 def all_themes():
     t = dict(THEMES)
     t.update(user_themes())
@@ -295,6 +384,8 @@ def load():
         c["apps"].update(j.get("apps") or {})
         if j.get("font_was"):
             c["font_was"] = j["font_was"]
+        if isinstance(j.get("extra_was"), dict):
+            c["extra_was"] = {k: v for k, v in j["extra_was"].items() if k in EXTRA_KEYS}
     except Exception:
         pass
     return c
@@ -630,9 +721,23 @@ def apply(key):
         tool("font-set", "set", "main", c["font_was"]["main"])
         tool("font-set", "set", "title", c["font_was"]["title"])
         c.pop("font_was")
+    # the extras this style sets: keep how they were (the first time), give them back when a style leaves them out
+    ex = t.get("extra") or {}
+    was = c.get("extra_was") if isinstance(c.get("extra_was"), dict) else {}
+    back = {}
+    for k in EXTRA_KEYS:
+        if k in ex and k not in was:
+            was[k] = current_extra(k)
+        elif k not in ex and k in was:
+            if was[k] is not None:
+                back[k] = was[k]
+            was.pop(k)
+    c["extra_was"] = was
     save(c)
-    if t.get("extra"):
-        apply_extra(t["extra"])
+    if back:
+        apply_extra(back)
+    if ex:
+        apply_extra(ex)
     # the colors last: the wallpaper's colors are made again, and the apps follow (sync)
     # your own theme: its wallpaper too (that makes the colors as well)
     w = t.get("wallpaper", "")
@@ -648,9 +753,21 @@ def apply(key):
         else:
             tool("rice-walls", "set", w, t=180)
         sync()
+        wave(key)
         return
     tool("rice-colors", "mode", t["colors"], t=180)
     sync()
+    wave(key)
+
+
+def wave(key):
+    """V6.55: the desktop shows the new style coming in (ThemeWave.qml)"""
+    try:
+        os.makedirs(HOME + "/.cache/rice", exist_ok=True)
+        with open(HOME + "/.cache/rice/theme-wave", "w") as f:
+            f.write("%.3f %s\n" % (time.time(), key))
+    except OSError:
+        pass
 
 
 def sync():
