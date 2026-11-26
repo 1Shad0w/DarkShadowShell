@@ -188,7 +188,7 @@ def write_config(c):
     except FileNotFoundError:
         j = {"$schema": "/etc/xdg/swaync/configSchema.json"}
     except Exception as e:
-        die("swaync config.json is not valid JSON, not touching it: %s" % e)
+        raise ValueError("swaync config.json is not valid JSON, not touching it: %s" % e)
     backup_once(SWCFG, ".bak-rice-notify")
     j["positionX"] = c["pos_x"]          # popups: left, center or right
     j["positionY"] = c["pos_y"]
