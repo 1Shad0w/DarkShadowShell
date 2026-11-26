@@ -344,7 +344,9 @@ def start_live(v, c=None):
     stop_live()
     # profile=fast: cheaper scaling (a wallpaper needs no film-grade filters); hwdec: the graphics card decodes;
     # framedrop: a busy frame is skipped instead of piling up
-    opts = "loop panscan=1.0 hwdec=auto-safe profile=fast framedrop=vo" + ("" if c["live"].get("sound") else " no-audio")
+    # load-scripts=no: mpv's scripts stay out, above all mpv-mpris: the wallpaper showed up as a player in the bar,
+    # the island, the lock screen and the media widgets (V6.80)
+    opts = "loop panscan=1.0 hwdec=auto-safe profile=fast framedrop=vo load-scripts=no config=no" + ("" if c["live"].get("sound") else " no-audio")
     # -p: pauses while a full-screen window hides it (no work for nothing, e.g. in games)
     subprocess.Popen([mpv, "-p", "-o", opts, "ALL", v], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      stdin=subprocess.DEVNULL, start_new_session=True)
@@ -660,7 +662,9 @@ def cmd_start(login=False):
     if not (login and login_random(c)):
         ensure_wallpaper()
     v = live_now()
-    if v and not subprocess.run(["pgrep", "-f", MPV_PAT], stdout=subprocess.DEVNULL).returncode == 0:
+    running = subprocess.run(["pgrep", "-af", MPV_PAT], capture_output=True, text=True).stdout
+    # V6.80: a live wallpaper started by an older version (with mpv's scripts, so it showed as a player) starts again
+    if v and (not running.strip() or "load-scripts=no" not in running):
         start_live(v, c)
     if c["slideshow"].get("on"):
         spawn_daemon()

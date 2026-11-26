@@ -165,6 +165,19 @@ put() {
   [ -x "$src" ] && chmod +x "$dst"
   return 0
 }
+# V6.80: a file the installer changes in place (not replaced with a new one: the GTK settings, btop's config, lines
+# added to hyprland.lua, the fixes of fixup.py) gets a copy in this run's backup first, like every replaced file.
+# Before, only replaced files were saved, so "every file it changes is backed up" was not true for these
+bk_one() { # bk_one FILE
+  local f="$1" rel
+  [ "$DRY_RUN" = 1 ] && return 0
+  [ -f "$f" ] || return 0
+  case "$f" in "$HOME"/*) ;; *) return 0 ;; esac
+  rel="${f#"$HOME"/}"
+  [ -e "$BK/$rel" ] && return 0
+  mkdir -p "$BK/$(dirname "$rel")"
+  cp -aL "$f" "$BK/$rel" 2>/dev/null || warn "could not back up ~/$rel"
+}
 copy_tree() { # copy_tree SRC_DIR DST_DIR
   local src="$1" dst="$2" f rel
   local -a new_files=() kept_files=()
@@ -634,9 +647,11 @@ set_look() {
   local theme=Bibata-Modern-Ice icons=Papirus-Dark gtk=adw-gtk3-dark f
   [ -d /usr/share/themes/adw-gtk3-dark ] || gtk=Adwaita-dark
   mkdir -p "$HOME/.icons/default" "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+  bk_one "$HOME/.icons/default/index.theme"
   printf '[Icon Theme]\nName=Default\nInherits=%s\n' "$theme" >"$HOME/.icons/default/index.theme"
   for f in "$HOME/.config/gtk-3.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"; do
     [ -f "$f" ] && cp -n "$f" "$f.bak-darkshadows" 2>/dev/null
+    bk_one "$f"
     printf '[Settings]\ngtk-application-prefer-dark-theme=1\ngtk-theme-name=%s\ngtk-icon-theme-name=%s\ngtk-cursor-theme-name=%s\ngtk-cursor-theme-size=24\ngtk-font-name=Inter 11\n' \
       "$gtk" "$icons" "$theme" >"$f"
   done
@@ -740,6 +755,7 @@ set_btop() {
   cur="$(sed -n 's/^color_theme *= *"\(.*\)".*/\1/p' "$f" | head -1)"
   case "$cur" in
     ""|Default|TTY|darkshadow|matugen)
+      bk_one "$f"
       grep -q '^color_theme' "$f" && sed -i "s|^color_theme *=.*|color_theme = \"$th\"|" "$f" || echo "color_theme = \"$th\"" >>"$f"
       grep -q '^theme_background' "$f" && sed -i 's|^theme_background *=.*|theme_background = False|' "$f" || echo "theme_background = False" >>"$f" ;;
   esac
@@ -970,6 +986,7 @@ ensure_power_modes() {
 wire_hypr() {
   local lua="$HOME/.config/hypr/hyprland.lua" m
   [ -f "$lua" ] || return 0
+  bk_one "$lua"
   # settings this Hyprland does not know are skipped instead of stopping the whole config
   if [ -f "$HOME/.config/hypr/rice-guard.lua" ] && ! grep -q 'rice-guard' "$lua"; then
     printf '%s\n%s\n\n' "-- DarkShadow's Shell: settings this Hyprland does not know are skipped instead of stopping the config" 'pcall(require, "rice-guard")' | cat - "$lua" >"$lua.rice-new" && mv -f "$lua.rice-new" "$lua"
@@ -991,7 +1008,7 @@ patch_colors() {
   [ -f "$c" ] || { echo "no hyprquickpaper, skipped"; return 0; }
   python3 "$ROOT/install/patches/colors-commands.py" "$c"
 }
-fixup() { python3 "$ROOT/install/lib/fixup.py" >"$1"; }
+fixup() { [ "$DRY_RUN" = 1 ] && return 0; RICE_BK="$BK" python3 "$ROOT/install/lib/fixup.py" >"$1"; }
 # extra cursor themes from GitHub into ~/.local/share/icons (skips the ones you have; offline is fine)
 cursor_packs() { t "$BIN/rice-cursor" get all --missing >"$1" 2>&1; }
 remember_repo() { mkdir -p "$HOME/.config/rice"; echo "$ROOT" >"$HOME/.config/rice/repo"; }
@@ -1357,7 +1374,12 @@ else
   info "Then press SUPER + U to open Settings"
 fi
 has_niri && info "niri: SUPER + Tab or the top-left corner shows the overview, SUPER + Shift + / lists the keys"
-[ -d "$BK" ] && info "Undo everything:  ./install.sh --restore"
+if [ -d "$BK" ]; then
+  info "Your old files are in ${BK/#$HOME/~} (every file this run replaced or changed)"
+  info "Undo everything:  ./install.sh --restore"
+else
+  info "No file of yours was replaced or changed, so there was nothing to back up"
+fi
 fi
 note "Full log: $LOG"
 printf '\n'

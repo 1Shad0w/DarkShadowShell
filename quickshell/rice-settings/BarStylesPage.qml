@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import QtQuick.Shapes
 
 // Settings > Bar & launcher > Bar styles (V6.60): every look of the bar as a small picture of your screen with your
 // wallpaper, every look of the workspaces moving as they do on the bar, and how they move. A click puts it on
@@ -60,7 +61,9 @@ Item {
     Timer { interval: 1300; running: page.visible; repeat: true; onTriggered: page.tick = (page.tick + 1) % 4 }
 
     // ---------- the workspaces of a style, drawn small (u: the bar's height in the picture) ----------
-    component WsMini: Row {
+    // V6.80: they move as on the bar: one marker slides (its front edge first), dots and number pills stretch,
+    // Pac-Man runs and eats the dots
+    component WsMini: Item {
         id: wm
         property string st: "dots"
         property real u: 20
@@ -68,67 +71,132 @@ Item {
         property color acc: M3.primary
         property color ink: M3.ink
         readonly property bool numbered: st === "bubbles" || st === "numpills" || st === "numbers" || st === "letters"
-        spacing: st === "dots" ? u * 0.28 : (st === "numpills" ? u * 0.08 : u * 0.12)
-        Repeater {
-            model: 4
-            delegate: Item {
-                id: cl
-                readonly property bool on: index === wm.act
-                readonly property bool busy: index === 2 || index === 0
-                readonly property real s: wm.u
-                width: wm.st === "dots" ? (on ? s * 1.5 : s * 0.42) : (wm.st === "lines" ? s * 0.3 : (wm.st === "numpills" ? (on ? s * 1.4 : s * 0.9)
-                     : (wm.st === "bubbles" ? s * 0.92 : (wm.st === "pacman" ? s * 0.7 : s * 0.72))))
-                height: s
-                Behavior on width { NumberAnimation { duration: page.dur; easing.type: page.ease; easing.overshoot: 1.4 } }
-                Rectangle {
-                    anchors.centerIn: parent
-                    visible: wm.st !== "numbers" && wm.st !== "letters" && wm.st !== "pacman"
-                    width: wm.st === "dots" || wm.st === "numpills" ? parent.width : (wm.st === "lines" ? cl.s * 0.16 : (wm.st === "bubbles" ? cl.s * 0.88 : (cl.on ? cl.s * 0.6 : cl.s * 0.48)))
-                    height: wm.st === "dots" ? (cl.on ? cl.s * 0.62 : cl.s * 0.42) : (wm.st === "lines" ? (cl.on ? cl.s * 0.95 : cl.s * 0.55)
-                          : (wm.st === "bubbles" || wm.st === "numpills" ? cl.s * 0.88 : width))
-                    radius: M3.sq ? 0 : (wm.st === "squares" ? width * 0.28 : Math.min(width, height) / 2)
-                    color: cl.on ? wm.acc
-                         : (wm.st === "rings" ? "transparent" : (wm.st === "squares" ? (cl.busy ? Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, 0.55) : "transparent")
-                         : (wm.st === "bubbles" || wm.st === "numpills" ? Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.16 : (wm.st === "bubbles" ? 0.06 : 0))
-                         : Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.6 : 0.25))))
-                    border.width: cl.on || wm.st === "dots" || wm.st === "lines" || wm.st === "bubbles" || wm.st === "numpills" ? 0
-                                : (wm.st === "rings" ? (cl.busy ? cl.s * 0.14 : cl.s * 0.07) : (cl.busy ? 0 : cl.s * 0.07))
-                    border.color: Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.6 : 0.3)
-                    Behavior on width { NumberAnimation { duration: page.dur; easing.type: page.ease } }
-                    Behavior on height { NumberAnimation { duration: page.dur; easing.type: page.ease } }
-                    Behavior on color { ColorAnimation { duration: 200 } }
+        readonly property bool stretchy: st === "dots" || st === "numpills"
+        readonly property bool slide: !stretchy && st !== "pacman"
+        readonly property real cw: u * (st === "lines" ? 0.42 : (st === "bubbles" ? 1.04 : (st === "pacman" ? 0.82 : 0.86)))
+        readonly property real sp: st === "dots" ? u * 0.28 : (st === "numpills" ? u * 0.08 : 0)
+        width: wr.width; height: u
+        // the marker (lines, squares, rings, bubbles, letters, numbers)
+        readonly property real mw: st === "lines" ? u * 0.16 : (st === "squares" || st === "rings" ? u * 0.6 : u * 0.88)
+        readonly property real mh: st === "lines" ? u * 0.95 : (st === "squares" || st === "rings" ? u * 0.6 : u * 0.88)
+        property real lx: 0
+        property real rx: 0
+        property bool placed: false
+        readonly property real tl: act * cw + (cw - mw) / 2
+        function place() {
+            if (!placed) { lx = tl; rx = tl + mw; placed = true; return }
+            const right = tl > lx
+            aL.stop(); aR.stop()
+            aL.to = tl; aR.to = tl + mw
+            aL.duration = right ? page.dur * 1.35 : page.dur; aR.duration = right ? page.dur : page.dur * 1.35
+            aL.easing.type = right ? Easing.OutCubic : page.ease; aR.easing.type = right ? page.ease : Easing.OutCubic
+            aL.start(); aR.start()
+        }
+        onTlChanged: place()
+        Component.onCompleted: place()
+        NumberAnimation { id: aL; target: wm; property: "lx"; easing.overshoot: 1.6 }
+        NumberAnimation { id: aR; target: wm; property: "rx"; easing.overshoot: 1.6 }
+        Rectangle {
+            visible: wm.slide
+            readonly property real k: Math.max(0, Math.min(1, (wm.rx - wm.lx - wm.mw) / wm.cw))
+            x: wm.lx; width: Math.max(1, wm.rx - wm.lx); height: wm.mh * (1 - 0.22 * k)
+            anchors.verticalCenter: parent.verticalCenter
+            radius: M3.sq ? 0 : (wm.st === "squares" ? height * 0.28 : Math.min(width, height) / 2)
+            color: wm.acc
+        }
+        Row {
+            id: wr
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: wm.sp
+            Repeater {
+                model: 4
+                delegate: Item {
+                    id: cl
+                    readonly property bool on: index === wm.act
+                    readonly property bool busy: index === 2 || index === 0
+                    readonly property real s: wm.u
+                    width: wm.st === "dots" ? (on ? s * 1.5 : s * 0.42) : (wm.st === "numpills" ? (on ? s * 1.4 : s * 0.9) : wm.cw)
+                    height: s
+                    Behavior on width { NumberAnimation { duration: page.dur; easing.type: page.ease; easing.overshoot: 1.4 } }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        visible: wm.st !== "numbers" && wm.st !== "letters" && wm.st !== "pacman"
+                        opacity: cl.on && wm.slide ? 0 : 1
+                        width: wm.stretchy ? parent.width : (wm.st === "lines" ? cl.s * 0.16 : (wm.st === "bubbles" ? cl.s * 0.88 : cl.s * 0.5))
+                        height: wm.st === "dots" ? (cl.on ? cl.s * 0.62 : cl.s * 0.42) : (wm.st === "lines" ? (cl.busy ? cl.s * 0.7 : cl.s * 0.5)
+                              : (wm.st === "bubbles" || wm.st === "numpills" ? cl.s * 0.88 : width))
+                        radius: M3.sq ? 0 : (wm.st === "squares" ? width * 0.28 : Math.min(width, height) / 2)
+                        color: cl.on && wm.stretchy ? wm.acc
+                             : (wm.st === "rings" ? "transparent" : (wm.st === "squares" ? (cl.busy ? Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, 0.55) : "transparent")
+                             : (wm.st === "bubbles" || wm.st === "numpills" ? Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.16 : (wm.st === "bubbles" ? 0.06 : 0))
+                             : Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.6 : 0.25))))
+                        border.width: wm.st === "rings" ? (cl.busy ? cl.s * 0.14 : cl.s * 0.07) : (wm.st === "squares" && !cl.busy ? cl.s * 0.07 : 0)
+                        border.color: Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.6 : 0.3)
+                        Behavior on height { NumberAnimation { duration: page.dur; easing.type: page.ease } }
+                        Behavior on opacity { NumberAnimation { duration: page.dur * 0.6 } }
+                        Behavior on color { ColorAnimation { duration: 200 } }
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        visible: wm.numbered
+                        text: wm.st === "letters" ? String.fromCharCode(65 + index) : String(index + 1)
+                        font.family: Fonts.main; font.pixelSize: Math.max(6, cl.s * 0.5); font.weight: cl.on ? Font.Bold : Font.Medium
+                        color: cl.on ? M3.inkPrimary : Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.9 : 0.45)
+                        Behavior on color { ColorAnimation { duration: page.dur } }
+                    }
+                    // Pac-Man's dots: the ones between where he started and where he is are eaten
+                    Rectangle {
+                        anchors.centerIn: parent
+                        visible: wm.st === "pacman"
+                        readonly property real cx: cl.x + cl.width / 2
+                        readonly property real pc: pm.x + pm.width / 2
+                        readonly property bool under: Math.abs(cx - pc) < cl.s * 0.2
+                        readonly property bool eaten: !under && (pm.facingLeft ? cx < pm.from && cx > pc : cx > pm.from && cx < pc)
+                        width: cl.busy ? cl.s * 0.3 : cl.s * 0.2; height: width; radius: width / 2
+                        color: wm.ink
+                        opacity: under ? 0 : (eaten ? 0.2 : 0.85)
+                        scale: under ? 0.2 : (eaten ? 0.7 : 1)
+                        Behavior on opacity { NumberAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+                    }
                 }
-                // the numbered styles: a pill of the key color behind the active one
-                Rectangle {
-                    anchors.centerIn: parent
-                    visible: wm.st === "numbers" || wm.st === "letters"
-                    width: cl.s * 0.88; height: width; radius: M3.sq ? 0 : width / 2
-                    color: wm.acc
-                    opacity: cl.on ? 1 : 0; scale: cl.on ? 1 : 0.4
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
-                    Behavior on scale { NumberAnimation { duration: page.dur; easing.type: page.ease } }
-                }
-                Text {
-                    anchors.centerIn: parent
-                    visible: wm.numbered
-                    text: wm.st === "letters" ? String.fromCharCode(65 + index) : String(index + 1)
-                    font.family: Fonts.main; font.pixelSize: Math.max(6, cl.s * 0.5); font.weight: cl.on ? Font.Bold : Font.Medium
-                    color: cl.on ? M3.inkPrimary : Qt.rgba(wm.ink.r, wm.ink.g, wm.ink.b, cl.busy ? 0.9 : 0.45)
-                }
-                // Pac-Man: dots, and him on the active one
-                Rectangle {
-                    anchors.centerIn: parent
-                    visible: wm.st === "pacman" && !cl.on
-                    width: cl.s * 0.24; height: width; radius: width / 2
-                    color: wm.ink; opacity: index < wm.act ? 0.25 : 0.85
-                }
-                Canvas {
-                    anchors.centerIn: parent
-                    visible: wm.st === "pacman" && cl.on
-                    width: cl.s * 0.7; height: width
-                    onVisibleChanged: requestPaint()
-                    onPaint: { const c = getContext("2d"); c.reset(); c.fillStyle = String(wm.ink); c.beginPath(); c.moveTo(width / 2, height / 2)
-                               c.arc(width / 2, height / 2, width / 2, 0.2 * Math.PI, 1.8 * Math.PI); c.closePath(); c.fill() }
+            }
+        }
+        Item {
+            id: pm
+            visible: wm.st === "pacman"
+            width: wm.u * 0.72; height: width
+            anchors.verticalCenter: parent.verticalCenter
+            readonly property real tx: wm.act * wm.cw + (wm.cw - width) / 2
+            property bool facingLeft: false
+            property bool placed: false
+            property real from: 0
+            property real mouth: 30
+            onTxChanged: {
+                if (!placed) { x = tx; from = tx + width / 2; placed = true; return }
+                facingLeft = tx < x; from = x + width / 2
+                pmRun.stop(); pmRun.to = tx
+                pmRun.duration = Math.round((page.anim === "snappy" ? 70 : (page.anim === "smooth" ? 150 : 115)) * Math.abs(tx - x) / wm.cw + 120)
+                pmRun.start()
+            }
+            Component.onCompleted: { x = tx; from = tx + width / 2; placed = true }
+            NumberAnimation { id: pmRun; target: pm; property: "x"; easing.type: Easing.InOutSine }
+            SequentialAnimation {
+                running: pmRun.running; loops: Animation.Infinite
+                NumberAnimation { target: pm; property: "mouth"; to: 2; duration: 75 }
+                NumberAnimation { target: pm; property: "mouth"; to: 42; duration: 75 }
+                onRunningChanged: if (!running) pmSettle.restart()
+            }
+            NumberAnimation { id: pmSettle; target: pm; property: "mouth"; to: 30; duration: 220; easing.type: Easing.OutBack; easing.overshoot: 2.5 }
+            Shape {
+                anchors.fill: parent
+                preferredRendererType: Shape.CurveRenderer
+                transform: Scale { origin.x: pm.width / 2; xScale: pm.facingLeft ? -1 : 1 }
+                ShapePath {
+                    fillColor: wm.acc; strokeColor: "transparent"
+                    startX: pm.width / 2; startY: pm.height / 2
+                    PathAngleArc { centerX: pm.width / 2; centerY: pm.height / 2; radiusX: pm.width / 2; radiusY: pm.height / 2; startAngle: pm.mouth; sweepAngle: 360 - 2 * pm.mouth }
+                    PathLine { x: pm.width / 2; y: pm.height / 2 }
                 }
             }
         }
@@ -387,6 +455,22 @@ Item {
             options: [ { label: I18n.t("Bouncy"), value: "bouncy" }, { label: I18n.t("Smooth"), value: "smooth" }, { label: I18n.t("Snappy"), value: "snappy" } ]
             dflt: "bouncy"; current: page.anim
             onChosen: function(x) { page.setv("ws_anim", x) }
+        }
+
+        // ---------- V6.80: what is on the bar (was Content on the DarkShadow bar page) ----------
+        SectionTitle { text: I18n.t("Content") }
+        SegRow {
+            label: I18n.t("Workspaces")
+            desc: I18n.t("How many are always shown (more appear when you use them)")
+            options: [ { label: "4", value: "4" }, { label: "5", value: "5" }, { label: "6", value: "6" }, { label: "8", value: "8" } ]
+            dflt: "5"; current: String(page.v("workspaces", 5))
+            onChosen: function(x) { page.setv("workspaces", Number(x)) }
+        }
+        ToggleRow {
+            label: I18n.t("Seconds")
+            desc: I18n.t("Show seconds in the clock")
+            dflt: false; checked: page.v("seconds", false) === true
+            onToggled: function(x) { page.setv("seconds", x) }
         }
     }
 }

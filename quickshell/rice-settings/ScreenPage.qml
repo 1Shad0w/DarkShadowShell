@@ -150,38 +150,6 @@ Item {
             }
         }
 
-        // ---------- keep it? ----------
-        Rectangle {
-            id: keepRow
-            visible: page.countdown > 0
-            // the page comes back up to it: a change made further down is asked about here, not off the screen
-            Connections {
-                target: page
-                function onCountdownChanged() {
-                    if (page.countdown <= 0) return
-                    // wait a frame: the row is not laid out until it becomes visible
-                    Qt.callLater(function() {
-                        if (page.countdown <= 0) return
-                        scroll.body.cancelFlick()
-                        scroll.body.contentY = Math.min(scroll.body.contentY, Math.max(0, keepRow.y - 10))
-                    })
-                }
-            }
-            width: parent.width
-            height: 64
-            radius: M3.sq ? 0 : (M3.rL)
-            color: M3.tertiaryContainer !== undefined ? M3.tertiaryContainer : M3.secondaryContainer
-            T { x: 18; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 290; wrapMode: Text.WordWrap
-                text: I18n.t("Keep this? It goes back in ") + page.countdown + " s"; font.pixelSize: 14; font.weight: Font.Medium
-                color: M3.inkTertiaryC !== undefined ? M3.inkTertiaryC : M3.inkSecondaryC }
-            Row {
-                anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-                Btn { text: I18n.t("Keep"); sym: "check"; icon: ""; primary: true; onClicked: page.keep() }
-                Btn { text: I18n.t("Go back"); sym: "undo"; icon: ""; variant: "outlined"; onClicked: page.revert() }
-            }
-        }
-
         // ---------- your screens, as they stand on your desk ----------
         SectionTitle {
             visible: page.mons.length > 1
@@ -410,4 +378,59 @@ Item {
             color: M3.inkDim
         }
     }
+
+    // ---------- keep it? (V6.80) ----------
+    // A card over the page, at the bottom, wherever you scrolled to (it was a row at the top of the page, easy to
+    // miss: the screen then went back by itself and it looked like the setting did not stay). The ring runs out with
+    // the seconds left.
+    Rectangle {
+        id: keepCard
+        readonly property bool on: page.countdown > 0
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - 48, 640); height: 84
+        y: on ? parent.height - height - 22 : parent.height + 12
+        opacity: on ? 1 : 0
+        visible: opacity > 0.01
+        Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        radius: M3.sq ? 0 : 28
+        color: M3.surfaceHighest
+        border.width: 1; border.color: M3.outlineVariant
+        z: 50
+        MouseArea { anchors.fill: parent }      // clicks do not fall through to the page under it
+        Item {
+            id: ring
+            x: 18; anchors.verticalCenter: parent.verticalCenter
+            width: 48; height: 48
+            Rectangle { anchors.fill: parent; radius: width / 2; color: "transparent"; border.width: 4; border.color: M3.alpha(M3.primary, 0.25) }
+            Canvas {
+                id: arc
+                anchors.fill: parent
+                property real p: page.countdown / 15
+                Behavior on p { NumberAnimation { duration: 1000 } }
+                onPChanged: requestPaint()
+                onPaint: { const c = getContext("2d"); c.reset(); c.lineWidth = 4; c.lineCap = "round"; c.strokeStyle = String(M3.primary)
+                    c.beginPath(); c.arc(24, 24, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, p)); c.stroke() }
+            }
+            T { anchors.centerIn: parent; text: String(page.countdown); font.pixelSize: 17; font.weight: Font.Bold; color: M3.primary }
+        }
+        Column {
+            anchors.left: ring.right; anchors.leftMargin: 14; anchors.right: btns.left; anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+            T { width: parent.width; elide: Text.ElideRight; text: I18n.t("Keep these screen settings?"); font.pixelSize: 15; font.weight: Font.DemiBold
+                color: M3.ink }
+            T { width: parent.width; elide: Text.ElideRight; text: I18n.t("They go back by themselves if you do not answer"); font.pixelSize: 12
+                color: M3.inkDim }
+        }
+        Row {
+            id: btns
+            anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter
+            spacing: 8
+            Btn { text: I18n.t("Go back"); sym: "undo"; icon: ""; variant: "outlined"; onClicked: page.revert() }
+            Btn { text: I18n.t("Keep"); sym: "check"; icon: ""; primary: true; onClicked: page.keep() }
+        }
+    }
+    // another page of Settings opened while it asks: you can see the screen, so the change is kept
+    onVisibleChanged: if (!visible && countdown > 0) keep()
 }

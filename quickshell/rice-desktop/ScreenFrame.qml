@@ -6,6 +6,9 @@ import QtQuick.Shapes
 // V6.60: the frame round the screen of the bar's Frame style (Settings > Bar styles). The bar is its top (or bottom)
 // side; this draws the other three sides and the round inner corners, in the bar's own color. It takes no input,
 // and three thin invisible strips keep the windows inside the frame.
+// V6.80: the frame never covers the bar. It drew the whole screen minus the hole, so its fill lay over the bar's
+// strip too: on the same layer, above the bar, the modules were hidden under it (a dark empty strip you could still
+// click). Now it leaves the bar's strip out, and sits on the Bottom layer, under the bar whatever opens first.
 Scope {
     id: sf
     property var screen: null
@@ -28,7 +31,7 @@ Scope {
         color: "transparent"
         anchors { top: true; bottom: true; left: true; right: true }
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.layer: WlrLayer.Bottom
         WlrLayershell.namespace: "rice-frame"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         mask: Region { }
@@ -44,8 +47,11 @@ Scope {
                         const W = fw.width, H = fw.height, t = sf.t
                         const top = sf.atBottom ? t : sf.barH, bot = H - (sf.atBottom ? sf.barH : t)
                         const x0 = t, x1 = W - t, r = Math.max(0, Math.min(sf.radius * sf.k, (x1 - x0) / 2, (bot - top) / 2))
-                        // the whole screen, and a rounded hole in it where the windows are
-                        return "M0 0 H" + W + " V" + H + " H0 Z " +
+                        // the screen without the bar's strip (the bar draws that), and a rounded hole in it where
+                        // the windows are: the hole's top (or bottom) edge is the bar's edge, so its round corners
+                        // join the bar
+                        const y0 = sf.atBottom ? 0 : sf.barH, y1 = sf.atBottom ? H - sf.barH : H
+                        return "M0 " + y0 + " H" + W + " V" + y1 + " H0 Z " +
                                "M" + (x0 + r) + " " + top + " H" + (x1 - r) + " A" + r + " " + r + " 0 0 1 " + x1 + " " + (top + r) +
                                " V" + (bot - r) + " A" + r + " " + r + " 0 0 1 " + (x1 - r) + " " + bot +
                                " H" + (x0 + r) + " A" + r + " " + r + " 0 0 1 " + x0 + " " + (bot - r) +

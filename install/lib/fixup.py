@@ -14,6 +14,22 @@ import sys
 home = os.path.expanduser("~")
 hypr = home + "/.config/hypr"
 changes = []
+BK = os.environ.get("RICE_BK", "")
+
+
+def keep(path):
+    """V6.80: before a file is changed here, a copy goes into the installer's backup of this run"""
+    if not BK or not os.path.isfile(path) or not path.startswith(home + "/"):
+        return
+    dst = os.path.join(BK, os.path.relpath(path, home))
+    if os.path.exists(dst):
+        return
+    try:
+        import shutil
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy2(path, dst)
+    except OSError:
+        pass
 
 
 def fix_requires(path):
@@ -30,6 +46,7 @@ def fix_requires(path):
         return "%s-- [DarkShadow's Shell] missing on this computer: %s" % (indent, m.group(0).strip())
     n = re.sub(r'^([ \t]*)require\(\s*"([^"]+)"\s*\)[^\n]*$', repl, s, flags=re.M)
     if n != s:
+        keep(path)
         open(path, "w").write(n)
 
 
@@ -46,6 +63,7 @@ def clamp_lua(path):
         return m.group(1) + str(nv)
     n = re.sub(r'(render_power"?\]?\s*[=,:]\s*)(\d+)', repl, s)
     if n != s:
+        keep(path)
         open(path, "w").write(n)
 
 
@@ -66,6 +84,7 @@ def clamp_json(path):
                     walk(v)
     walk(j)
     if hit:
+        keep(path)
         json.dump(j, open(path, "w"))
         changes.append("%s: shadow render_power clamped to 1..4" % os.path.basename(path))
 
@@ -88,7 +107,18 @@ def migrate_main(path):
     for old, new in (("pamixer -i 5", "up"), ("pamixer -d 5", "down"), ("swayosd-client --output-volume raise", "up"),
                      ("swayosd-client --output-volume lower", "down"), ("swayosd-client --output-volume mute-toggle", "mute")):
         n = n.replace('hl.dsp.exec_cmd("%s")' % old, 'hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume %s")' % new)
-    if "XF86AudioRaiseVolume" not in n:
+    # V6.80: rice-keys.lua binds the volume keys (since V6.56 only there): the block below was added again on every
+    # install, so each press ran two volume programs (and stepped twice). It is taken out when rice-keys.lua has them
+    keys = os.path.join(hypr, "rice-keys.lua")
+    keys_has = os.path.exists(keys) and "XF86AudioRaiseVolume" in open(keys).read()
+    if keys_has:
+        n = re.sub(r'\n*-- volume keys of laptops, keyboards and headphones \(added by DarkShadow\'s Shell V3\.19\)\n'
+                   r'(hl\.bind\("XF86Audio(RaiseVolume|LowerVolume|Mute|MicMute)"[^\n]*\n?)+', "\n", n)
+        n = re.sub(r'^hl\.bind\("XF86Audio(RaiseVolume|LowerVolume|Mute|MicMute)",\s*hl\.dsp\.exec_cmd\("\$HOME/\.local/bin/rice-volume [a-z]+"\)[^\n]*\n',
+                   "", n, flags=re.M)
+        n = re.sub(r'^-- volume keys of laptops, keyboards and headphones \(the shell shows how loud it is\)\n(?=\s*(\n|--|$))',
+                   "", n, flags=re.M)
+    if "XF86AudioRaiseVolume" not in n and not keys_has:
         n = n.rstrip("\n") + """
 
 -- volume keys of laptops, keyboards and headphones (added by DarkShadow's Shell V3.19)
@@ -108,6 +138,7 @@ hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume mi
         bak = path + ".bak-bar"
         if not os.path.exists(bak):
             open(bak, "w").write(s)
+        keep(path)
         open(path, "w").write(n)
         changes.append("hyprland.lua: bar, launcher and volume keys of DarkShadow's Shell (copy: hyprland.lua.bak-bar)")
 
@@ -124,6 +155,7 @@ if os.path.isdir(hypr):
             t = open(pth).read()
             t2 = t.replace('hl.dsp.exec_cmd("hyprlock")', 'hl.dsp.exec_cmd("$HOME/.local/bin/rice-lock now")')
             if t2 != t:
+                keep(pth)
                 open(pth, "w").write(t2)
                 changes.append(extra + ": SUPER + L uses the new lock screen")
         except OSError:

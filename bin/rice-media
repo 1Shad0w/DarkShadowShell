@@ -5,6 +5,20 @@
 set -u
 step=5
 osd() { command -v swayosd-client >/dev/null 2>&1 && pgrep -x swayosd-server >/dev/null 2>&1; }
+# V6.80: the shell shows the volume itself (the island on the bar, or its own volume pop-up): no notification for
+# every press. Each one was a new pop-up with its animation and a line in the list, and holding the key made dozens
+# of them: the whole desktop lagged. Without the shell running a notification is still sent
+shell_shows() { pgrep -f "quickshell/rice-desktop" >/dev/null 2>&1; }
+# a held key repeats faster than a step takes: a press that comes while the last one still runs is let go, so they
+# never pile up (the volume keeps moving as fast as it can, and stops when you let go)
+lockdir="${XDG_RUNTIME_DIR:-$HOME/.cache}"
+case "${1:-}" in
+  up|down)
+    if [ -d "$lockdir" ] && [ -w "$lockdir" ] && command -v flock >/dev/null 2>&1; then
+      exec 8>"$lockdir/rice-media.lock"
+      flock -n 8 || exit 0
+    fi ;;
+esac
 vol() { "$HOME/.local/bin/rice-sound" get 2>/dev/null || wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{printf "%d", $2 * 100}'; }
 show() { # show TITLE VALUE ICON
   command -v notify-send >/dev/null 2>&1 || return 0
@@ -14,15 +28,15 @@ case "${1:-}" in
   up)
     if osd; then swayosd-client --output-volume raise; else
       "$HOME/.local/bin/rice-sound" step "+$step" 2>/dev/null || { wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ "${step}%+"; }
-      show "Volume" "$(vol)" audio-volume-high; fi ;;
+      shell_shows || show "Volume" "$(vol)" audio-volume-high; fi ;;
   down)
     if osd; then swayosd-client --output-volume lower; else
       "$HOME/.local/bin/rice-sound" step "-$step" 2>/dev/null || wpctl set-volume @DEFAULT_AUDIO_SINK@ "${step}%-"
-      show "Volume" "$(vol)" audio-volume-low; fi ;;
+      shell_shows || show "Volume" "$(vol)" audio-volume-low; fi ;;
   mute)
     if osd; then swayosd-client --output-volume mute-toggle; else
       wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-      if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then show "Muted" 0 audio-volume-muted; else show "Volume" "$(vol)" audio-volume-high; fi; fi ;;
+      shell_shows || { if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then show "Muted" 0 audio-volume-muted; else show "Volume" "$(vol)" audio-volume-high; fi; }; fi ;;
   mic)
     if osd; then swayosd-client --input-volume mute-toggle; else
       wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle

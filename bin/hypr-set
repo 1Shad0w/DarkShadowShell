@@ -728,11 +728,13 @@ def cmd_monitor_apply(name, res, rate, scale):
     if not m:
         die("no such monitor")
     pos = "%dx%d" % (m["x"], m["y"])
-    os.makedirs(DIR, exist_ok=True)
-    if not os.path.exists(PREV):
-        json.dump({"name": name, "mode": mode_str(m), "position": pos, "scale": m.get("scale", 1)}, open(PREV, "w"))
-    if not mon_eval(name, "%s@%s" % (res, rate), pos, scale):
+    remember_all()
+    st = mon_state(m)
+    st["mode"] = "%s@%s" % (res, rate)
+    st["scale"] = float(scale)
+    if not mon_eval(name, st["mode"], pos, scale):
         sys.exit(1)
+    pending([st])
 
 
 def mon_state(m):
@@ -740,11 +742,53 @@ def mon_state(m):
             "scale": m.get("scale", 1), "transform": int(m.get("transform", 0) or 0), "disabled": bool(m.get("disabled"))}
 
 
+# V6.80: a change on Settings > Monitors is written to the config at once, as well as shown. Before, it was only
+# shown until you pressed Keep, so anything that made Hyprland read its config again in those 15 seconds (it does
+# that by itself whenever one of its files changes: a new wallpaper's colors, a theme, another setting) put the
+# screen back to the old mode a few seconds later; and with Settings closed before the countdown ended it was never
+# saved or undone. Now Go back (or the countdown) writes the old screens back, and a guard started here undoes the
+# change by itself if nobody answered in 20 seconds (Settings closed, or a screen that went black).
+GUARD_S = 20
+
+
 def remember_all():
-    """before a change of several screens: how all of them are now (Revert brings this back)"""
+    """before a change: how all the screens are now and what was saved for them (Go back brings both back). A file
+    left from long ago (a crash) is not a change in progress"""
     os.makedirs(DIR, exist_ok=True)
-    if not os.path.exists(PREV):
-        json.dump({"all": [mon_state(m) for m in monitors_json()]}, open(PREV, "w"))
+    try:
+        old = json.load(open(PREV))
+        if time.time() - float(old.get("t", 0)) < 120 and "all" in old:
+            return
+    except Exception:
+        pass
+    write_atomic(PREV, json.dumps({"all": [mon_state(m) for m in monitors_json()], "saved": load()["monitors"],
+                                   "t": time.time()}))
+
+
+def pending(states):
+    """the screens as they were just set: saved in the config (a reload keeps them), and the guard (re)started"""
+    s = load()
+    for st in states:
+        s["monitors"][st["name"]] = {k: st[k] for k in ("mode", "position", "scale", "transform", "disabled")}
+    save(s)
+    try:
+        p = json.load(open(PREV))
+        p["t"] = time.time()
+        p["token"] = "%d-%d" % (os.getpid(), int(time.time() * 1000))
+        write_atomic(PREV, json.dumps(p))
+        subprocess.Popen([os.path.abspath(sys.argv[0]), "monitor-guard", p["token"]], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)
+    except Exception:
+        pass
+
+
+def cmd_monitor_guard(token):
+    try:
+        p = json.load(open(PREV))
+    except Exception:
+        return
+    if p.get("token") == token:
+        cmd_monitor_revert()
 
 
 def mon_set_full(st):
@@ -781,6 +825,7 @@ def cmd_monitor_layout(js):
     remember_all()
     now = {m["name"]: m for m in monitors_json()}
     ok = True
+    done = []
     for w in want:
         m = now.get(w.get("name"))
         if not m or m.get("disabled"):
@@ -788,8 +833,10 @@ def cmd_monitor_layout(js):
         st = mon_state(m)
         st["position"] = "%dx%d" % (int(w["x"]), int(w["y"]))
         ok = mon_set_full(st) and ok
+        done.append(st)
     if not ok:
         sys.exit(1)
+    pending(done)
 
 
 def cmd_monitor_set(name, key, value):
@@ -809,20 +856,28 @@ def cmd_monitor_set(name, key, value):
         die("rotate|enabled")
     if not mon_set_full(st):
         sys.exit(1)
+    pending([st])
 
 
 def cmd_monitor_keep():
-    if not os.path.exists(PREV):
-        return
-    prev = json.load(open(PREV))
-    s = load()
-    names = [p["name"] for p in prev["all"]] if "all" in prev else [prev["name"]]
-    for m in monitors_json():
-        if m["name"] in names:
-            st = mon_state(m)
-            s["monitors"][m["name"]] = {k: st[k] for k in ("mode", "position", "scale", "transform", "disabled")}
-    save(s)
-    os.remove(PREV)
+    """Keep: the change is in the config already; the screens as they are now are written once more (what the
+    screen really took, e.g. its exact refresh rate) and the guard has nothing left to undo"""
+    try:
+        prev = json.load(open(PREV))
+    except Exception:
+        prev = None
+    if prev:
+        names = [p["name"] for p in prev["all"]] if "all" in prev else [prev.get("name")]
+        s = load()
+        for m in monitors_json():
+            if m["name"] in names:
+                st = mon_state(m)
+                s["monitors"][m["name"]] = {k: st[k] for k in ("mode", "position", "scale", "transform", "disabled")}
+        save(s)
+    try:
+        os.remove(PREV)
+    except OSError:
+        pass
 
 
 def cmd_monitor_save_all():
@@ -836,15 +891,24 @@ def cmd_monitor_save_all():
 
 
 def cmd_monitor_revert():
-    if not os.path.exists(PREV):
+    try:
+        p = json.load(open(PREV))
+    except Exception:
         return
-    p = json.load(open(PREV))
+    # what was saved before comes back first (so a reload brings the old screens, not the new ones)
+    if isinstance(p.get("saved"), dict):
+        s = load()
+        s["monitors"] = p["saved"]
+        save(s)
     if "all" in p:
         for st in p["all"]:
             mon_set_full(st)
     else:
         mon_eval(p["name"], p["mode"], p["position"], p["scale"])
-    os.remove(PREV)
+    try:
+        os.remove(PREV)
+    except OSError:
+        pass
 
 
 def cmd_reload():
@@ -1162,10 +1226,13 @@ def main(a):
         "reload": (0, cmd_reload), "reset-all": (0, cmd_reset_all),
         "kbd-state": (0, cmd_kbd_state), "kbd-set": (1, cmd_kbd_set), "kbd-options": (1, cmd_kbd_options),
         "kbd-next": (0, cmd_kbd_next), "shadow-intensity": (1, cmd_shadow_intensity),
-        "kbd-variants": (1, cmd_kbd_variants),
+        "kbd-variants": (1, cmd_kbd_variants), "monitor-guard": (1, cmd_monitor_guard),
     }
     if c not in table or len(r) != table[c][0]:
         die("bad command or arguments: " + c)
+    # the guard of a screen change waits first, without the lock (everything else would wait for it)
+    if c == "monitor-guard":
+        time.sleep(GUARD_S)
     # one writer at a time (theme apply + a Settings slider): a half-written file would reset every setting
     os.makedirs(DIR, exist_ok=True)
     lk = open(LOCK, "w")

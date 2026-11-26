@@ -316,50 +316,78 @@ Item {
                 property real vx: 0
                 property real vy: 0
                 property bool held: false
+                // V6.80: the way it leans follows its speed smoothly (it jumped about when it slowed down: the angle
+                // of a tiny speed is noise)
+                property real lean: 0
                 readonly property real k: M3.bouncy ? 260 : 320
                 readonly property real c: (M3.bouncy ? 11 : 30) / Math.max(0.35, Prefs.bounce)
+                // it stays inside the pad: a throw stops at the edge instead of flying out of sight
+                readonly property real maxX: pad.width / 2 - 40
+                readonly property real maxY: pad.height / 2 - 40
                 width: 72; height: 72
                 x: pad.width / 2 - 36 + ox
                 y: pad.height / 2 - 36 + oy
                 // squash a little in the direction it moves
                 readonly property real sp: Math.min(1, Math.sqrt(vx * vx + vy * vy) / 2600)
-                rotation: Math.atan2(vy, vx) * 180 / Math.PI
                 Rectangle {
                     anchors.centerIn: parent
+                    rotation: blob.lean
                     width: 72 * (1 + blob.sp * 0.35); height: 72 * (1 - blob.sp * 0.22)
                     radius: M3.sq ? 0 : (blob.held ? 22 : height / 2)
                     color: M3.primary
                     Behavior on radius { NumberAnimation { duration: M3.d(260); easing.type: Easing.OutBack; easing.overshoot: 2 * Prefs.bounce } }
-                    Icon { anchors.centerIn: parent; rotation: -blob.rotation; name: "pan_tool"; glyph: ""; size: 24; color: M3.inkPrimary; filled: blob.held }
+                    Icon { anchors.centerIn: parent; rotation: -blob.lean; name: "pan_tool"; glyph: ""; size: 24; color: M3.inkPrimary; filled: blob.held }
+                }
+                function steer() {
+                    const s = Math.sqrt(vx * vx + vy * vy)
+                    if (s < 60) return
+                    let a = Math.atan2(vy, vx) * 180 / Math.PI, d = a - lean
+                    while (d > 180) d -= 360
+                    while (d < -180) d += 360
+                    lean += d * 0.35
                 }
                 Timer {
                     id: physics
                     interval: 16; repeat: true
+                    property double last: 0
+                    onRunningChanged: last = Date.now()
                     onTriggered: {
-                        const dt = 0.016
+                        const now = Date.now(), dt = Math.min(0.04, Math.max(0.004, (now - last) / 1000)); last = now
                         blob.vx += (-blob.k * blob.ox - blob.c * blob.vx) * dt
                         blob.vy += (-blob.k * blob.oy - blob.c * blob.vy) * dt
                         blob.ox += blob.vx * dt
                         blob.oy += blob.vy * dt
+                        // the pad's edges: it bounces off them softly
+                        if (Math.abs(blob.ox) > blob.maxX) { blob.ox = Math.sign(blob.ox) * blob.maxX; blob.vx = -blob.vx * 0.4 }
+                        if (Math.abs(blob.oy) > blob.maxY) { blob.oy = Math.sign(blob.oy) * blob.maxY; blob.vy = -blob.vy * 0.4 }
+                        blob.steer()
                         if (Math.abs(blob.ox) + Math.abs(blob.oy) < 0.3 && Math.abs(blob.vx) + Math.abs(blob.vy) < 4) { blob.ox = 0; blob.oy = 0; blob.vx = 0; blob.vy = 0; stop() }
                     }
                 }
+                // the hand: not turned with the shape (it was a child of the turning shape, so where you held it
+                // moved under the pointer), and the page does not scroll while you drag (the page took the drag
+                // over half way and the shape stuck where it was)
                 MouseArea {
                     anchors.fill: parent
                     anchors.margins: -10
+                    preventStealing: true
                     cursorShape: blob.held ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                     property real px: 0
                     property real py: 0
                     property double pt: 0
                     onPressed: function(e) { physics.stop(); blob.held = true; blob.vx = 0; blob.vy = 0; const p = mapToItem(pad, e.x, e.y); px = p.x; py = p.y; pt = Date.now() }
                     onPositionChanged: function(e) {
+                        if (!blob.held) return
                         const p = mapToItem(pad, e.x, e.y), now = Date.now(), dt = Math.max(8, now - pt) / 1000
                         const dx = p.x - px, dy = p.y - py
-                        blob.ox += dx; blob.oy += dy
+                        blob.ox = Math.max(-blob.maxX, Math.min(blob.maxX, blob.ox + dx))
+                        blob.oy = Math.max(-blob.maxY, Math.min(blob.maxY, blob.oy + dy))
                         blob.vx = blob.vx * 0.4 + (dx / dt) * 0.6; blob.vy = blob.vy * 0.4 + (dy / dt) * 0.6
+                        blob.steer()
                         px = p.x; py = p.y; pt = now
                     }
                     onReleased: { blob.held = false; if (Date.now() - pt > 80) { blob.vx = 0; blob.vy = 0 } physics.start() }
+                    onCanceled: { blob.held = false; physics.start() }
                 }
             }
         }

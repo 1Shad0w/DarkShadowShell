@@ -84,7 +84,7 @@ Item {
                     GradientStop { position: 0; color: M3.stageTop }
                     GradientStop { position: 1; color: M3.stageBottom }
                 }
-                readonly property string sty: page.v("style", "islands")
+                readonly property string sty: { const x = page.v("style", "dynamic"); return x === "google" || x === "frame" || x === "floating" ? "dynamic" : x }
                 readonly property bool atTop: page.v("position", "top") === "top"
                 readonly property real alpha: page.v("opacity", 0.72)
                 readonly property real h: 30 + (page.v("height", 38) - 38) * 0.5
@@ -182,12 +182,18 @@ Item {
             }
 
             SectionTitle { text: I18n.t("Style") }
-            SegRow {
-                label: I18n.t("Bar style")
-                desc: prev.sty === "edge" ? I18n.t("Edge: like Dynamic, but every part of the bar is one piece with the screen edge") : I18n.t("Dynamic: tonal pills in your theme color and an island in the middle that grows")
-                options: [ { label: I18n.t("Flat"), value: "flat" }, { label: I18n.t("Island"), value: "island" }, { label: I18n.t("Islands"), value: "islands" }, { label: I18n.t("Pills"), value: "pills" }, { label: I18n.t("Notch"), value: "notch" }, { label: I18n.t("Dynamic"), value: "dynamic" } , { label: I18n.t("Edge"), value: "edge" }]
-                current: page.v("style", "islands") === "google" ? "dynamic" : page.v("style", "islands")
-                onChosen: function(x) { page.setv("style", x) }
+            // V6.80: the style is picked on Bar styles (with pictures): the old row of buttons here is gone
+            Rectangle {
+                width: parent.width; height: 62; radius: M3.sq ? 0 : (14)
+                color: bsm.containsMouse ? M3.surfaceHigh : M3.surfaceC
+                Behavior on color { ColorAnimation { duration: 120 } }
+                Column {
+                    anchors.left: parent.left; anchors.leftMargin: 18; anchors.verticalCenter: parent.verticalCenter; spacing: 3
+                    T { text: I18n.t("Bar styles"); font.pixelSize: 14; font.bold: true }
+                    T { kind: "reading"; text: I18n.t("The look of the bar and the workspaces, how they move, and what is on the bar"); color: M3.inkDim; font.pixelSize: 12 }
+                }
+                T { kind: "icon"; anchors.right: parent.right; anchors.rightMargin: 18; anchors.verticalCenter: parent.verticalCenter; text: ""; color: M3.inkDim }
+                MouseArea { id: bsm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: page.ctl.page = 45 }
             }
             // the island has a page of its own now
             Rectangle {
@@ -322,28 +328,6 @@ Item {
                         }
                     }
                 }
-            }
-
-            SectionTitle { text: I18n.t("Content") }
-            SegRow {
-                label: I18n.t("Workspaces")
-                desc: I18n.t("How many dots are always shown (more appear when you use them)")
-                options: [ { label: "4", value: "4" }, { label: "5", value: "5" }, { label: "6", value: "6" }, { label: "8", value: "8" } ]
-                current: String(page.v("workspaces", 5))
-                onChosen: function(x) { page.setv("workspaces", x) }
-            }
-            SegRow {
-                label: I18n.t("Workspace style")
-                desc: I18n.t("Dots, Pac-Man running to the workspace you open, letters or numbers")
-                options: [ { label: I18n.t("Dots"), value: "dots" }, { label: I18n.t("Pac-Man"), value: "pacman" }, { label: I18n.t("Letters"), value: "letters" }, { label: I18n.t("Numbers"), value: "numbers" } ]
-                dflt: "dots"; current: page.v("ws_style", "dots")
-                onChosen: function(x) { page.setv("ws_style", x) }
-            }
-            ToggleRow {
-                label: I18n.t("Seconds")
-                desc: I18n.t("Show seconds in the clock")
-                dflt: false; checked: page.v("seconds", false) === true
-                onToggled: function(x) { page.setv("seconds", x ? "on" : "off") }
             }
 
             SectionTitle { text: I18n.t("Old bar") }

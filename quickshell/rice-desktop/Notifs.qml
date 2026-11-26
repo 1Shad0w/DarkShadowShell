@@ -108,7 +108,30 @@ Scope {
     property var drops: []             // keys to dismiss for good once they are gone
     signal showed(var n)               // the Dynamic bar's island shows it
     property bool islandTakes: false   // the island shows notifications, so only urgent ones pop up
+    // V6.80: a volume or brightness pop-up (rice-media, swayosd-like: one that replaces itself) takes the place of
+    // the last one instead of piling up, and is not kept in the list: holding a key made dozens of them
+    function osdLike(n) { const a = String(n.appName || ""); return a === "rice-media" || a === "swayosd" }
     function arrive(n) {
+        if (osdLike(n)) {
+            for (let i = 0; i < pops.length; i++) {
+                if (osdLike(pops[i].n) && leaving.indexOf(pops[i].key) < 0) {
+                    const old = pops[i].n, p = pops.slice()
+                    p[i] = { key: pops[i].key, n: n }
+                    pops = p
+                    try { n.closed.connect(function() { nfy.leave(p[i].key) }) } catch (x) { }
+                    try { old.dismiss() } catch (x) { }
+                    return
+                }
+            }
+            if (nfy.dnd) { try { n.dismiss() } catch (x) { } return }
+            const e = { key: ++nfy.seq, n: n }
+            const p = pops.slice(); p.unshift(e)
+            pops = p
+            if (p.length > 4) leave(p[p.length - 1].key)
+            drops = drops.concat([e.key])      // gone for good when it times out
+            try { n.closed.connect(function() { nfy.leave(e.key) }) } catch (x) { }
+            return
+        }
         if (nfy.dnd && !urgent(n)) return
         nfy.showed(n)
         if (islandTakes && !urgent(n)) {
