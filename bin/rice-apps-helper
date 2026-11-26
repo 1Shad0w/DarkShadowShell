@@ -331,7 +331,7 @@ def paste(dest):
     if not ps:
         return out({"ok": False, "error": "Nothing to paste"})
     transfer(op, dest, ps)
-    if op == "move":
+    if op == "move" and not any(os.path.lexists(p) for p in ps):
         try:
             os.remove(CLIPF)
         except OSError:
