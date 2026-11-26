@@ -7,8 +7,12 @@ f="$HOME/.config/hypr/border-colors.txt"
 if [ "$("$HOME/.local/bin/rice-wm" 2>/dev/null)" = niri ]; then
   exec "$HOME/.local/bin/rice-niri" apply
 fi
-c1=$(sed -n 1p "$f" | tr -d '#')
-c2=$(sed -n 2p "$f" | tr -d '#')
+c1=$(sed -n 1p "$f" | tr -d '# \r')
+c2=$(sed -n 2p "$f" | tr -d '# \r')
+# the file is pushed through hyprctl eval as Lua: only a plain hex color may go in
+for c in "$c1" "$c2"; do
+  [[ "$c" =~ ^[0-9a-fA-F]{6}$ ]] || exit 0
+done
 # Minimal mode (rice-minimal): one plain color, no gradient
 if grep -q '"on": true' "$HOME/.config/rice/minimal.json" 2>/dev/null; then
   a=ff

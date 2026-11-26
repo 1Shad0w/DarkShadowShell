@@ -130,5 +130,20 @@ assert m.expected_sha("broken.bin") == ""
 assert m.get_bibata("Bibata-Modern-Amber") is False
 PY
 
+# ---- border-sync: the color file is read as Lua by hyprctl eval, so it may not carry code
+mkdir -p "$tmp/bs/home/.config/hypr" "$tmp/bs/bin"
+cat >"$tmp/bs/bin/hyprctl" <<'EOF'
+#!/usr/bin/env bash
+touch "$HYPR_MARK"
+EOF
+chmod +x "$tmp/bs/bin/hyprctl"
+run_border() { HOME="$tmp/bs/home" PATH="$tmp/bs/bin:$PATH" HYPR_MARK="$tmp/bs/ran" bash "$root/bin/border-sync"; }
+printf '%s\n%s\n' '0)ff)") } }) os.execute("id") --' '#ffffff' >"$tmp/bs/home/.config/hypr/border-colors.txt"
+rm -f "$tmp/bs/ran"; run_border
+[ ! -e "$tmp/bs/ran" ] && ok "border-sync refuses a line that is not a hex color" || bad "border-sync passed Lua through"
+printf '%s\n%s\n' '#aabbcc' '#ddeeff' >"$tmp/bs/home/.config/hypr/border-colors.txt"
+rm -f "$tmp/bs/ran"; run_border
+[ -e "$tmp/bs/ran" ] && ok "border-sync still applies plain colors" || bad "border-sync refused a plain color"
+
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"
