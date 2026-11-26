@@ -14,7 +14,7 @@
 #   rice-infinite daemon | daemon-stop  (Hyprland runs these) rice-canvasd, for SUPER + ALT + mouse
 #   rice-infinite allow                 join the input group (asks for your password; on NixOS: what to add)
 #   rice-infinite check                 what rice-canvasd finds (keyboards, mice, may it read them)
-c="${XDG_CONFIG_HOME:-$HOME/.config}/rice"
+c="$HOME/.config/rice"      # the installer and the Lua config use this, whatever XDG_CONFIG_HOME says
 st="$c/infinite.state" conf="$c/infinite.conf"
 mkdir -p "$c"
 hypr() { [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && command -v hyprctl >/dev/null 2>&1; }
