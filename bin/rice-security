@@ -338,8 +338,15 @@ def cmd_quarantine():
         src = it["path"]
         if not os.path.isfile(src) or os.path.islink(src):
             continue
-        name = "%d-%s" % (int(time.time() * 1000) % 10**10, os.path.basename(src))
+        ms = int(time.time() * 1000) % 10**10
+        base = os.path.basename(src)
+        name = "%d-%s" % (ms, base)
         dst = os.path.join(QDIR, name)
+        i = 2
+        while os.path.lexists(dst) or os.path.lexists(dst + ".json"):
+            name = "%d-%d-%s" % (ms, i, base)
+            dst = os.path.join(QDIR, name)
+            i += 1
         try:
             shutil.move(src, dst)
             os.chmod(dst, 0o000)
