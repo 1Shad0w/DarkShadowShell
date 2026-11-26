@@ -291,7 +291,7 @@ PanelWindow {
     Timer { id: focusTimer; interval: 40; onTriggered: m3.input.forceActiveFocus() }
     function bump(id) {
         const n = Object.assign({}, usage); n[id] = (n[id] || 0) + 1; usage = n
-        Quickshell.execDetached(["bash", "-c", "python3 - \"$1\" <<'PY'\nimport json, os, sys\np = os.path.expanduser('~/.cache/rice/launcher-usage.json')\ntry:\n    d = json.load(open(p))\nexcept Exception:\n    d = {}\nos.makedirs(os.path.dirname(p), exist_ok=True)\nd[sys.argv[1]] = d.get(sys.argv[1], 0) + 1\njson.dump(d, open(p, 'w'))\nPY", "_", id])
+        Quickshell.execDetached(["bash", "-c", "python3 - \"$1\" <<'PY'\nimport json, os, sys, fcntl\np = os.path.expanduser('~/.cache/rice/launcher-usage.json')\nos.makedirs(os.path.dirname(p), exist_ok=True)\nwith open(p + '.lock', 'a') as lk:\n    fcntl.flock(lk, fcntl.LOCK_EX)\n    try:\n        d = json.load(open(p))\n    except Exception:\n        d = {}\n    d[sys.argv[1]] = d.get(sys.argv[1], 0) + 1\n    t = p + '.tmp'\n    json.dump(d, open(t, 'w'))\n    os.replace(t, p)\nPY", "_", id])
     }
     function activate(r) {
         if (!r) return

@@ -4,9 +4,10 @@ import Quickshell.Io
 import QtQuick
 
 // Infinite Desktop, as the shell sees it: where the canvas is (Hyprland writes ~/.config/rice/infinite.state when
-// it settles) and, live, how it moves while you hold SUPER + ALT (rice-canvasd tells it over a small socket, one
-// line per step: "hold 1", "pan DX DY", "hold 0"). The moving wallpaper (WallCanvas) and the bar and dock that get
-// out of the way while you move (Settings > Desktop > Infinite Desktop) follow it.
+// it settles) and, live, how it moves while you hold SUPER + ALT. rice-infinite.lua says it in a small file in the
+// runtime folder ("hold 1", ox=, oy=; absolute, so a write the shell misses loses nothing); before Hyprland 0.56
+// rice-canvasd tells it over a socket instead ("hold 1", "pan DX DY", "hold 0"). The moving wallpaper (WallCanvas)
+// and the bar and dock that get out of the way while you move (Settings > Desktop > Infinite Desktop) follow it.
 Singleton {
     id: cv
     // infinite.state
@@ -47,6 +48,22 @@ Singleton {
         }
     }
 
+    // the pointer itself (Hyprland 0.56+): while you hold the keys, where the canvas is now
+    function parseLive(t) {
+        // a write still in progress (the file is made again each step): nothing to read
+        if (!t || !/^hold [01]$/m.test(t)) return
+        const g = k => { const m = t.match(new RegExp("^" + k + "=(.*)$", "m")); return m ? m[1].trim() : "" }
+        const h = g("hold") === "1"
+        if (h !== held) { held = h; if (h) moved = false }
+        if (!h) { live = false; return }
+        const nx = parseFloat(g("ox")), ny = parseFloat(g("oy"))
+        if (!isFinite(nx) || !isFinite(ny) || !here) return
+        // a write on the hold itself does not mean the canvas moved
+        if (Math.abs(nx - ox) > 0.01 || Math.abs(ny - oy) > 0.01) moved = true
+        live = true
+        ox = nx; oy = ny
+    }
+
     function parseState(t) {
         const g = k => { const m = t.match(new RegExp("^" + k + "=(.*)$", "m")); return m ? m[1].trim() : "" }
         on = g("on") === "1"
@@ -78,6 +95,16 @@ Singleton {
             cv.wallZoom = isNaN(wz) ? 1.15 : Math.max(1.05, Math.min(1.5, wz))
         }
         onLoadFailed: { cv.wallOn = true; cv.hideBarOn = true; cv.wallZoom = 1.15; cv.screens = 1 }
+    }
+
+    // the pointer, while it moves (0.56+; rice-infinite.lua writes it every step): the wallpaper, the bar and the
+    // dock follow, exactly as rice-canvasd's socket did
+    FileView {
+        path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/rice-infinite.live"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: cv.parseLive(text())
+        // no file: 0.55 (rice-canvasd's socket below), or never held yet
     }
 
     // rice-canvasd's messages: a small listener (python3) on a datagram socket, one line per message on its output.

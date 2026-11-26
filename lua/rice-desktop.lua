@@ -25,3 +25,6 @@ pcall(hl.layer_rule, { name = "rice-bar-blur-desktop", match = { namespace = "ri
 -- V6.60: the frame round the screen (Settings > Bar styles > Frame) blurs like the bar
 pcall(hl.layer_rule, { name = "rice-frame-blur", match = { namespace = "rice-frame" }, blur = true, ignore_alpha = 0.25 })
 pcall(hl.layer_rule, { name = "rice-frame-noanim", match = { namespace = "rice-frame" }, no_anim = true })
+-- the frame round the screen (Settings > Bar styles > Frame) blurs like the bar and does not slide in
+pcall(hl.layer_rule, { name = "rice-frame-blur", match = { namespace = "rice-frame" }, blur = true, ignore_alpha = 0.25 })
+pcall(hl.layer_rule, { name = "rice-frame-noanim", match = { namespace = "rice-frame" }, no_anim = true })

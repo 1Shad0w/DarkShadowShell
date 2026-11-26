@@ -3,10 +3,9 @@
 # Distro detection + what to install.
 
 DISTRO_ID=linux; DISTRO_NAME=Linux; DISTRO_LIKE=
-OS_RELEASE="${OS_RELEASE:-/etc/os-release}"
-if [ -r "$OS_RELEASE" ]; then
-  # shellcheck disable=SC1090,SC1091
-  . "$OS_RELEASE"
+if [ -r /etc/os-release ]; then
+  # shellcheck disable=SC1091
+  . /etc/os-release
   DISTRO_ID="${ID:-linux}"; DISTRO_NAME="${NAME:-Linux}"; DISTRO_LIKE="${ID_LIKE:-}"
 fi
 FAMILY=other

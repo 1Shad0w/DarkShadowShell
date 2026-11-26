@@ -159,6 +159,7 @@ Scope {
     function build() {
         // depends on the app list too: when it is read again the old entries are deleted, and the dock must not keep them
         const all = DesktopEntries.applications.values
+        const index = dock.entryIndex(all)
         const tl = ToplevelManager.toplevels.values
         const out = []
         const used = {}
@@ -168,7 +169,7 @@ Scope {
             // window, an AppImage, a game ...) was dropped here, so after a restart it was gone from the dock. Now a
             // looser search (the app's class, name or command) finds its entry, and without one the pin still stays:
             // with the open window, or with its own icon, started by its name as a command
-            const e = DesktopEntries.heuristicLookup(apps[i]) || dock.looseEntry(all, apps[i])
+            const e = DesktopEntries.heuristicLookup(apps[i]) || dock.looseEntry(index, apps[i])
             const ids = [apps[i].toLowerCase(), e ? (e.id || "").replace(/\.desktop$/, "").toLowerCase() : "", e ? (e.startupClass || "").toLowerCase() : ""]
             let t = null
             for (let j = 0; j < tl.length; j++) {
@@ -187,17 +188,20 @@ Scope {
         return out
     }
     readonly property var items: build()
-    function looseEntry(all, key) {
-        const k = String(key || "").toLowerCase()
-        if (k === "") return null
+    function entryIndex(all) {
+        const idx = {}
         for (let i = 0; i < all.length; i++) {
             const e = all[i]
             const id = (e.id || "").replace(/\.desktop$/, "").toLowerCase()
             const cmd = e.command && e.command.length > 0 ? String(e.command[0]).split("/").pop().toLowerCase() : ""
-            if (id === k || (e.startupClass || "").toLowerCase() === k || (e.name || "").toLowerCase() === k || cmd === k
-                || id.split(".").pop() === k) return e
+            const keys = [id, (e.startupClass || "").toLowerCase(), (e.name || "").toLowerCase(), cmd, id.split(".").pop()]
+            for (const k of keys) if (k !== "" && idx[k] === undefined) idx[k] = e
         }
-        return null
+        return idx
+    }
+    function looseEntry(index, key) {
+        const k = String(key || "").toLowerCase()
+        return k !== "" && index[k] !== undefined ? index[k] : null
     }
     // a pin with no app entry: start it by its name, if there is such a command
     function runKey(k) {

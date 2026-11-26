@@ -35,8 +35,9 @@ Usage: ./install.sh [options]
       --doctor       check cursor theme, AUR helper and session, print a report to paste and repair the cursor
       --aur          Arch: get yay and every AUR package (without it: only when the shell needs one)
       --no-aur       Arch: never build yay; AUR packages are skipped (the cursor and fonts come from GitHub)
-      --input-group  join the input group (Infinite Desktop: SUPER + ALT + mouse). That lets every program you run
-                     read every keyboard on this computer; off unless you ask for it
+      --input-group  join the input group (Infinite Desktop: the push at the edge, and before Hyprland 0.56 its
+                     whole mouse). That lets every program you run read every keyboard on this computer; off
+                     unless you ask for it
       --no-input-group  keep it off (the default; same thing)
       --restore      put back the files from the newest backup
   -h, --help         this help
@@ -82,8 +83,7 @@ done
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BK="$HOME/.config/darkshadows-shell-backup-$STAMP"
-LOG="${TMPDIR:-/tmp}/darkshadows-shell-install-$STAMP.log"
-: >"$LOG"
+LOG="$(mktemp "${TMPDIR:-/tmp}/darkshadows-shell-install-XXXXXX.log")"
 IN_HYPR=0; [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1 && IN_HYPR=1
 IN_NIRI=0; [ -n "${NIRI_SOCKET:-}" ] && command -v niri >/dev/null 2>&1 && IN_NIRI=1
 BIN="$HOME/.local/bin"
@@ -907,14 +907,15 @@ LUA
 # power modes (Performance / Balanced / Power saver in the island, the control center and Home): power-profiles-daemon.
 # Packages only come with a full install; this also runs on updates, so it is there for everyone. Not when TLP,
 # auto-cpufreq or tuned (Fedora's tuned-ppd gives the same thing) already manage power.
-# Infinite Desktop: SUPER + ALT + mouse reads the mouse and the keyboard directly (rice-canvasd), which needs the
-# input group. NixOS keeps groups in its configuration: it gets the line to add instead.
+# Infinite Desktop: the push at the edge reads the mouse and the keyboard directly (rice-canvasd), which needs the
+# input group (before Hyprland 0.56 its whole mouse does). NixOS keeps groups in its configuration: it gets the line
+# to add instead.
 ensure_input_group() {
   [ "$DRY_RUN" = 1 ] && return 0
   if id -nG "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx input; then echo "input group: yes"; return 0; fi
   if [ "${NO_INPUT:-1}" = 1 ]; then
     echo "input group: not joined (off by default: it lets any program you run read every keyboard)"
-    echo "  Infinite Desktop (SUPER + ALT + mouse) needs it: ./install.sh --input-group, or Settings > Desktop > Infinite Desktop > Allow"
+    echo "  Infinite Desktop's push at the edge needs it (its mouse on 0.55): ./install.sh --input-group, or Settings > Desktop > Infinite Desktop > Allow"
     return 0
   fi
   if [ "$FAMILY" = nixos ]; then
@@ -924,7 +925,7 @@ ensure_input_group() {
   getent group input >/dev/null 2>&1 || { echo "no input group on this system"; return 0; }
   # the installer asked for your password already; when that ran out, sudo asks once more
   if sudo ${RICE_GUI:+-n} usermod -aG input "$USER"; then
-    echo "input group: joined (log out and back in once, then SUPER + ALT + mouse works)"
+    echo "input group: joined (log out and back in once, then the push at the edge works)"
   else
     echo "input group: not joined (Settings > Desktop > Infinite Desktop > Allow)"
   fi
@@ -995,7 +996,7 @@ prune_backups() {
   [ "$DRY_RUN" = 1 ] && return 0
   local first old d
   first="$(cat "$HOME/.config/rice/.first-backup" 2>/dev/null)"
-  old="$(find "$HOME/.config" -maxdepth 1 -type d \( -name 'darkshadows-shell-backup-*' -o -name 'shadows-shell-backup-*' \) 2>/dev/null | sort | head -n -2)"
+  old="$(find "$HOME/.config" -maxdepth 1 -type d -name 'darkshadows-shell-backup-*' 2>/dev/null | sort | head -n -2)"
   [ -n "$old" ] || return 0
   while IFS= read -r d; do
     [ "$d" = "$first" ] && continue
@@ -1043,7 +1044,7 @@ step_finish() {
   task "Window manager: $(wm_name)" remember_wm
   task "Graphics card (NVIDIA cursor)" write_gpu
   task "Loading the shell's modules in Hyprland" wire_hypr
-  task "Infinite Desktop: SUPER + ALT + mouse (input group)" ensure_input_group
+  task "Infinite Desktop: the push at the edge (input group)" ensure_input_group
   local fx; fx="$(mktemp)"
   task "Fitting the config to this computer" fixup "$fx"
   grep -v '^nothing to fix$' "$fx" 2>/dev/null | while IFS= read -r line; do note "$line"; done
@@ -1123,7 +1124,7 @@ restart_shell() {
 
 do_restore() {
   local last
-  last="$(find "$HOME/.config" -maxdepth 1 -type d \( -name 'darkshadows-shell-backup-*' -o -name 'shadows-shell-backup-*' \) 2>/dev/null | sort | tail -n1 || true)"
+  last="$(find "$HOME/.config" -maxdepth 1 -type d -name 'darkshadows-shell-backup-*' 2>/dev/null | sort | tail -n1 || true)"
   [ -n "$last" ] || { fail "No backup found."; exit 1; }
   title "Restore"
   kv "Backup" "$last"
@@ -1277,7 +1278,7 @@ fi
 STEP_TOTAL=$(( WANT[0] + WANT[1] + WANT[2] + WANT[3] + 1 ))
 n=0
 if [ "${WANT[0]}" = 1 ]; then n=$((n + 1)); step "$n" "Packages" "Everything the desktop needs, from your package manager"; step_packages; fi
-if [ "${WANT[1]}" = 1 ]; then n=$((n + 1)); step "$n" "Fonts" "So text and icons look right"; step_fonts; fi
+if [ "${WANT[1]}" = 1 ]; then n=$((n + 1)); step "$n" "Fonts" "So text and icons look right"; step_fonts || warn "fonts skipped (run rice-fonts later)"; fi
 if [ "${WANT[2]}" = 1 ]; then n=$((n + 1)); step "$n" "Config files" "Your old files are backed up first"; step_configs; fi
 if [ "${WANT[3]}" = 1 ]; then n=$((n + 1)); step "$n" "Apps and scripts" "Settings app, desktop widgets and the commands behind them"; step_apps
   [ "${WANT[2]}" = 1 ] || task "Hyprland add-ons (keybinds)" copy_lua

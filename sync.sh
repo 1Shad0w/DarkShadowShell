@@ -13,7 +13,7 @@ SKIP_QS=(cache thumbs)                                  # quickshell folders tha
 # small images (bar icons) are kept; anything over 1 MB is skipped below
 EXCLUDE=(ui.json 'config.jsonc.save*' '*.bak*' '*.save*' '.first-backup' '*.qslog' '*.log'
          'rice-gaming.lua' 'rice-lock.conf' 'hyprland.lua.save' 'fish_variables' 'fish_history' 'darkshadows.fish'
-         'rice-flat.conf')
+         'rice-flat.conf' 'rice-desktop.lua' 'rice-keys.lua' 'rice-guard.lua')   # lua/ ships these
 # your choices in Settings: they go to settings/ and ./install.sh puts them on your other computers
 SETTINGS_RICE=(dashboard.json desktop.json hotcorner.json notify.json lock.json rofi.json fonts.json cursor.json
                effects.json color-mode border-custom)
@@ -60,7 +60,6 @@ done
 
 # your Settings choices (Waybar look, dashboard, widgets, hot corner, notifications, lock screen, rofi,
 # fonts, cursor, blur & gaming mode). Gaming mode on/off itself is not saved (it is per computer).
-rm -rf "${HERE:?}/settings"
 mkdir -p "$HERE/settings/rice" "$HERE/settings/waybar"
 c=0
 for f in "${SETTINGS_RICE[@]}"; do

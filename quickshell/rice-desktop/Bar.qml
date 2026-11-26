@@ -244,9 +244,9 @@ PanelWindow {
     WlrLayershell.namespace: "rice-bar"
 
     // ---------- screen recording (rice-hotcorner record): the island under the bar ----------
-    property bool recOn: false
-    property real recStart: 0
-    property bool micMuted: false
+    readonly property bool recOn: BarSvc.recOn
+    readonly property real recStart: BarSvc.recStart
+    readonly property bool micMuted: BarSvc.micMuted
     property real nowS: Date.now() / 1000
     readonly property string recTime: {
         const t = Math.max(0, Math.floor(nowS - recStart))
@@ -258,22 +258,25 @@ PanelWindow {
         onContent: function(t) {
             let j = null
             try { j = t.trim() !== "" ? JSON.parse(t) : null } catch (e) { j = null }
-            bar.recOn = j !== null
-            if (j) { bar.recStart = j.start || Date.now() / 1000; recCheck.running = true; micProc.running = true }
+            BarSvc.recOn = j !== null
+            if (j) {
+                BarSvc.recStart = j.start || Date.now() / 1000
+                if (!bar.extra) { recCheck.running = true; micProc.running = true }
+            }
         }
     }
     Timer { interval: 1000; running: bar.recOn; repeat: true; onTriggered: bar.nowS = Date.now() / 1000 }
     // a recorder that quit on its own leaves its files behind: check now and then that it still runs
-    Timer { interval: 5000; running: bar.recOn; repeat: true; onTriggered: { if (!recCheck.running) recCheck.running = true; if (!micProc.running) micProc.running = true } }
+    Timer { interval: 5000; running: bar.recOn && !bar.extra; repeat: true; onTriggered: { if (!recCheck.running) recCheck.running = true; if (!micProc.running) micProc.running = true } }
     Process {
         id: recCheck
         command: ["bash", "-c", "p=$(cat \"$HOME/.cache/rice/record.pid\" 2>/dev/null); [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null && echo 1 || { rm -f \"$HOME/.cache/rice/record.pid\" \"$HOME/.cache/rice/record.json\"; echo 0; }"]
-        stdout: StdioCollector { onStreamFinished: if (text.trim() === "0") bar.recOn = false }
+        stdout: StdioCollector { onStreamFinished: if (text.trim() === "0") BarSvc.recOn = false }
     }
     Process {
         id: micProc
         command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null"]
-        stdout: StdioCollector { onStreamFinished: bar.micMuted = text.indexOf("MUTED") >= 0 }
+        stdout: StdioCollector { onStreamFinished: BarSvc.micMuted = text.indexOf("MUTED") >= 0 }
     }
 
     // ---------- the things the bar shows ----------
@@ -1224,13 +1227,13 @@ PanelWindow {
                     MIcon { anchors.centerIn: parent; size: 19; name: bar.micMuted ? "mic_off" : "mic"
                         glyph: String.fromCodePoint(bar.micMuted ? 0xF036D : 0xF036C); color: bar.micMuted ? "#ff8a8a" : bar.fg }
                     MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor
-                        onClicked: { bar.run("\"$HOME/.local/bin/rice-volume\" mic"); bar.micMuted = !bar.micMuted } }
+                        onClicked: { bar.run("\"$HOME/.local/bin/rice-volume\" mic"); BarSvc.micMuted = !BarSvc.micMuted } }
                 }
                 Item {
                     width: 26; height: 26; anchors.verticalCenter: parent.verticalCenter
                     Rectangle { anchors.centerIn: parent; width: 15; height: 15; radius: Look.sq ? 0 : (4); color: "transparent"; border.width: 2; border.color: "#ff8a8a" }
                     MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor
-                        onClicked: { bar.recOn = false; bar.run("\"$HOME/.local/bin/rice-hotcorner\" record stop") } }
+                        onClicked: { BarSvc.recOn = false; bar.run("\"$HOME/.local/bin/rice-hotcorner\" record stop") } }
                 }
             }
         }

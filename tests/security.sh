@@ -89,6 +89,9 @@ remote "https://github.com/shadowww-dev/DarkShadowShell" && ok "accepts the http
 remote "https://github.com/evil/DarkShadowShell" && ok "accepts a fork" || bad "fork remote"
 remote "https://example.com/x/DarkShadowShell" && bad "accepted a foreign host" || ok "refuses a foreign host"
 remote "https://github.com/evil/other" && bad "accepted another repo" || ok "refuses another repo"
+remote "https://evil.example/github.com/evil/DarkShadowShell" && bad "accepted a path on a foreign host" || ok "refuses a foreign host with a github.com path"
+remote "ssh://git@evil.example/github.com/evil/DarkShadowShell.git" && bad "accepted a foreign ssh host" || ok "refuses a foreign ssh host"
+remote "https://gitlab.com/github.com/evil/DarkShadowShell.git" && bad "accepted another host with a github.com path" || ok "refuses another host with a github.com path"
 
 update_guard "$old" "$old" && ok "same commit needs no confirmation" || bad "same commit"
 update_guard "$new" "$other" </dev/null && ok "an update without a new installer passes" || bad "unchanged install.sh"
@@ -126,6 +129,21 @@ assert m.expected_sha("nothing-here.bin") == ""
 assert m.expected_sha("broken.bin") == ""
 assert m.get_bibata("Bibata-Modern-Amber") is False
 PY
+
+# ---- border-sync: the color file is read as Lua by hyprctl eval, so it may not carry code
+mkdir -p "$tmp/bs/home/.config/hypr" "$tmp/bs/bin"
+cat >"$tmp/bs/bin/hyprctl" <<'EOF'
+#!/usr/bin/env bash
+touch "$HYPR_MARK"
+EOF
+chmod +x "$tmp/bs/bin/hyprctl"
+run_border() { HOME="$tmp/bs/home" PATH="$tmp/bs/bin:$PATH" HYPR_MARK="$tmp/bs/ran" bash "$root/bin/border-sync"; }
+printf '%s\n%s\n' '0)ff)") } }) os.execute("id") --' '#ffffff' >"$tmp/bs/home/.config/hypr/border-colors.txt"
+rm -f "$tmp/bs/ran"; run_border
+[ ! -e "$tmp/bs/ran" ] && ok "border-sync refuses a line that is not a hex color" || bad "border-sync passed Lua through"
+printf '%s\n%s\n' '#aabbcc' '#ddeeff' >"$tmp/bs/home/.config/hypr/border-colors.txt"
+rm -f "$tmp/bs/ran"; run_border
+[ -e "$tmp/bs/ran" ] && ok "border-sync still applies plain colors" || bad "border-sync refused a plain color"
 
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"

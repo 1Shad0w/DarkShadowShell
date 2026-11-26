@@ -32,7 +32,7 @@ Item {
             }
         }
     }
-    Timer { interval: 20000; running: bt.running && bt.visible; repeat: true; triggeredOnStart: true; onTriggered: if (!proc.running) proc.running = true }
+    Timer { interval: 300000; running: bt.running && bt.visible; repeat: true; triggeredOnStart: true; onTriggered: if (!proc.running) proc.running = true }
 
     function devIcon(k) {
         return k === "mouse" ? "" : k === "keyboard" ? "" : (k === "headset" || k === "headphones") ? ""

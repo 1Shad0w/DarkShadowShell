@@ -14,5 +14,14 @@ NotificationServer {
     bodyHyperlinksSupported: true
     imageSupported: true
     persistenceSupported: true
-    onNotification: function(n) { n.tracked = true; srv.arrived(n) }
+    property int maxTracked: 200
+    onNotification: function(n) {
+        n.tracked = true
+        srv.arrived(n)
+        const l = srv.trackedNotifications.values
+        if (l.length > srv.maxTracked) {
+            const old = l[0]
+            if (old && old !== n) old.dismiss()
+        }
+    }
 }

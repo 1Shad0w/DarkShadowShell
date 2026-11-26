@@ -3,7 +3,7 @@
 #
 #   imports = [ /path/to/shadows-shell/nix/module.nix ];      (or the flake: inputs.shadows-shell.nixosModules.default)
 #   programs.shadows-shell.user = "shadow";                   your user (login screen wallpaper follows it)
-#   programs.shadows-shell.inputGroup = true;                 Infinite Desktop: SUPER + ALT + mouse (see the option)
+#   programs.shadows-shell.inputGroup = true;                 Infinite Desktop: the push at the edge (see the option)
 #
 # Options (all optional): enable (true), user (null), niri (true), extras (true: live wallpapers, video previews),
 # sddm (false: the shell's login screen; it follows your wallpaper when user is set).
@@ -32,9 +32,10 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Put the user in the "input" group, so Infinite Desktop (SUPER + ALT + mouse) can read the keyboard and the
-        mouse. That is a real permission: every program the user runs can then read every keyboard on this machine.
-        Off by default; everything else in the shell works without it.
+        Put the user in the "input" group, so Infinite Desktop can read the keyboard and the mouse directly. Hyprland
+        0.56+ moves the canvas with the pointer without it; this is for the push at the edge (SUPER + drag a window
+        against it), and for the whole mouse on 0.55. That is a real permission: every program the user runs can then
+        read every keyboard on this machine. Off by default; everything else in the shell works without it.
       '';
     };
     niri = lib.mkOption {

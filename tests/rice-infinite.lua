@@ -1,7 +1,11 @@
 -- Infinite Desktop's Lua config with a fake Hyprland: the two screen modes (Settings > Desktop > Infinite Desktop >
--- Screens), a new window on the second screen, and turning it off. Run by tests/infinite.sh.
+-- Screens), a new window on the second screen, and turning it off. Run by tests/infinite.sh, once as 0.55 (no
+-- hl.is_key_down: rice-canvasd) and once as 0.56+ (RI_TEST_POLL=1: the pointer itself, and the warp at the edge).
 local path = arg[1]
+local POLL = os.getenv("RI_TEST_POLL") == "1"
 local moves, focuses, floatarr, events = {}, {}, {}, {}
+local keys, timers, warps = {}, {}, {}
+local timer
 local n = 0
 local function ok(msg) n = n + 1; print("ok " .. n .. " - " .. msg) end
 local function bad(msg) print("not ok " .. (n + 1) .. " - " .. msg); os.exit(1) end
@@ -41,7 +45,19 @@ hl = {
         exec_cmd = function() return function() end end,
     },
 }
+if POLL then
+    hl.is_key_down = function(sym) return keys[sym] == true end
+    hl.timer = function(fn, opts)
+        local t = { ms = opts.timeout }
+        function t:set_timeout(ms) self.ms = ms end
+        timers[#timers + 1] = fn
+        timer = t
+        return t
+    end
+    hl.dsp.cursor = { move = function(t) return function() warps[#warps + 1] = t; cursor.x, cursor.y = t.x, t.y end end }
+end
 assert(loadfile(path))()
+check(POLL == (type(hl.is_key_down) == "function"), "the fake Hyprland has hl.is_key_down, or not")
 
 -- screens = 1: only the workspace it was turned on
 RiceInfinite.cfg.screens = 1
@@ -90,3 +106,73 @@ RiceInfinite.set(false)
 check(floatarr[#floatarr] == "unset", "off tiles it again")
 check(focuses[#focuses].window == "address:0xc", "the new window was focused")
 check(not RiceInfinite.on, "it is off again")
+
+-- 0.56+: the pointer itself, no input group (and the warp at the edge of the screen)
+local function tick() for _, f in ipairs(timers) do f() end end
+local function ticks() for _ = 1, 16 do tick() end end     -- 16 ms of the timer (16 ticks while held, one when idle)
+local function hold(x, y)
+    keys = { Super_L = true, Alt_L = true }
+    cursor = { x = x, y = y or 500 }
+    ticks()
+end
+local function move(x, y) cursor = { x = x, y = y or 500 }; ticks() end
+local function let_go() keys = {}; ticks() end
+if POLL then
+    check(type(hl.is_key_down) == "function" and #timers == 1, "the pointer is followed by a timer")
+    os.execute("mkdir -p " .. (os.getenv("HOME") or "") .. "/.config/rice")
+    RiceInfinite.set(true)
+    RiceInfinite.cfg.speed, RiceInfinite.cfg.dir = 1.0, 1
+    local ox = RiceInfinite.ox
+    hold(500)                                     -- the hold starts: no move yet
+    check(RiceInfinite.ox == ox, "holding the keys alone moves nothing")
+    check(timer.ms == 1, "while the keys are held the pointer is followed every millisecond")
+    move(540)
+    check(math.abs(RiceInfinite.ox - ox - 40) < 0.001, "the pointer moves the canvas with it")
+    local live = io.open(os.getenv("XDG_RUNTIME_DIR") .. "/rice-infinite.live")
+    local t = live and live:read("a") or ""
+    if live then live:close() end
+    check(t:match("hold 1") ~= nil and t:match("ox=") ~= nil, "the shell is told the canvas is held and where")
+
+    -- at the edge the pointer is put back a little (it cannot leave the screen), so the canvas goes on
+    let_go()
+    hold(1915)
+    ox = RiceInfinite.ox
+    move(1919)
+    check(#warps > 0 and warps[#warps].x == 1896, "at the edge the pointer is put back inside")
+    check(math.abs(RiceInfinite.ox - ox - 4) < 0.001, "the move to the edge still moves it")
+    ox = RiceInfinite.ox
+    move(1900)
+    check(math.abs(RiceInfinite.ox - ox - 4) < 0.001, "the jump back is not counted as movement")
+
+    -- SUPER + ALT + another one of these keys: not the hold (SUPER + CTRL is Next window)
+    keys.Control_L = true
+    ox = RiceInfinite.ox
+    move(1910)
+    check(RiceInfinite.ox == ox, "SUPER + ALT + CTRL does not move the canvas")
+    keys.Control_L = nil
+    tick()                                        -- the hold starts again here (the pointer does not jump)
+    ox = RiceInfinite.ox
+
+    -- reversed: the canvas goes the other way
+    RiceInfinite.cfg.dir = 2
+    move(1890)
+    check(math.abs(RiceInfinite.ox - ox - 20) < 0.001, "dir = 2 moves the canvas the other way")
+    RiceInfinite.cfg.dir = 1
+
+    -- letting go writes the place down and tells the shell
+    let_go()
+    local st = io.open(os.getenv("HOME") .. "/.config/rice/infinite.state")
+    local stt = st and st:read("a") or ""
+    if st then st:close() end
+    check(stt:match("on=1") ~= nil, "letting go saves the place")
+    live = io.open(os.getenv("XDG_RUNTIME_DIR") .. "/rice-infinite.live")
+    t = live and live:read("a") or ""
+    if live then live:close() end
+    check(t:match("hold 0") ~= nil, "letting go tells the shell")
+    check(timer.ms == 16, "letting go follows it every 16 ms again")
+    RiceInfinite.set(false)
+else
+    check(#timers == 0, "0.55: no timer, rice-canvasd reads the mouse instead")
+end
+check((function() local f = io.open(os.getenv("XDG_RUNTIME_DIR") .. "/rice-infinite.poll"); if f then f:close() return true end return false end)() == POLL,
+    "the marker for Settings follows the Hyprland")

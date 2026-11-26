@@ -518,7 +518,7 @@ def daemon():
             c = load()
             if not c["slideshow"].get("on") or not managed(c):
                 return
-            if live_now():          # a live wallpaper stays until you pick another one
+            if live_now() or scene_now():  # a live wallpaper or a scene stays until you pick another one
                 time.sleep(30)
                 continue
             mins = max(1, min(1440, int(c["slideshow"].get("minutes") or 30)))
@@ -615,9 +615,10 @@ def manage(on):
             time.sleep(0.6)
         cmd_start()
     else:
-        # everything the shell put on the desktop goes: the slideshow, the live wallpaper and awww
+        # everything the shell put on the desktop goes: the slideshow, the live wallpaper, a scene and awww
         stop_daemon()
         stop_live()
+        stop_scene()
         subprocess.run(["pkill", "-x", "awww-daemon"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["pkill", "-x", "swww-daemon"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

@@ -283,7 +283,7 @@ ShellRoot {
     Trigger { path: root.home + "/.config/rice/desktop.json"; every: 1500
         onContent: function(t) { root.applyCfg(t) } }
     Timer {
-        interval: 10000
+        interval: 60000
         running: true
         repeat: true
         onTriggered: { flatF.reload(); liteF.reload() }

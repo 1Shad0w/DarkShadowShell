@@ -55,7 +55,7 @@ extract_verified() { # extract_verified ARCHIVE DEST: unpack only into DEST, and
 # that was edited into the repo
 update_remote_ok() {
   local u; u="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
-  [[ "$u" =~ github\.com[:/][A-Za-z0-9_.-]+/DarkShadowShell(\.git)?/?$ ]]
+  [[ "$u" =~ ^(https://|git@|ssh://(git@)?)(www\.)?github\.com[:/][^/]+/DarkShadowShell(\.git)?/?$ ]]
 }
 
 # update_precheck: before the pull moves anything, fetch and ask about a changed installer (an answer after the pull
