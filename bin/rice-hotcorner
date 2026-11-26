@@ -324,7 +324,10 @@ def apply_blur(c=None):
         h = open(HLUA).read()
         n = re.sub(r'\n?[ \t]*require\("rice-hotcorner"\)[ \t]*', "", h)
         if n != h:
-            open(HLUA, "w").write(n)
+            # a truncate-then-write killed halfway leaves an empty main config: write next to it, then swap
+            with open(HLUA + ".tmp", "w") as fh:
+                fh.write(n)
+            os.replace(HLUA + ".tmp", HLUA)
             changed = True
     except FileNotFoundError:
         pass
