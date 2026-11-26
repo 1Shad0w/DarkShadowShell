@@ -17,6 +17,11 @@ Singleton {
     // ---------- niri: what the event stream says ----------
     property var nWs: []                 // [{id, idx, name, output, is_active, is_focused, active_window_id}]
     property var nWin: ({})              // id -> {id, title, app_id, workspace_id, is_focused, is_floating}
+    property var occupiedMap: {          // workspace id -> has a window (one pass, not one scan per workspace)
+        const s = {}
+        for (const k in nWin) s[nWin[k].workspace_id] = true
+        return s
+    }
     property var nFocusWin: null         // id of the focused window
     property bool overview: false
     property int tick: 0                 // changes whenever something changed (bindings follow it)
@@ -115,10 +120,8 @@ Singleton {
     // a workspace with windows on it
     function occupied(n) {
         if (niri) {
-            const w = wsOn("").find(x => x.idx === n)
-            if (!w) return false
-            for (const k in nWin) if (nWin[k].workspace_id === w.id) return true
-            return false
+            const w = wm.nWs.find(x => x.idx === n && x.output === wm.focusedOutput)
+            return !!(w && wm.occupiedMap[w.id])
         }
         const l = Hyprland.workspaces.values
         for (let i = 0; i < l.length; i++) if (l[i].id === n && l[i].toplevels && l[i].toplevels.values.length > 0) return true
@@ -130,7 +133,7 @@ Singleton {
         if (niri) {
             // niri always keeps one empty workspace at the end: it is not counted
             const l = wsOn("")
-            for (const w of l) if ((occupied(w.idx) || w.is_active) && w.idx > m) m = w.idx
+            for (const w of l) if ((wm.occupiedMap[w.id] || w.is_active) && w.idx > m) m = w.idx
             return Math.min(m, 20)
         }
         const l = Hyprland.workspaces.values
