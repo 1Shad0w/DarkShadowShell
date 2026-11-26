@@ -164,6 +164,9 @@ face_sync() {
 
 sync() {
   [ -d "$U" ] && [ -w "$U" ] || { echo "the login screen is not installed (rice-sddm install)"; return 0; }
+  # two wallpaper changes in a row: one sync at a time, or both write the same .tmp files
+  exec 9>"$U/.sync.lock"
+  flock 9
   local w im="" out="$U/theme.conf.user.tmp" f face
   command -v magick >/dev/null 2>&1 && im=magick || { command -v convert >/dev/null 2>&1 && im=convert; }
   w="$(wallpaper)"
