@@ -13,6 +13,9 @@ Singleton {
     property bool dockShown: false      // V4.92: the dock shows Wi-Fi, Bluetooth or notifications (its modules)
     property var state: ({})            // rice-services state
     property var wx: null               // rice-weather json
+    property bool recOn: false          // screen recording (shared: every bar shows the same island)
+    property real recStart: 0
+    property bool micMuted: false
     function refresh() { if (!svcProc.running) svcProc.running = true }
     // after a click: rice-cc writes the new state first (it used to be a 700 ms timer in each bar)
     function refreshSoon() { soon.restart() }
