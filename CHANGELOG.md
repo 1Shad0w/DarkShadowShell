@@ -1,5 +1,10 @@
 # Changelog
 
+## V6.81: Frame corners, the island's workspaces and the stop button
+- **Frame**: the bar reaches both corners again. The frame's side strips kept their room first, so the bar was a few pixels short at each end and the wallpaper showed in the bottom (or top) corners; the frame now keeps the bar's room for it
+- **The island shows the workspaces like the bar**: when you switch, the island (the Dynamic clock) draws the workspaces in your style with your Animation, Pac-Man too. It showed only dots or numbers for the newer styles, and moved its own way. Bar and island share one drawing now (`WsStrip.qml`)
+- **The stop button of a recording works again** (in the island). Since V6.56 the recording state is shared by every bar and is read-only there, so the button failed before it could stop anything
+
 ## V6.80: The bar styles fixed, Pac-Man runs, and your reports
 - **Frame works**: the frame round the screen lay over the bar, so the bar was an empty dark strip you could still click. The frame now leaves the bar alone (at the top or the bottom), and sits under it whatever starts first
 - **The workspaces move on every style**: on Lines, Squares, Rings, Bubbles, Numbers and Letters one marker slides from the workspace you leave to the one you open, its front edge first, so it stretches on the way and settles. **Animation** (Bouncy, Smooth, Snappy) now changes how it moves; before, these styles only changed color

@@ -349,7 +349,9 @@ Item {
                 Item { width: 24; height: 24; anchors.verticalCenter: parent.verticalCenter
                     Rectangle { anchors.centerIn: parent; width: 13; height: 13; radius: Look.sq ? 0 : (4); color: "transparent"; border.width: 2; border.color: "#ff8a8a" }
                     MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor
-                        onClicked: { isl.bar.recOn = false; isl.bar.run("\"$HOME/.local/bin/rice-hotcorner\" record stop") } } }
+                        // V6.80: the stop button stopped nothing since V6.56: recOn became the shared state (BarSvc), read-only
+                        // on the bar, so setting it threw before the stop ran. The command goes first now
+                        onClicked: { isl.bar.run("\"$HOME/.local/bin/rice-hotcorner\" record stop"); BarSvc.recOn = false } } }
             }
         }
 
@@ -506,70 +508,12 @@ Item {
                 anchors.centerIn: parent
                 spacing: 7
                 Text { anchors.verticalCenter: parent.verticalCenter; text: Tr.t("Workspace"); color: isl.pal ? isl.pal.dim : "#aaa"; font.family: Fonts.main; font.pixelSize: 12; font.weight: Font.Medium; rightPadding: 4 }
-                Repeater {
-                    model: isl.bar ? Math.min(10, isl.bar.maxWs()) : 5
-                    // follows Settings > DarkShadow bar > Workspace style: dots, Pac-Man, letters or numbers
-                    delegate: Item {
-                        id: wc
-                        readonly property int wid: index + 1
-                        readonly property bool act: isl.wsId === wid
-                        // (V6.60: the new styles show as numbers or dots here)
-                        readonly property string st: { const w = isl.bar ? isl.bar.wsStyle : "dots"
-                            return w === "bubbles" || w === "numpills" ? "numbers" : (["lines", "squares", "rings"].indexOf(w) >= 0 ? "dots" : w) }
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: st === "dots" ? (act ? 30 : 8) : (st === "pacman" ? 16 : 22)
-                        height: 22
-                        Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
-                        // dots: the active one a pill with its number
-                        Rectangle {
-                            visible: wc.st === "dots"
-                            anchors.centerIn: parent
-                            width: parent.width; height: wc.act ? 20 : 8; radius: Look.sq ? 0 : (height / 2)
-                            Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
-                            color: wc.act ? (isl.bar ? isl.bar.wsTint(wc.wid) : "white") : (isl.pal ? isl.pal.track : "#555")
-                            Behavior on color { ColorAnimation { duration: 300 } }
-                            Text { anchors.centerIn: parent; visible: wc.act; text: wc.wid; color: isl.pal ? isl.pal.inkPrimary : "black"; font.family: Fonts.main; font.pixelSize: 11; font.weight: Font.Bold }
-                        }
-                        // letters / numbers: the active one in a round pill of your key color
-                        Rectangle {
-                            visible: wc.st === "letters" || wc.st === "numbers"
-                            anchors.centerIn: parent; width: 22; height: 22; radius: Look.sq ? 0 : (11)
-                            color: isl.bar ? isl.bar.wsTint(wc.wid) : "white"
-                            opacity: wc.act ? 1 : 0; scale: wc.act ? 1 : 0.4
-                            Behavior on opacity { NumberAnimation { duration: 180 } }
-                            Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
-                        }
-                        Text {
-                            visible: wc.st === "letters" || wc.st === "numbers"
-                            anchors.centerIn: parent
-                            text: wc.st === "numbers" ? String(wc.wid) : String.fromCharCode(64 + wc.wid)
-                            color: wc.act ? (isl.pal ? isl.pal.inkPrimary : "black") : (isl.pal ? isl.pal.dim : "#aaa")
-                            font.family: Fonts.main; font.pixelSize: 12; font.weight: wc.act ? Font.Bold : Font.Medium
-                        }
-                        // Pac-Man: dots he has eaten fade, he sits on the one you are on
-                        Rectangle {
-                            visible: wc.st === "pacman" && !wc.act
-                            anchors.centerIn: parent; width: 6; height: 6; radius: Look.sq ? 0 : (3)
-                            color: isl.pal ? isl.pal.fg : "white"
-                            opacity: wc.wid < isl.wsId ? 0.25 : 0.8
-                        }
-                        Canvas {
-                            visible: wc.st === "pacman" && wc.act
-                            anchors.centerIn: parent; width: 16; height: 16
-                            property real mouth: 0.22
-                            SequentialAnimation on mouth {
-                                running: wc.act && wc.st === "pacman" && isl.mode === "ws"; loops: Animation.Infinite
-                                NumberAnimation { to: 0.02; duration: 120 } NumberAnimation { to: 0.26; duration: 120 }
-                            }
-                            onMouthChanged: requestPaint()
-                            onVisibleChanged: if (visible) requestPaint()
-                            onPaint: {
-                                const c = getContext("2d"); c.reset()
-                                c.fillStyle = isl.pal ? isl.pal.primary : "#ffd84a"
-                                c.beginPath(); c.moveTo(8, 8); c.arc(8, 8, 8, mouth * Math.PI, (2 - mouth) * Math.PI); c.closePath(); c.fill()
-                            }
-                        }
-                    }
+                // V6.80: the bar's own workspaces (WsStrip.qml): every style and the Animation of Settings > Bar styles
+                // (it showed only dots or numbers for the newer styles, and its own fixed movement)
+                Loader {
+                    anchors.verticalCenter: parent.verticalCenter
+                    active: isl.bar !== null && isl.bar !== undefined
+                    sourceComponent: WsStrip { host: isl.bar; h: 24; interactive: false }
                 }
             }
         }

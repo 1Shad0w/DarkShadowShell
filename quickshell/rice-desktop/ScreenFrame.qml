@@ -61,13 +61,16 @@ Scope {
             }
         }
     }
-    // the room the windows keep from the edges (the bar keeps its own)
+    // the room the windows keep from the edges. V6.80: the bar's room too (the bar ignores the others' room, so
+    // it reaches both corners; it would be pushed in by these strips otherwise)
+    property real barKeep: barH
     component Keep: PanelWindow {
+        property real size: sf.thick
         screen: sf.screen
-        visible: sf.shown
+        visible: sf.shown && size > 0
         color: "transparent"
-        exclusiveZone: Math.round(sf.thick)
-        implicitWidth: Math.max(1, Math.round(sf.thick)); implicitHeight: Math.max(1, Math.round(sf.thick))
+        exclusiveZone: Math.round(size)
+        implicitWidth: Math.max(1, Math.round(size)); implicitHeight: Math.max(1, Math.round(size))
         WlrLayershell.layer: WlrLayer.Bottom
         WlrLayershell.namespace: "rice-frame-keep"
         mask: Region { }
@@ -75,4 +78,5 @@ Scope {
     Keep { anchors { left: true; top: true; bottom: true } }
     Keep { anchors { right: true; top: true; bottom: true } }
     Keep { anchors { left: true; right: true; top: sf.atBottom; bottom: !sf.atBottom } }
+    Keep { size: sf.barKeep; anchors { left: true; right: true; top: !sf.atBottom; bottom: sf.atBottom } }
 }
