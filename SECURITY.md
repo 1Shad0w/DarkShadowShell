@@ -11,7 +11,7 @@ public issue for something that runs code or exposes data.
 
 ## What the code checks
 
-- **Downloads are verified before use.** Everything the installer unpacks or runs is pinned to a release tag and
+- **Downloads are verified before use.** Every archive and file the installer downloads itself is pinned to a release tag and
   its SHA-256 is in `install/checksums.txt` (`install/lib/secure.sh`). A file with an unpinned name is not
   downloaded at all, a hash mismatch is deleted and reported. The same list is the only place hashes live: it is
   installed as `~/.local/share/rice/checksums.txt`, and `rice-cursor` reads it too. Adding a line is all it takes
@@ -45,6 +45,9 @@ All three are in Settings > Language & region > Online lookups.
   your own fork and review what the update changes before answering "y".
 - **`rice-security` integrity baseline is tamper-evident, not tamper-proof.** It is a hash list in your own
   `~/.config`, so it notices accidental or casual changes; a process running as you can rewrite it.
+- **The AUR helper is built, not pinned.** When Arch has neither paru nor yay, the installer clones the helper's
+  package from the AUR at its current HEAD and builds it. The hashes above cover the downloads the installer makes
+  itself, not AUR packages.
 - **Other downloads are data, not code.** `rice-cursor` pins Bibata to a release and checks its SHA-256, and every
   archive it opens is path-checked; the other cursor packs and the fonts `rice-fonts` downloads come over HTTPS
   from GitHub but are not hash-pinned here.
