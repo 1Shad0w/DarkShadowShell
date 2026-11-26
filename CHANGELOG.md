@@ -1,5 +1,8 @@
 # Changelog
 
+## V6.82: Frame fixed for real
+- **Frame**: the bar sat a whole bar higher than the edge, with the wallpaper under it. Quickshell sets a window back to "keep clear of the others" whenever its reserved room is set, so the bar's "ignore the others" did not hold and it moved above the room the frame keeps for it. The bar now asks for that directly (`exclusiveZone: -1`), so it lies on the edge, corner to corner, and the frame joins it
+
 ## V6.81: Frame corners, the island's workspaces and the stop button
 - **Frame**: the bar reaches both corners again. The frame's side strips kept their room first, so the bar was a few pixels short at each end and the wallpaper showed in the bottom (or top) corners; the frame now keeps the bar's room for it
 - **The island shows the workspaces like the bar**: when you switch, the island (the Dynamic clock) draws the workspaces in your style with your Animation, Pac-Man too. It showed only dots or numbers for the newer styles, and moved its own way. Bar and island share one drawing now (`WsStrip.qml`)
