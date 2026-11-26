@@ -88,6 +88,9 @@ remote "git@github.com:notwafel/DarkShadowShell.git" && ok "accepts the ssh remo
 remote "https://github.com/shadowww-dev/DarkShadowShell" && ok "accepts the https remote" || bad "https remote"
 remote "https://github.com/evil/DarkShadowShell" && ok "accepts a fork" || bad "fork remote"
 remote "https://example.com/x/DarkShadowShell" && bad "accepted a foreign host" || ok "refuses a foreign host"
+remote "https://evil.example/github.com/evil/DarkShadowShell" && bad "accepted a path on a foreign host" || ok "refuses a foreign host with a github.com path"
+remote "ssh://git@evil.example/github.com/evil/DarkShadowShell.git" && bad "accepted a foreign ssh host" || ok "refuses a foreign ssh host"
+remote "https://gitlab.com/github.com/evil/DarkShadowShell.git" && bad "accepted another host with a github.com path" || ok "refuses another host with a github.com path"
 remote "https://github.com/evil/other" && bad "accepted another repo" || ok "refuses another repo"
 
 update_guard "$old" "$old" && ok "same commit needs no confirmation" || bad "same commit"

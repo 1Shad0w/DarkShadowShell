@@ -2,6 +2,7 @@
 
 ## V6.57: the second audit
 - **An update can no longer run new code without asking.** The "this changes the installer" question covered `install.sh` and `install/lib`; the installer also runs `install/patches` and the `bin` scripts it just pulled, so a change there opens the same question now
+- **An update comes only from `github.com` itself.** An address that merely has `github.com` somewhere in its path (another host, a fork page) is refused, in the installer and in rice-update
 - **A restore keeps what it replaces.** `./install.sh --restore` saves your current files first, so the changes made since the backup are not lost
 - **One update at a time.** Two installers (Settings and a terminal) wrote the same staging files, checksums and backups; the second one waits now
 - **Screenshots and recordings do not overwrite each other** when they land in the same second, the Hyprland config is swapped in rather than cut short, and a stop that the recorder has not finished keeps its pid (no second recorder on the same file)
