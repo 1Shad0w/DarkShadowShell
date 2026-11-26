@@ -481,6 +481,10 @@ def record(mode, geo=None):
                 time.sleep(0.1)
                 if not alive(REC_PID, "recorder"):
                     break
+            if alive(REC_PID, "recorder"):
+                # it did not stop yet: keep the pid, or a second recorder starts and this file is never finished
+                notify("Recording is still stopping", "Try again in a moment", REC_DIR)
+                return
             try:
                 f = json.load(open(REC_INFO)).get("file", "")
             except Exception:
@@ -1016,7 +1020,7 @@ def main(argv):
     elif cmd in ("shot-card", "shot-edit", "shot-pin") and arg and os.path.isfile(arg) and arg.lower().endswith(".png"):
         if cmd == "shot-pin":
             os.makedirs(PIN_DIR, exist_ok=True)
-            f = time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png")
+            f = unique(time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png"))
             shutil.copyfile(arg, f)
             arg = f
         tell_shell(cmd, os.path.abspath(arg))
