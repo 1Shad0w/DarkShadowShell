@@ -1,5 +1,12 @@
 # Changelog
 
+## V6.56: SUPER + ALT + mouse without the input group
+- **Infinite Desktop's mouse needs no permission any more** on Hyprland 0.56+ (the stable one today): the Lua config reads where the pointer is and which keys are held itself, every 16 ms, with no extra program and no `input` group. The `input` group is not needed for it any more: joining `input` was a real risk, since any program you run could then read every keyboard
+- **At the edge of the screen the canvas goes on**: the pointer cannot leave the screen, so a little inside the edge it is put back (a warp of 24 px), and you keep pushing after it as you did with the group. The pointer stays near the edge; the few pixels of movement that went past it are the one thing that is lost
+- The wallpaper and the bar and dock still follow the move, live (the config writes the canvas place to a small file in the runtime folder, which the shell reads; before it, rice-canvasd sent it over a socket)
+- **The push at the edge** (SUPER + drag a window against the edge, the others come towards it) still reads the mouse directly, so it still needs the group: it is the one part that needs the movement past the edge of the screen. Its setting is hidden where it cannot work. On Hyprland 0.55 the whole mouse needs the group, as before
+- NixOS: `programs.shadows-shell.inputGroup = true` is only for that push now
+
 ## V6.55: Styles, profiles, a new screenshot tool and screen time
 - **11 new styles** in Settings > Appearance > Themes: the palettes everyone knows (**Catppuccin**, **Rosé Pine**, **Tokyo Night**, **Gruvbox**, **Nord**, **Everforest**, **Kanagawa**) and four of our own: **Luxe** (gold on black), **OLED** (true black), **Brutal** (square, thick borders, no softness) and **Sakura** (blossom pink). A style now also brings its notifications' colors, the lock screen look and the minimal mode, and gives back yours when you move to a style that does not set them. A ring of the new color sweeps over the screen when one goes on. New color schemes: Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa and Dracula
 - **Settings show what you changed**: a small dot next to every setting that is not at its default, and a button to put it back with one click (107 settings in Bar, Desktop, Idle, Interface, Island, Notifications, Recorder, Launcher, Sounds and Vibe)

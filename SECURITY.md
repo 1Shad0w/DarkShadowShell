@@ -22,9 +22,10 @@ public issue for something that runs code or exposes data.
 - **A changed installer is not started on its own.** An update that brings a new `install.sh` shows the diffstat
   and asks in a terminal before anything is pulled; an update started from Settings opens a terminal with
   `rice-update` for that question instead of going on. `RICE_TRUST_UPDATE=1` is the explicit opt-out.
-- **The input group is opt-in.** Infinite Desktop reads `/dev/input`, so it needs it, but that permission lets
-  every program you run read every keyboard on the machine. `./install.sh --input-group` (or Settings > Desktop >
-  Infinite Desktop > Allow) enables it after saying so.
+- **The input group is opt-in.** The push at the edge of Infinite Desktop (and its whole mouse on Hyprland 0.55)
+  reads `/dev/input`, so it needs it, but that permission lets every program you run read every keyboard on the
+  machine. On 0.56+ the mouse needs nothing. `./install.sh --input-group` (or Settings > Desktop > Infinite
+  Desktop > Allow) enables it after saying so.
 
 ## What is a choice, not a default
 
