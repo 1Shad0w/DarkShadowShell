@@ -9,7 +9,7 @@ Item {
     id: page
     property var ctl
     readonly property bool niri: !!Quickshell.env("NIRI_SOCKET")
-    property var st: ({ keys: { key_toggle: "SUPER + F", mod_hold: "SUPER + ALT", mod_go: "SUPER + CTRL", mod_zoom: "CTRL" }, on: false, zoom: 1, step: 0.12, min: 0.2, pan: 180, speed: 1.0, dir: 1, push: 1, screens: 1, input: true, daemon: true, devices: null, loaded: true })
+    property var st: ({ keys: { key_toggle: "SUPER + F", mod_hold: "SUPER + ALT", mod_go: "SUPER + CTRL", mod_zoom: "CTRL" }, on: false, zoom: 1, step: 0.12, min: 0.2, pan: 180, speed: 1.0, dir: 1, push: 1, screens: 1, poll: false, input: true, daemon: true, devices: null, loaded: true })
 
     function sh(args) { runner.command = ["bash", "-c", "\"$HOME/.local/bin/rice-infinite\" \"$@\" 2>&1", "_"].concat(args); runner.running = true }
     function fmt(n) { return String(Math.round(n * 100) / 100) }
@@ -126,12 +126,16 @@ Item {
             }
         }
 
-        // SUPER + ALT + mouse: rice-canvasd reads the mouse and the keyboard directly
+        // SUPER + ALT + mouse: Hyprland 0.56+ follows the pointer itself (no permission); on 0.55 / for the push at the
+        // edge rice-canvasd reads the mouse and the keyboard directly, which needs the input group
         Rectangle {
             id: cv
             readonly property var dv: page.st.devices || null
-            readonly property bool denied: !!dv && dv.denied > 0 && (dv.keyboards === 0 || dv.mice === 0)
-            readonly property bool ready: page.st.daemon === true && !!dv && dv.keyboards > 0 && dv.mice > 0
+            readonly property bool poll: page.st.poll === true
+            readonly property bool denied: !cv.poll && !!dv && dv.denied > 0 && (dv.keyboards === 0 || dv.mice === 0)
+            readonly property bool ready: cv.poll || (page.st.daemon === true && !!dv && dv.keyboards > 0 && dv.mice > 0)
+            // the push at the edge still reads the mouse itself
+            readonly property bool edge: !cv.poll || page.st.input === true || page.st.group === true
             visible: page.niri || page.st.hypr !== false
             width: parent.width; height: Math.max(72, ic.implicitHeight + 28); radius: M3.sq ? 0 : (M3.rL)
             color: ready ? M3.surfaceC : M3.alpha(M3.primary, 0.10)
@@ -150,7 +154,8 @@ Item {
                         : (cv.denied ? (page.st.group ? I18n.t("Log out and back in once") : I18n.t("One step for SUPER + ALT + mouse"))
                         : (page.st.daemon ? I18n.t("No keyboard or mouse found yet") : I18n.t("SUPER + ALT + mouse is not running"))) }
                 T { width: parent.width; wrapMode: Text.WordWrap; font.pixelSize: 12; color: M3.inkDim
-                    text: cv.ready ? (cv.dv.keyboards + " " + I18n.t("keyboard(s)") + " · " + cv.dv.mice + " " + I18n.t("mouse / mice"))
+                    text: cv.poll ? I18n.t("Hyprland follows the pointer itself: no input group and no extra program. At the edge of the screen the pointer is put back a little, so the canvas goes on.")
+                        : cv.ready ? (cv.dv.keyboards + " " + I18n.t("keyboard(s)") + " · " + cv.dv.mice + " " + I18n.t("mouse / mice"))
                         : (cv.denied ? (page.st.group ? I18n.t("You are in the input group now; it counts after the next login.")
                               : (page.st.nixos ? I18n.t("NixOS: add \"input\" to your user's extraGroups in configuration.nix, run sudo nixos-rebuild switch, then log in again. Allow shows the line.")
                                   : I18n.t("Your user joins the input group (your password, once), then log in again. Programs you run can then read the keyboard and the mouse too.")))
@@ -196,7 +201,7 @@ Item {
                 Key { visible: !page.niri; keys: page.nice(page.kv("mod_zoom", "CTRL")) + " + Mouse wheel"; what: I18n.t("Zoom out (down) and in (up) around the pointer") }
                 Key { visible: !page.niri; keys: "Super + Mouse wheel"; what: I18n.t("Move the canvas up and down") }
                 Key { visible: !page.niri; keys: "Super + Shift + Mouse wheel"; what: I18n.t("Move the canvas left and right") }
-                Key { visible: !page.niri && page.st.push === 1; keys: "Super + Left mouse"; what: I18n.t("Drag a window to the edge of the screen and keep going: the others come to it") }
+                Key { visible: !page.niri && page.st.push === 1 && cv.edge; keys: "Super + Left mouse"; what: I18n.t("Drag a window to the edge of the screen and keep going: the others come to it") }
                 Key { visible: !page.niri; keys: page.nice(page.kv("mod_hold", "SUPER + ALT")) + " + 0"; what: I18n.t("Back to 100 %") }
             }
         }
@@ -256,7 +261,7 @@ Item {
             onToggled: function(v) { page.sh(["set", "hidebar", v ? "1" : "0"]); const n = Object.assign({}, page.st); n.hidebar = v ? 1 : 0; page.st = n }
         }
         ToggleRow {
-            visible: !page.niri
+            visible: !page.niri && cv.edge
             label: I18n.t("SUPER + drag a window to the edge pushes the others")
             desc: I18n.t("Take a window to the edge of the screen and keep going: the other windows come towards it")
             checked: page.st.push === 1

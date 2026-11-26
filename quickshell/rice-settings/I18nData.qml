@@ -624,6 +624,7 @@ Singleton {
             "Mouse wheel": "Kółko myszy",
             "Sensitivity of the mouse": "Czułość myszy",
             "mouse is ready": "mysz działa",
+            "Hyprland follows the pointer itself: no input group and no extra program. At the edge of the screen the pointer is put back a little, so the canvas goes on.": "Hyprland sam śledzi kursor: bez grupy input i bez dodatkowego programu. Przy krawędzi ekranu kursor jest cofany o kilka pikseli, żeby płótno jechało dalej.",
             "Your windows float on an endless canvas: hold your keys and move the mouse, the canvas moves with it. (niri cannot zoom windows.)": "Okna unoszą się na nieskończonym płótnie: przytrzymaj klawisze i ruszaj myszką, płótno rusza się z nią. (niri nie umie powiększać okien.)",
             "Hyprland only": "Tylko Hyprland",
             "Infinite Desktop is made for Hyprland (it zooms and moves the windows on an endless canvas). niri scrolls its own way already, so here it is off.": "Nieskończony pulpit jest dla Hyprlanda (powiększa i przesuwa okna na nieskończonym płótnie). niri i tak przewija po swojemu, więc tu jest wyłączony.",
