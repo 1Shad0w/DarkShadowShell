@@ -55,7 +55,7 @@ SCENE_APP = HOME + "/.config/quickshell/rice-scene"
 SCENES = ("aurora", "starfall", "orbit", "mesh")
 APPLY = HOME + "/.config/quickshell/hyprquickpaper/commands.sh"
 WAYPAPER = HOME + "/.config/waypaper/config.ini"
-RUN = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+RUN = os.environ.get("XDG_RUNTIME_DIR") or HOME + "/.cache/rice"
 PID = RUN + "/rice-walls.pid"
 
 PICS = ("jpg", "jpeg", "png", "webp", "gif", "bmp", "jxl", "avif")
@@ -511,6 +511,7 @@ def daemon():
             return
     except ValueError:
         pass
+    os.makedirs(os.path.dirname(PID), exist_ok=True)
     open(PID, "w").write(str(os.getpid()))
     signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
     try:
