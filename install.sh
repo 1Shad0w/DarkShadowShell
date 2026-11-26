@@ -984,7 +984,7 @@ prune_backups() {
   [ "$DRY_RUN" = 1 ] && return 0
   local first old d
   first="$(cat "$HOME/.config/rice/.first-backup" 2>/dev/null)"
-  old="$(find "$HOME/.config" -maxdepth 1 -type d \( -name 'darkshadows-shell-backup-*' -o -name 'shadows-shell-backup-*' \) 2>/dev/null | sort | head -n -2)"
+  old="$(find "$HOME/.config" -maxdepth 1 -type d -name 'darkshadows-shell-backup-*' 2>/dev/null | sort | head -n -2)"
   [ -n "$old" ] || return 0
   while IFS= read -r d; do
     [ "$d" = "$first" ] && continue
@@ -1112,7 +1112,7 @@ restart_shell() {
 
 do_restore() {
   local last
-  last="$(find "$HOME/.config" -maxdepth 1 -type d \( -name 'darkshadows-shell-backup-*' -o -name 'shadows-shell-backup-*' \) 2>/dev/null | sort | tail -n1 || true)"
+  last="$(find "$HOME/.config" -maxdepth 1 -type d -name 'darkshadows-shell-backup-*' 2>/dev/null | sort | tail -n1 || true)"
   [ -n "$last" ] || { fail "No backup found."; exit 1; }
   title "Restore"
   kv "Backup" "$last"
