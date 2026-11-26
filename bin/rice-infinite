@@ -2,6 +2,8 @@
 # Infinite Desktop is based on the idea of Sarods2D: https://github.com/sarodscommits/hyprland-infinitie-desktop-v2 (MIT)
 # rice-infinite: Infinite Desktop (Settings > Desktop > Infinite Desktop). On Hyprland the work is done inside
 # Hyprland by ~/.config/hypr/rice-infinite.lua. Hyprland only (on niri it was rice-canvasd; gone in V4.23).
+# The mouse needs no permission on Hyprland 0.56+ (the Lua config follows the pointer). rice-canvasd reads the mouse
+# directly only for the push at the edge of the screen (and for all of it on 0.55), which needs the input group.
 #   rice-infinite on | off | toggle
 #   rice-infinite pan DX DY | go left|right|up|down     (niri used these; now it says Hyprland only)
 #   rice-infinite key key_toggle|mod_hold|mod_go|mod_zoom "SUPER + ALT"   your keys
@@ -11,14 +13,20 @@
 #                                       2: reversed), push (1: SUPER + drag at the edge pushes the others, 0: no),
 #                                       screens (0: every screen is one canvas, so the windows float side by side as the
 #                                       screens are; 1: the canvas is only the workspace you turned it on)
-#   rice-infinite daemon | daemon-stop  (Hyprland runs these) rice-canvasd, for SUPER + ALT + mouse
-#   rice-infinite allow                 join the input group (asks for your password; on NixOS: what to add)
+#   rice-infinite daemon [push|full] | daemon-stop  (Hyprland runs these) rice-canvasd; push: only the push at the edge,
+#                                       full: also the mouse (only when Hyprland cannot follow the pointer)
+#   rice-infinite allow                 join the input group, for the push at the edge on 0.56+ (on 0.55: the mouse)
 #   rice-infinite check                 what rice-canvasd finds (keyboards, mice, may it read them)
 c="${XDG_CONFIG_HOME:-$HOME/.config}/rice"
 st="$c/infinite.state" conf="$c/infinite.conf"
 mkdir -p "$c"
 hypr() { [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && command -v hyprctl >/dev/null 2>&1; }
 val() { sed -n "s/^$1=//p" "$2" 2>/dev/null | head -1; }
+# Hyprland 0.56+ follows the pointer itself (rice-infinite.lua writes this file for this Hyprland): no input group
+polling() {
+  [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || return 1
+  [ "$(cat "${XDG_RUNTIME_DIR:-/tmp}/rice-infinite.poll" 2>/dev/null)" = "$HYPRLAND_INSTANCE_SIGNATURE" ]
+}
 
 niri() { [ -n "$NIRI_SOCKET" ]; }
 case "$1" in
@@ -48,14 +56,16 @@ case "$1" in
     # SUPER + ALT + mouse (Hyprland starts it when Infinite Desktop turns on)
     # you joined the input group (it is in /etc/group) but this login started before: the groups of a login are
     # fixed when it starts, so without logging out the daemon is started with the group by sg (no password: you are
-    # a member). Then SUPER + ALT works right away.
-    cmd="$HOME/.local/bin/rice-canvasd"
+    # a member). Then the push at the edge (on 0.55: the mouse) works right away.
+    cmd="$HOME/.local/bin/rice-canvasd"; more=()
+    # 0.56+: Hyprland follows the pointer itself, so only the push at the edge reads the mouse (full asks for all of it)
+    if [ "${2:-}" = push ] || { [ "${2:-}" != full ] && polling; }; then more=(--push-only); fi
     if ! id -nG | tr ' ' '\n' | grep -qx input && getent group input 2>/dev/null | cut -d: -f4 | tr ',' '\n' | grep -qx "$USER" \
        && command -v sg >/dev/null 2>&1; then
-      setsid -f sg input -c "exec $cmd" >/dev/null 2>&1 </dev/null && exit 0
+      setsid -f sg input -c "exec \"$cmd\" ${more[*]}" >/dev/null 2>&1 </dev/null && exit 0
     fi
-    command -v setsid >/dev/null 2>&1 && setsid -f "$cmd" >/dev/null 2>&1 </dev/null \
-      || { nohup "$cmd" >/dev/null 2>&1 </dev/null & } ;;
+    command -v setsid >/dev/null 2>&1 && setsid -f "$cmd" "${more[@]}" >/dev/null 2>&1 </dev/null \
+      || { nohup "$cmd" "${more[@]}" >/dev/null 2>&1 </dev/null & } ;;
   daemon-stop)
     p="${XDG_RUNTIME_DIR:-/tmp}/rice-canvasd.pid"
     [ -f "$p" ] && kill "$(cat "$p")" 2>/dev/null; rm -f "$p" ;;
@@ -95,12 +105,14 @@ case "$1" in
       "$([ "$(val wall "$conf")" = 0 ] && echo 0 || echo 1)" "$([ "$(val hidebar "$conf")" = 0 ] && echo 0 || echo 1)" "$(val wallzoom "$conf" | grep . || echo 1.15)")
         d="${XDG_RUNTIME_DIR:-/tmp}/rice-canvasd"
     run=false; [ -f "$d.pid" ] && kill -0 "$(cat "$d.pid")" 2>/dev/null && run=true
-    printf '{'"$keys"'"hypr":%s,"on":%s,"zoom":%s,"step":%s,"min":%s,"pan":%s,"speed":%s,"dir":%s,"push":%s,"screens":%s,"input":%s,"group":%s,"loaded":%s,"nixos":%s,"daemon":%s,"devices":%s}\n' \
+    # Hyprland 0.56+ follows the pointer itself: the mouse needs no group
+    poll=false; polling && poll=true
+    printf '{'"$keys"'"hypr":%s,"on":%s,"zoom":%s,"step":%s,"min":%s,"pan":%s,"speed":%s,"dir":%s,"push":%s,"screens":%s,"poll":%s,"input":%s,"group":%s,"loaded":%s,"nixos":%s,"daemon":%s,"devices":%s}\n' \
       "$(hypr && echo true || echo false)" "$([ "$on" = 1 ] && echo true || echo false)" "${z:-1}" \
-      "$(val step "$conf" | grep . || echo 0.12)" "$(val min "$conf" | grep . || echo 0.2)" "$(val pan "$conf" | grep . || echo 180)" "$(val speed "$conf" | grep . || echo 1.0)" "$(val dir "$conf" | grep . || echo 1)" "$(val push "$conf" | grep . || echo 1)" "$(val screens "$conf" | grep -x 0 || echo 1)" \
+      "$(val step "$conf" | grep . || echo 0.12)" "$(val min "$conf" | grep . || echo 0.2)" "$(val pan "$conf" | grep . || echo 180)" "$(val speed "$conf" | grep . || echo 1.0)" "$(val dir "$conf" | grep . || echo 1)" "$(val push "$conf" | grep . || echo 1)" "$(val screens "$conf" | grep -x 0 || echo 1)" "$poll" \
       "$(for e in /dev/input/event*; do [ -r "$e" ] && { echo true; exit 0; }; done; echo false)" \
       "$(id -nG 2>/dev/null | tr ' ' '\n' | grep -qx input && echo true || echo false)" \
       "$([ -f "$HOME/.config/hypr/rice-infinite.lua" ] && echo true || echo false)" \
       "$(grep -qs '^ID=nixos' /etc/os-release && echo true || echo false)" "$run" "$(cat "$d.json" 2>/dev/null | grep . || echo null)" ;;
-  *) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
