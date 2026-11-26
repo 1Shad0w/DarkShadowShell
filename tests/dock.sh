@@ -19,7 +19,7 @@ grep -q 'reveal: on && !Infinite.hideUi && (!autoHide || pinned ||' "$dock" \
   && ok "the pin holds the dock out" || bad "the pin no longer holds the dock out"
 grep -q 'hideTimer; interval: 700; onTriggered: if (!dockMouse.containsMouse && !dock.overPanelItems && !apps.overPanel)' "$dock" \
   && ok "the dock stays while the pointer is on its app menu" || bad "the app menu does not keep the dock out"
-grep -q 'property bool overPanel: false' "$apps" && ok "the app menu reports the pointer on its card" || bad "no overPanel"
+grep -q 'am.overPanel = hovered' "$apps" && ok "the app menu reports the pointer on its card" || bad "overPanel is not wired"
 # the pointer on an icon: the panel's HoverHandler keeps it (dockMouse lost it there, so the dock hid and came back)
 grep -q 'dock.overPanelItems = hovered' "$dock" && ok "the icons keep the dock out" || bad "the dock flickers over its icons"
 ( grep -q 'DesktopEntries.heuristicLookup(id) === null' "$page" && grep -q 'l.concat(gone)' "$page" ) \
