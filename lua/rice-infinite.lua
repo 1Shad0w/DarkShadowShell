@@ -4,8 +4,10 @@
 --   CTRL + mouse wheel          zoom out / in around the pointer (the windows get smaller and come together)
 --   SUPER + mouse wheel         move the canvas up / down      SUPER + SHIFT + wheel: left / right
 --   SUPER + ALT + arrows        move the canvas
---   hold SUPER + ALT            move the mouse: the canvas moves with it, live (rice-canvasd reads the mouse)
---   SUPER + drag a window       against the edge of the screen it pushes the others away, so it goes on
+--   hold SUPER + ALT            move the mouse: the canvas moves with it, live (no input group: a timer follows the
+--                               pointer; before Hyprland 0.56 rice-canvasd reads the mouse, which needs the group)
+--   SUPER + drag a window       against the edge of the screen it pushes the others away (rice-canvasd reads the
+--                               mouse directly for that, which needs the input group; the rest needs nothing)
 --   (these two also work while it is off, on the floating windows of the workspace you are on)
 --   SUPER + ALT + 0             back to 100 %
 --   SUPER + CTRL + arrows       go to the next window that way: the canvas glides until it is in the middle
@@ -24,13 +26,20 @@ local HOME = os.getenv("HOME") or ""
 local STATE = HOME .. "/.config/rice/infinite.state"
 local CONF = HOME .. "/.config/rice/infinite.conf"
 local LAYOUT = HOME .. "/.config/rice/infinite-layout"
+local RUN = os.getenv("XDG_RUNTIME_DIR") or "/tmp"
+local LIVE = RUN .. "/rice-infinite.live"      -- what moves while you hold the keys (Infinite.qml reads it)
+local MARK = RUN .. "/rice-infinite.poll"      -- "this config follows the pointer itself": rice-infinite state
+-- Hyprland 0.56 tells a config which keys are held (hl.is_key_down) and where the pointer is: then the mouse needs no
+-- permission at all. Before it, rice-canvasd reads /dev/input, which needs the input group.
+local CAN_POLL = type(hl.is_key_down) == "function" and type(hl.timer) == "function"
+local CAN_WARP = CAN_POLL and type(hl.dsp) == "table" and type(hl.dsp.cursor) == "table" and type(hl.dsp.cursor.move) == "function"
 
 RI.on = false
 RI.ws = nil
 RI.z, RI.ox, RI.oy = 1.0, 0, 0
 RI.world = {}      -- address -> { x, y, w, h } on the canvas (screen = offset + canvas * zoom)
 RI.tiled = {}      -- address -> true: it was tiled before, tile it again when turned off
-RI.cfg = { step = 0.12, min = 0.2, max = 1.0, pan = 180, screens = 1 }   -- V5.02: this workspace by default
+RI.cfg = { step = 0.12, min = 0.2, max = 1.0, pan = 180, screens = 1, speed = 1.0, dir = 1 }   -- V5.02: this workspace by default
 
 local function run(d)
     if d then pcall(hl.dispatch, d) end
@@ -207,9 +216,146 @@ local function nudge(list, dx, dy, skip)
     end
 end
 
--- SUPER + ALT + mouse (rice-canvasd): the canvas, or with Infinite Desktop off the floating windows here
+-- SUPER + ALT + mouse (the timer below, or rice-canvasd before 0.56): the canvas, or with Infinite Desktop off the
+-- floating windows here
 function RI.slide(dx, dy)
     if here() then RI.pan(dx, dy, true) else nudge(floats_here(), dx, dy) end
+end
+
+-- ---------- the mouse without the input group (Hyprland 0.56+) ----------
+-- Hyprland cannot hand a config the mouse movement, but it can tell it which keys are held and where the pointer is.
+-- A 16 ms timer reads both: the canvas moves by how far the pointer went, and the wallpaper and the bar follow through
+-- a small file in the runtime folder (Infinite.qml reads it; the same state rice-canvasd sends over its socket).
+local MODS = {
+    SUPER = "SUPER", WIN = "SUPER", LOGO = "SUPER", META = "SUPER", MOD4 = "SUPER",
+    ALT = "ALT", MOD1 = "ALT", CTRL = "CTRL", CONTROL = "CTRL", SHIFT = "SHIFT",
+}
+local SYMS = {
+    SUPER = { "Super_L", "Super_R" }, ALT = { "Alt_L", "Alt_R" },
+    CTRL = { "Control_L", "Control_R" }, SHIFT = { "Shift_L", "Shift_R" },
+}
+local HOLD, HOLD_SET = nil, {}   -- the keysyms to check, and the modifiers they are (SHIFT may always come along)
+
+-- "SUPER + ALT" -> { { "Super_L", "Super_R" }, { "Alt_L", "Alt_R" } }; a key this does not know: no pointer
+local function hold_parse()
+    HOLD, HOLD_SET = nil, {}
+    if not CAN_POLL then return end
+    local out, seen = {}, {}
+    for part in (RI.keys.mod_hold or ""):gmatch("[^+]+") do
+        local name = MODS[part:gsub("%s", ""):upper()]
+        if not name then return end
+        HOLD_SET[name] = true
+        if not seen[name] then seen[name] = true; out[#out + 1] = SYMS[name] end
+    end
+    if #out > 0 then HOLD = out end
+end
+
+local function key_down(name)
+    for _, s in ipairs(SYMS[name]) do
+        local ok, down = pcall(hl.is_key_down, s)
+        if ok and down then return true end
+    end
+    return false
+end
+
+-- exactly the hold keys (SHIFT may come along, like rice-canvasd): SUPER, ALT or CTRL stop it when not asked for
+local function hold_down()
+    if not HOLD then return false end
+    for _, list in ipairs(HOLD) do
+        local any = false
+        for _, s in ipairs(list) do
+            local ok, down = pcall(hl.is_key_down, s)
+            if ok and down then any = true; break end
+        end
+        if not any then return false end
+    end
+    for _, name in ipairs({ "SUPER", "ALT", "CTRL" }) do
+        if not HOLD_SET[name] and key_down(name) then return false end
+    end
+    return true
+end
+
+-- the pointer stops at the edge of the screen. 24 px inside it is put back, so the canvas goes on: you keep pushing,
+-- the pointer stays near the edge (the movement past the edge is lost, nothing else)
+local BAND = 24
+local function warp_target(p, dx, dy)
+    if not CAN_WARP then return nil end
+    local ok, m = pcall(hl.get_monitor_at, p.x, p.y)
+    if not ok or type(m) ~= "table" then return nil end
+    local sc = tonumber(m.scale) or 1
+    if sc <= 0 then sc = 1 end
+    local l, t = tonumber(m.x) or 0, tonumber(m.y) or 0
+    local w, h = tonumber(m.width) or 1920, tonumber(m.height) or 1080
+    if (tonumber(m.transform) or 0) % 2 == 1 then w, h = h, w end     -- turned by 90°: the sides swap
+    local r, b = l + w / sc, t + h / sc
+    local x, y = p.x, p.y
+    if dx > 0 and x > r - BAND and r - BAND > l then x = r - BAND
+    elseif dx < 0 and x < l + BAND and l + BAND < r then x = l + BAND end
+    if dy > 0 and y > b - BAND and b - BAND > t then y = b - BAND
+    elseif dy < 0 and y < t + BAND and t + BAND < b then y = t + BAND end
+    if x ~= p.x or y ~= p.y then return x, y end
+    return nil
+end
+
+-- hold 1 + where the canvas is (absolute: a write the shell misses loses nothing), or hold 0
+local function live_write(held)
+    if held and not RI.on then return end
+    local f = io.open(LIVE, "w")
+    if not f then return end
+    if held then
+        f:write(string.format("hold 1\nox=%.2f\noy=%.2f\n", RI.ox, RI.oy))
+    else
+        f:write("hold 0\n")
+    end
+    f:close()
+end
+
+local function live_off()
+    live_write(false)
+end
+
+local poll = { last = nil, held = false, ax = 0, ay = 0 }
+
+local function tick()
+    local down = hold_down()
+    if down ~= poll.held then
+        poll.held = down
+        poll.last, poll.ax, poll.ay = nil, 0, 0
+        if down then
+            local ok, p = pcall(hl.get_cursor_pos)
+            if ok and type(p) == "table" and p.x then poll.last = { x = p.x, y = p.y } end
+        end
+        live_write(down)
+        if not down then pcall(RI.save) end     -- the place is written down once, at the end
+        return
+    end
+    if not down then return end
+    local ok, p = pcall(hl.get_cursor_pos)
+    if not ok or type(p) ~= "table" or not p.x or not p.y then return end
+    if not poll.last then poll.last = { x = p.x, y = p.y }; return end
+    local dx, dy = p.x - poll.last.x, p.y - poll.last.y
+    poll.last = { x = p.x, y = p.y }
+    local sp = math.max(0.1, math.min(5.0, tonumber(RI.cfg.speed) or 1.0))
+    local sign = tonumber(RI.cfg.dir) == 2 and -1 or 1
+    -- whole pixels now, the rest kept: a slow move is not lost (the same as rice-canvasd)
+    poll.ax, poll.ay = poll.ax + dx * sp, poll.ay + dy * sp
+    local ix = poll.ax >= 0 and math.floor(poll.ax) or math.ceil(poll.ax)
+    local iy = poll.ay >= 0 and math.floor(poll.ay) or math.ceil(poll.ay)
+    poll.ax, poll.ay = poll.ax - ix, poll.ay - iy
+    -- never more than a big step at once: a hiccup is caught up smoothly, not in one jump
+    local cx = math.max(-160, math.min(160, ix))
+    local cy = math.max(-160, math.min(160, iy))
+    poll.ax, poll.ay = poll.ax + (ix - cx), poll.ay + (iy - cy)
+    if cx ~= 0 or cy ~= 0 then
+        RI.slide(cx * sign, cy * sign)
+        pcall(live_write, true)
+    end
+    local wx, wy = warp_target(p, dx, dy)
+    if wx then
+        run(hl.dsp.cursor.move({ x = wx, y = wy }))
+        -- the pointer is there now: the jump itself is not movement (else the canvas would jump back by it)
+        poll.last = { x = wx, y = wy }
+    end
 end
 
 -- the middle of the usable part of the screen (logical pixels, without the bar)
@@ -399,9 +545,10 @@ function RI.edge_push(dx, dy)
     if s then s.x, s.y = (a.at.x - RI.ox) / RI.z, (a.at.y - RI.oy) / RI.z; s.tx = nil end
 end
 
--- rice-canvasd: SUPER + ALT + mouse and the push at the edge (it reads the mouse, Hyprland cannot tell it)
-local function daemon(on)
-    run(hl.dsp.exec_cmd(HOME .. "/.local/bin/rice-infinite " .. (on and "daemon" or "daemon-stop")))
+-- rice-canvasd: the push at the edge while SUPER + drag (and, before 0.56, SUPER + ALT + mouse): it reads the mouse,
+-- Hyprland cannot tell a config how far the pointer went past the edge of the screen
+local function daemon()
+    run(hl.dsp.exec_cmd(HOME .. "/.local/bin/rice-infinite daemon" .. (CAN_POLL and " push" or "")))
 end
 
 local function notify(text)
@@ -460,6 +607,9 @@ function RI.reload()
     if RI.on then for _, key in ipairs(KEYS) do pcall(hl.unbind, key) end end
     local was = shared()
     pcall(RI.load_cfg)
+    pcall(hold_parse)
+    -- the keys may be other ones now: a hold from before is not one
+    poll.last, poll.ax, poll.ay, poll.held = nil, 0, 0, false
     pcall(bind_toggle)
     if RI.on then bind_keys() end
     -- every screen <-> this workspace: the windows of a screen that joins float too (the ones that leave are still
@@ -606,10 +756,10 @@ function RI.set(on)
         local a = hl.get_active_window()
         RI.last = a and a.address or nil
         bind_keys()
-        daemon(true)
+        daemon()
         notify("On: hold " .. RI.keys.mod_hold .. " and move the mouse, " .. RI.keys.mod_zoom .. " + wheel to zoom")
-        -- SUPER + ALT + mouse cannot read the mouse yet: say what the one step is (nothing happening is the worst)
-        run(hl.dsp.exec_cmd(HOME .. "/.local/bin/rice-canvasd --tell"))
+        -- before 0.56 SUPER + ALT + mouse reads the mouse itself and cannot yet: say what the one step is
+        if not CAN_POLL then run(hl.dsp.exec_cmd(HOME .. "/.local/bin/rice-canvasd --tell")) end
     else
         if RI.ws ~= nil then
             pcall(remember)
@@ -623,6 +773,7 @@ function RI.set(on)
         end
         RI.on = false
         unbind_keys()
+        pcall(live_off)
         notify("Off: windows are back")
     end
     save()
@@ -654,16 +805,29 @@ local function restore()
     RI.tiled = st.tiled
     RI.world = {}
     bind_keys()
-    daemon(true)
+    daemon()
 end
 
 pcall(RI.load_cfg)
+pcall(hold_parse)
 pcall(restore)
 
 pcall(bind_toggle)
 
--- rice-canvasd runs with Hyprland (only one at a time; it stops when Hyprland stops)
-local CANVASD = HOME .. "/.local/bin/rice-infinite daemon"
+-- Settings reads this to know the mouse needs no input group here (the file names this Hyprland, so a leftover of
+-- another session does not count)
+pcall(function()
+    if not CAN_POLL then os.remove(MARK); return end
+    local f = io.open(MARK, "w")
+    if f then f:write(os.getenv("HYPRLAND_INSTANCE_SIGNATURE") or ""); f:close() end
+end)
+pcall(live_off)     -- a stale hold of a session that ended is not a hold now
+-- the pointer itself (Hyprland 0.56+): a timer, not a process, and no permission
+if CAN_POLL then pcall(hl.timer, function() pcall(tick) end, { timeout = 16, type = "repeat" }) end
+
+-- rice-canvasd runs with Hyprland (only one at a time; it stops when Hyprland stops); 0.56+ only for the push at the
+-- edge, the mouse itself is the timer above
+local CANVASD = HOME .. "/.local/bin/rice-infinite daemon" .. (CAN_POLL and " push" or "")
 pcall(hl.on, "hyprland.start", function() pcall(hl.exec_cmd, CANVASD) end)
 if (os.getenv("HYPRLAND_INSTANCE_SIGNATURE") or "") ~= "" then pcall(hl.exec_cmd, CANVASD) end
 
