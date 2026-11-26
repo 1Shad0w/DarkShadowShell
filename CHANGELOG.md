@@ -8,7 +8,9 @@
 - **Screenshots, upgraded**: after a shot a **card** comes up in the corner (edit, copy, pin, open the folder or delete) and goes away by itself. **Our own editor**: pen, highlighter, arrow, box, blur, numbered steps and text, five colors and three sizes, undo; Enter saves it and puts it on the clipboard. **Pin it on the screen**: the shot floats over your windows; drag it, scroll to resize, double click to close. **Read a QR code** (Q in the screenshot tool): the text or link goes to your clipboard (needs `zbar`)
 - **Screen time** (Settings > System > Screen time): how long you used the computer today and against your average, at what hours, which apps, and the last seven days. Counted only while the screen is not locked, kept only on your computer for 60 days, and you can turn it off or forget it all (`rice-screentime`)
 - **The system card of the bar draws graphs**: CPU and RAM show the last two minutes
+- **The login screen fits high resolutions** (thanks @notwafel, #36): it no longer grows huge on 1440p and 4K (the same size cap as the lock screen), a glassier card, and the stacked clock by default
 - Polish translations for all of it
+
 ## V6.13: The installer shows the download
 - **No more "stuck" at Retrieving packages...**: the system update and the package install now show pacman's (and dnf's) download bars live, with the speed and what is left. Before, the output went through a pipe, pacman printed nothing while it downloaded, and a big first update (often over 1 GB) looked frozen for many minutes
 - The same output still goes into the install log
