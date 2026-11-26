@@ -135,5 +135,16 @@ assert m.expected_sha("broken.bin") == ""
 assert m.get_bibata("Bibata-Modern-Amber") is False
 PY
 
+# ---- rice-apps-helper: opening an archive does not write outside the folder it is opened in
+python3 - "$root/bin/rice-apps-helper" "$tmp/evil.tar" "$tmp/good.tar" <<'PYA' && ok "an archive member with .. is refused" || bad "rice-apps-helper would unpack .."
+import importlib.machinery, importlib.util, sys
+loader = importlib.machinery.SourceFileLoader("ah", sys.argv[1])
+spec = importlib.util.spec_from_loader("ah", loader)
+m = importlib.util.module_from_spec(spec)
+loader.exec_module(m)
+assert m.safe_names(sys.argv[2]) is False, "accepted ../"
+assert m.safe_names(sys.argv[3]) is True, "refused a plain archive"
+PYA
+
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"
