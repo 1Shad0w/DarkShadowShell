@@ -82,8 +82,7 @@ done
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BK="$HOME/.config/darkshadows-shell-backup-$STAMP"
-LOG="${TMPDIR:-/tmp}/darkshadows-shell-install-$STAMP.log"
-: >"$LOG"
+LOG="$(mktemp "${TMPDIR:-/tmp}/darkshadows-shell-install-XXXXXX.log")"
 IN_HYPR=0; [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1 && IN_HYPR=1
 IN_NIRI=0; [ -n "${NIRI_SOCKET:-}" ] && command -v niri >/dev/null 2>&1 && IN_NIRI=1
 BIN="$HOME/.local/bin"
