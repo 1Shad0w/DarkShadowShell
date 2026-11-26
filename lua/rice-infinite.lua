@@ -224,7 +224,7 @@ end
 
 -- ---------- the mouse without the input group (Hyprland 0.56+) ----------
 -- Hyprland cannot hand a config the mouse movement, but it can tell it which keys are held and where the pointer is.
--- A 16 ms timer reads both: the canvas moves by how far the pointer went, and the wallpaper and the bar follow through
+-- A timer reads both: the canvas moves by how far the pointer went, and the wallpaper and the bar follow through
 -- a small file in the runtime folder (Infinite.qml reads it; the same state rice-canvasd sends over its socket).
 local MODS = {
     SUPER = "SUPER", WIN = "SUPER", LOGO = "SUPER", META = "SUPER", MOD4 = "SUPER",
@@ -314,31 +314,62 @@ local function live_off()
     live_write(false)
 end
 
-local poll = { last = nil, held = false, ax = 0, ay = 0 }
+local poll = { last = nil, held = false, ax = 0, ay = 0, wait = 0 }
+
+-- The pointer is put back inside the edge on every tick, so it drifts away from it for one tick only: at 16 ms that
+-- was 5-16 px of shake at the edge, easy to see; at 1 ms it is under a pixel at any speed you pan at. The canvas still
+-- moves every 16 ms (moving every window a thousand times a second would be a lot of work for nothing).
+local TICK_IDLE, TICK_FAST = 16, 1
+local TIMER, TICK_MS = nil, TICK_IDLE
+
+local function tick_rate(ms)
+    TICK_MS = ms
+    if TIMER then pcall(TIMER.set_timeout, TIMER, ms) end
+end
+
+local function cursor_pos()
+    local ok, p = pcall(hl.get_cursor_pos)
+    if ok and type(p) == "table" and p.x and p.y then return { x = p.x, y = p.y } end
+    return nil
+end
 
 local function tick()
-    local down = hold_down()
-    if down ~= poll.held then
-        poll.held = down
-        poll.last, poll.ax, poll.ay = nil, 0, 0
-        if down then
-            local ok, p = pcall(hl.get_cursor_pos)
-            if ok and type(p) == "table" and p.x then poll.last = { x = p.x, y = p.y } end
+    poll.wait = poll.wait + TICK_MS
+    local step = poll.wait >= TICK_IDLE     -- the keys, and the canvas: every 16 ms
+    if step then poll.wait = 0 end
+
+    if step then
+        local down = hold_down()
+        if down ~= poll.held then
+            poll.held = down
+            poll.last, poll.ax, poll.ay = nil, 0, 0
+            if down then poll.last = cursor_pos() end
+            tick_rate(down and TICK_FAST or TICK_IDLE)
+            live_write(down)
+            if not down then pcall(RI.save) end     -- the place is written down once, at the end
+            return
         end
-        live_write(down)
-        if not down then pcall(RI.save) end     -- the place is written down once, at the end
-        return
+        if not down then return end
     end
-    if not down then return end
-    local ok, p = pcall(hl.get_cursor_pos)
-    if not ok or type(p) ~= "table" or not p.x or not p.y then return end
-    if not poll.last then poll.last = { x = p.x, y = p.y }; return end
+    if not poll.held then return end
+
+    local p = cursor_pos()
+    if not p then return end
+    if not poll.last then poll.last = p; return end
     local dx, dy = p.x - poll.last.x, p.y - poll.last.y
-    poll.last = { x = p.x, y = p.y }
+    poll.last = p
     local sp = math.max(0.1, math.min(5.0, tonumber(RI.cfg.speed) or 1.0))
+    poll.ax, poll.ay = poll.ax + dx * sp, poll.ay + dy * sp
+    local wx, wy = warp_target(p, dx, dy)
+    if wx then
+        run(hl.dsp.cursor.move({ x = wx, y = wy }))
+        -- the pointer is there now: the jump itself is not movement (else the canvas would jump back by it)
+        poll.last = { x = wx, y = wy }
+    end
+    if not step then return end
+
     local sign = tonumber(RI.cfg.dir) == 2 and -1 or 1
     -- whole pixels now, the rest kept: a slow move is not lost (the same as rice-canvasd)
-    poll.ax, poll.ay = poll.ax + dx * sp, poll.ay + dy * sp
     local ix = poll.ax >= 0 and math.floor(poll.ax) or math.ceil(poll.ax)
     local iy = poll.ay >= 0 and math.floor(poll.ay) or math.ceil(poll.ay)
     poll.ax, poll.ay = poll.ax - ix, poll.ay - iy
@@ -349,12 +380,6 @@ local function tick()
     if cx ~= 0 or cy ~= 0 then
         RI.slide(cx * sign, cy * sign)
         pcall(live_write, true)
-    end
-    local wx, wy = warp_target(p, dx, dy)
-    if wx then
-        run(hl.dsp.cursor.move({ x = wx, y = wy }))
-        -- the pointer is there now: the jump itself is not movement (else the canvas would jump back by it)
-        poll.last = { x = wx, y = wy }
     end
 end
 
@@ -823,7 +848,10 @@ pcall(function()
 end)
 pcall(live_off)     -- a stale hold of a session that ended is not a hold now
 -- the pointer itself (Hyprland 0.56+): a timer, not a process, and no permission
-if CAN_POLL then pcall(hl.timer, function() pcall(tick) end, { timeout = 16, type = "repeat" }) end
+if CAN_POLL then
+    local ok, t = pcall(hl.timer, function() pcall(tick) end, { timeout = TICK_IDLE, type = "repeat" })
+    if ok then TIMER = t end
+end
 
 -- rice-canvasd runs with Hyprland (only one at a time; it stops when Hyprland stops); 0.56+ only for the push at the
 -- edge, the mouse itself is the timer above

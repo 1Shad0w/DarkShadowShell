@@ -5,6 +5,7 @@ local path = arg[1]
 local POLL = os.getenv("RI_TEST_POLL") == "1"
 local moves, focuses, floatarr, events = {}, {}, {}, {}
 local keys, timers, warps = {}, {}, {}
+local timer
 local n = 0
 local function ok(msg) n = n + 1; print("ok " .. n .. " - " .. msg) end
 local function bad(msg) print("not ok " .. (n + 1) .. " - " .. msg); os.exit(1) end
@@ -46,7 +47,13 @@ hl = {
 }
 if POLL then
     hl.is_key_down = function(sym) return keys[sym] == true end
-    hl.timer = function(fn, opts) timers[#timers + 1] = fn; return {} end
+    hl.timer = function(fn, opts)
+        local t = { ms = opts.timeout }
+        function t:set_timeout(ms) self.ms = ms end
+        timers[#timers + 1] = fn
+        timer = t
+        return t
+    end
     hl.dsp.cursor = { move = function(t) return function() warps[#warps + 1] = t; cursor.x, cursor.y = t.x, t.y end end }
 end
 assert(loadfile(path))()
@@ -102,13 +109,14 @@ check(not RiceInfinite.on, "it is off again")
 
 -- 0.56+: the pointer itself, no input group (and the warp at the edge of the screen)
 local function tick() for _, f in ipairs(timers) do f() end end
+local function ticks() for _ = 1, 16 do tick() end end     -- 16 ms of the timer (16 ticks while held, one when idle)
 local function hold(x, y)
     keys = { Super_L = true, Alt_L = true }
     cursor = { x = x, y = y or 500 }
-    tick()
+    ticks()
 end
-local function move(x, y) cursor = { x = x, y = y or 500 }; tick() end
-local function let_go() keys = {}; tick() end
+local function move(x, y) cursor = { x = x, y = y or 500 }; ticks() end
+local function let_go() keys = {}; ticks() end
 if POLL then
     check(type(hl.is_key_down) == "function" and #timers == 1, "the pointer is followed by a timer")
     os.execute("mkdir -p " .. (os.getenv("HOME") or "") .. "/.config/rice")
@@ -117,6 +125,7 @@ if POLL then
     local ox = RiceInfinite.ox
     hold(500)                                     -- the hold starts: no move yet
     check(RiceInfinite.ox == ox, "holding the keys alone moves nothing")
+    check(timer.ms == 1, "while the keys are held the pointer is followed every millisecond")
     move(540)
     check(math.abs(RiceInfinite.ox - ox - 40) < 0.001, "the pointer moves the canvas with it")
     local live = io.open(os.getenv("XDG_RUNTIME_DIR") .. "/rice-infinite.live")
@@ -160,6 +169,7 @@ if POLL then
     t = live and live:read("a") or ""
     if live then live:close() end
     check(t:match("hold 0") ~= nil, "letting go tells the shell")
+    check(timer.ms == 16, "letting go follows it every 16 ms again")
     RiceInfinite.set(false)
 else
     check(#timers == 0, "0.55: no timer, rice-canvasd reads the mouse instead")
