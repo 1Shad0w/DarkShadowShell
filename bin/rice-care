@@ -237,8 +237,9 @@ def cache_plan():
     for name, vers in groups.items():
         keep = set()
         if name in inst:
-            keep.add(inst[name])
-            rest = sorted({v for v, _ in vers if v != inst[name]}, key=functools.cmp_to_key(vercmp), reverse=True)
+            iv = inst[name].rsplit(":", 1)[-1]
+            keep.add(iv)
+            rest = sorted({v for v, _ in vers if v != iv}, key=functools.cmp_to_key(vercmp), reverse=True)
             keep.update(rest[:1])
         for v, full in vers:
             if v in keep:
