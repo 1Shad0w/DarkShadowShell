@@ -98,6 +98,14 @@ out="$(update_guard "$old" "$new" </dev/null 2>&1 || true)"
 case "$out" in *"install.sh"*) ok "says which file changed" ;; *) bad "no summary shown" ;; esac
 RICE_TRUST_UPDATE=1 update_guard "$old" "$new" </dev/null && ok "RICE_TRUST_UPDATE=1 starts it" || bad "RICE_TRUST_UPDATE ignored"
 
+mkdir -p "$ROOT/bin"
+printf 'echo script\n' >"$ROOT/bin/rice-doctor"
+git -C "$ROOT" add bin
+git -C "$ROOT" -c user.name=t -c user.email=t@t commit -qm scripts
+scripts="$(git -C "$ROOT" rev-parse HEAD)"
+WAYLAND_DISPLAY= RICE_GUI=1 update_guard "$new" "$scripts" </dev/null && bad "started a changed bin script from Settings"
+ok "refuses a changed bin script without a terminal"
+
 # ---- the question comes before the pull: a refused update leaves the files as they were
 git clone -q "$ROOT" "$tmp/clone"
 git -C "$tmp/clone" reset -q --hard "$old"

@@ -70,19 +70,20 @@ update_precheck() {
   GUARD_CHECKED="$t"
 }
 
-# update_guard OLD NEW: an update can bring a new install.sh, and that script runs with your files and asks for
-# sudo. A changed installer is never started on its own: a terminal gets the summary and a question, an update
-# from Settings (no terminal) is refused and the user runs rice-update instead.
+# update_guard OLD NEW: an update can bring a new install.sh, or scripts it runs, and that code runs with your
+# files and asks for sudo. A changed installer is never started on its own: a terminal gets the summary and a
+# question, an update from Settings (no terminal) is refused and the user runs rice-update instead.
 update_guard() {
   local old="$1" new="$2" a=""
   [ -n "$old" ] && [ -n "$new" ] && [ "$old" != "$new" ] || return 0
-  git -C "$ROOT" diff --quiet "$old" "$new" -- install.sh install/lib 2>/dev/null && return 0
+  # install/patches and bin are run by the installer it just pulled, so they are code too
+  git -C "$ROOT" diff --quiet "$old" "$new" -- install.sh install/lib install/patches bin 2>/dev/null && return 0
   if [ "${RICE_TRUST_UPDATE:-0}" = 1 ]; then
     warn "new installer started because RICE_TRUST_UPDATE=1"
     return 0
   fi
-  warn "This update changes install.sh, the script that runs with your files and may ask for sudo:"
-  git -C "$ROOT" diff --stat "$old" "$new" -- install.sh 2>/dev/null | sed 's/^/      /'
+  warn "This update changes install.sh or the scripts it runs, with your files and maybe sudo:"
+  git -C "$ROOT" diff --stat "$old" "$new" -- install.sh install/lib install/patches bin 2>/dev/null | sed 's/^/      /'
   if [ ! -t 0 ] || [ -n "${RICE_GUI:-}" ]; then
     # from Settings > Update Center: a terminal opens with rice-update, which shows this and asks (nothing moves here)
     local mark="$HOME/.cache/rice/update-terminal" now last=0
