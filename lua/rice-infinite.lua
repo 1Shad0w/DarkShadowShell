@@ -65,13 +65,20 @@ function RI.load_cfg()
     f:close()
 end
 
-local function save()
-    local f = io.open(STATE, "w")
+-- a kill or a full disk mid-write must not leave a truncated state file
+local function write_atomic(path, text)
+    local f = io.open(path .. ".tmp", "w")
     if not f then return end
-    f:write(string.format("on=%d\nws=%s\nz=%.5f\nox=%.2f\noy=%.2f\nsig=%s\n", RI.on and 1 or 0, shared() and "all" or tostring(RI.ws or ""), RI.z, RI.ox, RI.oy,
-        os.getenv("HYPRLAND_INSTANCE_SIGNATURE") or ""))
-    for a in pairs(RI.tiled) do f:write("tiled=" .. a .. "\n") end
+    f:write(text)
     f:close()
+    os.rename(path .. ".tmp", path)
+end
+
+local function save()
+    local s = string.format("on=%d\nws=%s\nz=%.5f\nox=%.2f\noy=%.2f\nsig=%s\n", RI.on and 1 or 0, shared() and "all" or tostring(RI.ws or ""), RI.z, RI.ox, RI.oy,
+        os.getenv("HYPRLAND_INSTANCE_SIGNATURE") or "")
+    for a in pairs(RI.tiled) do s = s .. "tiled=" .. a .. "\n" end
+    write_atomic(STATE, s)
 end
 
 local function active_ws()
@@ -484,15 +491,14 @@ local function clean(t)
 end
 
 local function write_layouts()
-    local f = io.open(LAYOUT, "w")
-    if not f then return end
+    local out = {}
     for ws, l in pairs(RI.layouts) do
-        f:write(string.format("ws|%s|%.5f|%.2f|%.2f\n", tostring(ws), l.z, l.ox, l.oy))
+        out[#out + 1] = string.format("ws|%s|%.5f|%.2f|%.2f\n", tostring(ws), l.z, l.ox, l.oy)
         for _, e in ipairs(l.wins) do
-            f:write(string.format("win|%s|%s|%s|%.2f|%.2f|%.2f|%.2f\n", tostring(ws), clean(e.a), clean(e.c), e.x, e.y, e.w, e.h))
+            out[#out + 1] = string.format("win|%s|%s|%s|%.2f|%.2f|%.2f|%.2f\n", tostring(ws), clean(e.a), clean(e.c), e.x, e.y, e.w, e.h)
         end
     end
-    f:close()
+    write_atomic(LAYOUT, table.concat(out))
 end
 
 local function read_layouts()
@@ -532,10 +538,8 @@ local function remember()
         local s = canvas(w)
         l.wins[#l.wins + 1] = { a = w.address, c = class_of(w), x = s.x, y = s.y, w = s.w, h = s.h }
     end
-    if #l.wins > 0 then
-        RI.layouts[k] = l
-        write_layouts()
-    end
+    RI.layouts[k] = l
+    write_layouts()
 end
 
 -- after turning on: the windows go back to their places (the same window, or else one of the same app)
@@ -669,7 +673,13 @@ if (os.getenv("HYPRLAND_INSTANCE_SIGNATURE") or "") ~= "" then pcall(hl.exec_cmd
 
 -- a window that opens on the canvas floats too
 pcall(hl.on, "window.open", function(w) pcall(RI.opened, w) end)
-pcall(hl.on, "window.close", function(w) if w and RI.world[w.address] then RI.world[w.address] = nil end end)
+pcall(hl.on, "window.close", function(w)
+    if w and (RI.world[w.address] or RI.tiled[w.address]) then
+        RI.world[w.address] = nil
+        RI.tiled[w.address] = nil
+        save()
+    end
+end)
 -- the window you are in: new windows get their place next to it
 pcall(hl.on, "window.active", function(w)
     if RI.on and w and w.address and w.workspace and (shared() or w.workspace.id == RI.ws) and w.address ~= RI.last then
