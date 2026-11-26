@@ -139,14 +139,17 @@ assert m.get_bibata("Bibata-Modern-Amber") is False
 PY
 
 # ---- rice-apps-helper: opening an archive does not write outside the folder it is opened in
-python3 - "$root/bin/rice-apps-helper" "$tmp/evil.tar" "$tmp/good.tar" <<'PYA' && ok "an archive member with .. is refused" || bad "rice-apps-helper would unpack .."
-import importlib.machinery, importlib.util, sys
+python3 - "$root/bin/rice-apps-helper" "$tmp/evil.tar" "$tmp/good.tar" "$tmp/evil.zip" <<'PYA' && ok "an archive member with .. is refused" || bad "rice-apps-helper would unpack .."
+import importlib.machinery, importlib.util, sys, zipfile
 loader = importlib.machinery.SourceFileLoader("ah", sys.argv[1])
 spec = importlib.util.spec_from_loader("ah", loader)
 m = importlib.util.module_from_spec(spec)
 loader.exec_module(m)
-assert m.safe_names(sys.argv[2]) is False, "accepted ../"
+assert m.safe_names(sys.argv[2]) is False, "accepted ../ in tar"
 assert m.safe_names(sys.argv[3]) is True, "refused a plain archive"
+with zipfile.ZipFile(sys.argv[4], "w") as z:
+    z.writestr("../escaped", "x")
+assert m.safe_names(sys.argv[4]) is False, "accepted ../ in zip"
 PYA
 
 # ---- hypr-set: a command with an accent reaches the Lua config as UTF-8, not as an escape Lua cannot read
