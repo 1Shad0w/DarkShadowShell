@@ -254,7 +254,7 @@ case "${1:-state}" in
     case "${2:-}" in
       classic|stacked|center|pill|shapes) mkdir -p "$HOME/.config/rice"; printf '%s\n' "$2" >"$HOME/.config/rice/sddm-clock"
         if [ -d "$U" ] && [ -w "$U" ]; then sync >/dev/null; echo "clock: $2"; else echo "clock: $2 (the login screen is not installed yet)"; fi ;;
-      *) cat "$HOME/.config/rice/sddm-clock" 2>/dev/null || echo classic ;;
+      *) cat "$HOME/.config/rice/sddm-clock" 2>/dev/null || echo stacked ;;
     esac ;;
   face) [ -d "$U" ] && [ -w "$U" ] && face_sync && echo "picture synced" || echo "the login screen is not installed" ;;
   preview) preview ;;
