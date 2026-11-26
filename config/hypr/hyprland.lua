@@ -478,12 +478,9 @@ hl.layer_rule({
     animation = "slide top",
 })
 
-require("hyprland-gui")
-require("rice-settings")
-require("rice-dock")
-require("rice-notify")
-require("rice-rofi")
-require("rice-desktop")
+for _, m in ipairs({ "hyprland-gui", "rice-settings", "rice-dock", "rice-notify", "rice-rofi", "rice-desktop" }) do
+    pcall(require, m)
+end
 
 
 hl.window_rule({
@@ -499,12 +496,12 @@ hl.window_rule({
 -- rice-tooltip-blur: blur for waybar tooltips (popups)
 pcall(hl.config, { decoration = { blur = { popups = true, popups_ignorealpha = 0.2 } } })
 
-require("rice-keys")
+pcall(require, "rice-keys")
 
 -- Infinite Desktop (SUPER + F)
 pcall(require, "rice-infinite")
 
-require("rice-dashboard")
+pcall(require, "rice-dashboard")
 
 -- must stay last: gaming mode and "no blur & transparency" override
 require("rice-gaming")
