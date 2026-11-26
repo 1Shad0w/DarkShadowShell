@@ -19,6 +19,7 @@ import functools
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -341,7 +342,7 @@ def clean(ids):
         line += 'rm -f "%s"' % PKGLIST
         if left:
             # pacman's own temporary download folders; never while pacman runs (it holds db.lck then)
-            q = " ".join("'%s'" % d for d in dirs)
+            q = " ".join(shlex.quote(d) for d in dirs)
             line += ('; if [ -e /var/lib/pacman/db.lck ]; then echo "  pacman is busy: the leftover download folders stay for now."; '
                      'else sudo find %s -mindepth 1 -maxdepth 1 -type d -name "download-*" -exec rm -rf -- {} + && echo "  removed %d leftover download folders."; fi' % (q, len(left)))
         s.append(line)
