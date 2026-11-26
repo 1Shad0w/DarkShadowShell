@@ -13,6 +13,7 @@
   <a href="#supported-systems"><img src="https://img.shields.io/badge/Artix_Linux-10A0CC?style=for-the-badge&labelColor=11111b&logo=artixlinux&logoColor=10A0CC&color=1a1b26" alt="Artix Linux"></a>
   <a href="#supported-systems"><img src="https://img.shields.io/badge/CachyOS-08A283?style=for-the-badge&labelColor=11111b&logo=cachyos&logoColor=08A283&color=1a1b26" alt="CachyOS"></a>
   <a href="#supported-systems"><img src="https://img.shields.io/badge/Fedora-51A2DA?style=for-the-badge&labelColor=11111b&logo=fedora&logoColor=51A2DA&color=1a1b26" alt="Fedora"></a>
+  <a href="#supported-systems"><img src="https://img.shields.io/badge/Gentoo-54487A?style=for-the-badge&labelColor=11111b&logo=gentoo&logoColor=DDDAEC&color=1a1b26" alt="Gentoo"></a>
   <a href="#supported-systems"><img src="https://img.shields.io/badge/NixOS-5277C3?style=for-the-badge&labelColor=11111b&logo=nixos&logoColor=7EBAE4&color=1a1b26" alt="NixOS"></a>
 </p>
 <p align="center">
@@ -58,6 +59,7 @@ The bar, the welcome window and Settings show **your distro's logo** automatical
 | **EndeavourOS, Garuda** | Arch route | `./install.sh` |
 | **Artix Linux** | supported | `./install.sh` (OpenRC, runit, s6 or dinit: Arch's repos turned on, services with your init, a login session with D-Bus) |
 | **Fedora, Nobara** | new in V2.60 | `./install.sh` (COPR for Hyprland and Quickshell) |
+| **Gentoo** | new in V6.70 | `./install.sh` (OpenRC or systemd: GURU and hyproverlay turned on, everything emerged with `install/gentoo.sh`) |
 | **Bazzite, Silverblue** | commands only | the installer prints the `rpm-ostree` steps |
 | **Manjaro** | may not work | its packages are held back, Hyprland can be older than 0.55 |
 
@@ -86,6 +88,13 @@ git clone https://github.com/shadowww-dev/DarkShadowShell shadows-shell && cd sh
 ./install.sh
 ```
 
+**Gentoo** (a desktop profile is best: `eselect profile list`)
+```bash
+sudo emerge --noreplace dev-vcs/git
+git clone https://github.com/shadowww-dev/DarkShadowShell shadows-shell && cd shadows-shell
+./install.sh            # or first only the packages: bash install/gentoo.sh  (--pretend shows them)
+```
+
 **NixOS**
 ```bash
 git clone https://github.com/shadowww-dev/DarkShadowShell shadows-shell && cd shadows-shell
@@ -99,6 +108,7 @@ sudo nixos-rebuild switch && ./install.sh
 The installer asks which window manager you want (Hyprland, niri or both), installs the packages, copies the configs and sets everything up. Every file it replaces is saved in `~/.config/darkshadows-shell-backup-<time>/`.
 - **Arch:** no AUR helper needed. `paru` or `yay` are used when you have one; otherwise yay is set up only if your Arch lacks something the shell needs. The Bibata cursor comes from GitHub when there is no AUR helper.
 - **Fedora:** COPR repositories give the newest Hyprland, Quickshell and awww; Atomic Fedora (Bazzite, Silverblue) gets the `rpm-ostree` commands instead.
+- **Gentoo:** `install/gentoo.sh` turns on the GURU and hyproverlay repositories (Hyprland moved out of the main tree in 2026), writes the keywords and USE flags the shell needs into `/etc/portage/package.accept_keywords/darkshadow-shell` and `/etc/portage/package.use/darkshadow-shell`, lets Portage work out the rest (`--autounmask`, only the `package.*` files are changed) and emerges everything, using your binhost when you have one. It turns the services on with OpenRC or systemd. The first run compiles for an hour or more (Qt 6, Hyprland); an update emerges only what is missing.
 - **NixOS:** the module turns on Hyprland and niri (`programs.niri.enable = false;` leaves niri out).
 
 | Option | What it does |
@@ -162,7 +172,7 @@ The installer asks which window manager you want (Hyprland, niri or both), insta
 | **Performance & gaming** | one switch turns off all blur and transparency (Hyprland, kitty, bar, launcher, notifications, dock, widgets); Gaming mode with options to keep blur, animations, shadows or gaps, Do Not Disturb (Settings > Services) |
 | **Your settings everywhere** | `./sync.sh` saves your Settings choices to `settings/`, `./install.sh` puts them on your other computers (files you changed there are kept) |
 | **Languages** | English and Polish (Settings and the desktop) |
-| **Installer** | interactive (Install, Update, Choose, Restore), backs up everything, supports Arch, CachyOS, Fedora and NixOS, warns when Hyprland is too old; a wallpaper is put on right after installing |
+| **Installer** | interactive (Install, Update, Choose, Restore), backs up everything, supports Arch, CachyOS, Artix, Fedora, Gentoo and NixOS, warns when Hyprland is too old; a wallpaper is put on right after installing |
 
 ## Keybinds
 `SUPER` is the main modifier. On niri the same keys work (the shell's own ones are identical), with niri's column keys in place of the Hyprland layout keys; `SUPER + Shift + /` shows them all there.

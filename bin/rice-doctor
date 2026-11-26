@@ -93,6 +93,7 @@ nvidia_fix() {
   if ! egl_wl; then
     if command -v pacman >/dev/null; then sudo pacman -S --needed --noconfirm egl-wayland
     elif command -v dnf >/dev/null; then sudo dnf install -y egl-wayland
+    elif command -v emerge >/dev/null; then sudo emerge --noreplace gui-libs/egl-wayland
     elif command -v apt-get >/dev/null; then sudo apt-get install -y libnvidia-egl-wayland1
     fi
   fi

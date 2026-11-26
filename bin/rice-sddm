@@ -52,6 +52,7 @@ pkg_cmd() {
     *" artix "*) echo "sudo pacman -S --needed sddm sddm-\$(rice-sys init) qt6-svg qt6-declarative" ;;
     *" arch "*|*" cachyos "*|*" endeavouros "*|*" manjaro "*) echo "sudo pacman -S --needed sddm qt6-svg qt6-declarative" ;;
     *" fedora "*) echo "sudo dnf install sddm" ;;
+    *" gentoo "*|*" funtoo "*) echo "sudo emerge --noreplace x11-misc/sddm dev-qt/qtsvg dev-qt/qtdeclarative" ;;
     *" debian "*|*" ubuntu "*) echo "sudo apt install sddm" ;;
     *" opensuse"*|*" suse "*) echo "sudo zypper install sddm" ;;
     *" nixos "*) echo "services.displayManager.sddm.enable = true;  (in configuration.nix)" ;;

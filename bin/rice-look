@@ -145,6 +145,8 @@ def distro():
         return "debian"
     if "void" in ids.split():
         return "void"
+    if "gentoo" in ids.split() or "funtoo" in ids.split():
+        return "gentoo"
     return "other"
 
 
@@ -935,7 +937,13 @@ def apply_files_choice(c):
 # ---------------------------------------------------------------- install / open
 
 PKGS = {"arch": {"wezterm": "wezterm", "ghostty": "ghostty", "pcmanfm": "pcmanfm-gtk3"}, "void": {"fish": "fish-shell"},
-        "fedora": {"ghostty": "ghostty", "wezterm": "wezterm", "thunar": "Thunar"}}
+        "fedora": {"ghostty": "ghostty", "wezterm": "wezterm", "thunar": "Thunar"},
+        # Gentoo: CATEGORY/NAME (ghostty and wezterm are in GURU)
+        "gentoo": {"fish": "app-shells/fish", "zsh": "app-shells/zsh", "bash": "app-shells/bash", "kitty": "x11-terms/kitty",
+                   "foot": "gui-apps/foot", "alacritty": "x11-terms/alacritty", "ghostty": "x11-terms/ghostty",
+                   "wezterm": "x11-terms/wezterm", "konsole": "kde-apps/konsole", "nautilus": "gnome-base/nautilus",
+                   "thunar": "xfce-base/thunar", "nemo": "gnome-extra/nemo", "dolphin": "kde-apps/dolphin",
+                   "pcmanfm": "x11-misc/pcmanfm"}}
 
 
 def term_cmd(script):
@@ -957,6 +965,9 @@ def install(name):
         s = 'echo "Installing %s ..."; sudo apt install -y %s' % (name, pkg)
     elif d == "void":
         s = 'echo "Installing %s ..."; sudo xbps-install -y %s' % (name, pkg)
+    elif d == "gentoo":
+        s = ('echo "Installing %s (it is compiled, this can take a while) ..."; '
+             'sudo emerge --noreplace --autounmask=y --autounmask-continue=y %s' % (name, pkg))
     elif d == "nixos":
         s = ('echo "On NixOS, add %s to your configuration:"; echo; echo "  environment.systemPackages = [ pkgs.%s ];"; '
              'echo; echo "then: sudo nixos-rebuild switch"' % (name, pkg))

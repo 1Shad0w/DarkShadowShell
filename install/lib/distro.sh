@@ -14,10 +14,12 @@ case " $DISTRO_ID $DISTRO_LIKE " in
   *" nixos "*) FAMILY=nixos ;;
   *" arch "*|*" archlinux "*|*" artix "*|*" cachyos "*|*" endeavouros "*|*" manjaro "*|*" garuda "*) FAMILY=arch ;;
   *" fedora "*|*" nobara "*|*" ultramarine "*) FAMILY=fedora ;;
+  # V6.70: Gentoo and the distros built on it (Calculate, Redcore, Funtoo ...): Portage, install/gentoo.sh
+  *" gentoo "*|*" funtoo "*|*" calculate "*|*" redcore "*) FAMILY=gentoo ;;
 esac
 # the flavour inside a family, for messages (CachyOS, EndeavourOS, Manjaro, Nobara, Bazzite ...)
 DISTRO_FLAVOR="$DISTRO_ID"
-case "$FAMILY" in arch|fedora) : ;; *) DISTRO_FLAVOR="$FAMILY" ;; esac
+case "$FAMILY" in arch|fedora|gentoo) : ;; *) DISTRO_FLAVOR="$FAMILY" ;; esac
 # the init system: systemd, or (Artix, Void) OpenRC, runit, s6, dinit. Without systemd the installer turns services on
 # with that init, installs Artix's service scripts (NAME-openrc ...), and the session starts PipeWire itself
 INIT_SYS=other

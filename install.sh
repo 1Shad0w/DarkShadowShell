@@ -348,6 +348,8 @@ flavor_notes() {
     garuda)      note "Garuda: Arch based, paru is used for the AUR packages." ;;
     manjaro)     warn "Manjaro holds packages back for weeks. Hyprland may be older than 0.55 (the Lua config needs 0.55): CachyOS or EndeavourOS work better." ;;
     nobara)      note "Nobara: Fedora based, the Fedora steps below are used." ;;
+    gentoo|funtoo|calculate|redcore)
+                 note "Gentoo: the GURU and hyproverlay repositories are turned on and everything is emerged (install/gentoo.sh). The first time compiles for an hour or more." ;;
     artix)       note "Artix ($INIT_SYS, no systemd): Arch's repositories are turned on when Hyprland is not in Artix's own, services are turned on with $INIT_SYS, and a login session with its own D-Bus is added." ;;
   esac
 }
@@ -598,6 +600,12 @@ step_packages() {
         task "Turning on power modes (power-profiles-daemon)" sudo systemctl enable --now power-profiles-daemon.service
       fi
       rpm -q bluez >/dev/null 2>&1 && task "Turning on the Bluetooth service" sudo systemctl enable --now bluetooth.service
+      ;;
+    gentoo)
+      # V6.70: Portage, in its own file (it also runs alone: bash install/gentoo.sh)
+      # shellcheck source=install/gentoo.sh
+      GENTOO_SOURCED=1 . "$ROOT/install/gentoo.sh"
+      gentoo_packages
       ;;
     nixos)
       info "NixOS installs packages from your system configuration, not from this script."
@@ -933,6 +941,8 @@ ensure_power_modes() {
               sudo -n pacman -S --needed --noconfirm power-profiles-daemon || return 0 ;;
       fedora) sudo -n true 2>/dev/null || { echo "power-profiles-daemon: needs sudo, skipped"; return 0; }
               rpm -q tuned-ppd >/dev/null 2>&1 || sudo -n dnf install -y power-profiles-daemon || return 0 ;;
+      gentoo) sudo -n true 2>/dev/null || { echo "power-profiles-daemon: needs sudo, skipped"; return 0; }
+              sudo -n emerge --noreplace --quiet-build=y sys-power/power-profiles-daemon || return 0 ;;
       *) echo "power-profiles-daemon: install it with your package manager"; return 0 ;;
     esac
   fi
@@ -1029,7 +1039,7 @@ step_finish() {
   task "Removing old backups (keeps the first and the newest two)" prune_backups
   task "Remembering where this copy lives (for updates)" remember_repo
   task "Version V$RICE_VERSION" remember_version
-  { [ "$FAMILY" = arch ] || [ "$FAMILY" = fedora ]; } && task "Power modes (power-profiles-daemon)" ensure_power_modes
+  { [ "$FAMILY" = arch ] || [ "$FAMILY" = fedora ] || [ "$FAMILY" = gentoo ]; } && task "Power modes (power-profiles-daemon)" ensure_power_modes
   task "Window manager: $(wm_name)" remember_wm
   task "Graphics card (NVIDIA cursor)" write_gpu
   task "Loading the shell's modules in Hyprland" wire_hypr
@@ -1095,7 +1105,7 @@ step_finish() {
   else
     note "$(wm_name) is not running here, so nothing was reloaded. Everything starts on your next login."
   fi
-  if [ "$INIT_SYS" != systemd ] && [ "$FAMILY" = arch ]; then
+  if [ "$INIT_SYS" != systemd ] && { [ "$FAMILY" = arch ] || [ "$FAMILY" = gentoo ]; }; then
     note "No systemd ($INIT_SYS): on the login screen pick \"Hyprland (DarkShadow)\" or \"niri (DarkShadow)\" (they bring D-Bus)."
     note "From a text console:  rice-session Hyprland   (or: rice-session niri --session)"
   fi
@@ -1132,6 +1142,7 @@ flavor_notes
 if [ "$IN_HYPR" = 1 ]; then kv "Session" "Hyprland is running (changes apply right away)"
 elif [ "$IN_NIRI" = 1 ]; then kv "Session" "niri is running (changes apply right away)"
 else kv "Session" "no Hyprland or niri running here (changes apply at next login)"; fi
+if [ "$FAMILY" = gentoo ]; then kv "Portage" "$(eselect profile show 2>/dev/null | tail -1 | tr -d ' ' || echo '?')"; fi
 if [ "$FAMILY" = arch ]; then h="$(aur_helper)"; kv "AUR" "${h:-no yay or paru yet (one can be installed for you: --helper=yay or --helper=paru)}"; fi
 [ "$DRY_RUN" = 1 ] && warn "Dry run: nothing will be changed."
 if [ "$DOCTOR" = 1 ]; then
@@ -1216,7 +1227,8 @@ fi
 if [ "$MODE" = update ]; then
   WANT=(1 0 0 1 1)
   [ "$SKIP_PKGS" = 1 ] && WANT[0]=0
-  [ "$FAMILY" = arch ] || [ "$FAMILY" = fedora ] || WANT[0]=0
+  # Gentoo: an update emerges only what is missing (nothing to compile when all is installed)
+  [ "$FAMILY" = arch ] || [ "$FAMILY" = fedora ] || [ "$FAMILY" = gentoo ] || WANT[0]=0
   # an update asks nothing: your configs and settings stay as they are (--use-saved-settings takes the saved ones)
   MENU_CHOICE=99
 else
@@ -1303,6 +1315,7 @@ if has_hypr && [ -n "$old_hypr" ] && [ "$DRY_RUN" != 1 ]; then
   case "$FAMILY" in
     arch)   note "Update it: sudo pacman -Syu hyprland (Manjaro: the new version can take a while to arrive)" ;;
     fedora) note "Update it: sudo dnf upgrade --refresh hyprland (the nett00n/hyprland COPR carries the newest)" ;;
+    gentoo) note "Update it: sudo emaint sync -r hyproverlay && sudo emerge -1u gui-wm/hyprland (hyproverlay carries the newest)" ;;
   esac
 fi
 if [ "$IN_HYPR" = 1 ] && [ "$DRY_RUN" != 1 ]; then

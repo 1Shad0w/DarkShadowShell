@@ -1,5 +1,14 @@
 # Changelog
 
+## V6.70: Gentoo
+- **DarkShadow's Shell installs on Gentoo** (and Gentoo-based distros: Calculate, Redcore, Funtoo). `./install.sh` works as on Arch and Fedora; the Gentoo part is its own file, `install/gentoo.sh`, which also runs alone (`bash install/gentoo.sh`, `--pretend` shows what it would emerge)
+- It turns on the **GURU** and **hyproverlay** repositories (Hyprland and its tools left the main tree in 2026), picks every package the shell uses from the repositories you have, and writes the keywords and USE flags they need into their own files: `/etc/portage/package.accept_keywords/darkshadow-shell` and `/etc/portage/package.use/darkshadow-shell`
+- Portage works out the rest (`--autounmask-only`); only its `package.*` changes are taken, nothing else in `/etc` is touched. Then everything is emerged with Portage's progress shown live, using your binhost when you have one, one by one when together does not go
+- Services with **OpenRC or systemd**: D-Bus, elogind, NetworkManager (not when dhcpcd or netifrc run your network), Bluetooth, power modes; PipeWire per user on systemd; without systemd a login session that brings its own D-Bus
+- An update emerges only what is missing (nothing compiles when everything is installed)
+- Settings know Gentoo too: the package updates in Care (`emerge -uDN @world`, from your last sync), installing a terminal or file manager, the login screen, ClamAV and the NVIDIA fix
+- A new test (`tests/gentoo.sh`, 27 checks) runs in CI
+
 ## V6.60: Bar styles, focus mode, an equalizer and a recording card
 - **A new page: Settings > Bar & launcher > Bar styles**. Every look of the bar as a small picture of your screen with your own wallpaper, and every look of the workspaces moving as they do on the bar: one click puts it on
 - **Two new bar styles**: **Frame** (the bar and a thin frame round the whole screen, with round inner corners; its width in Bar styles) and **Floating** (the Material 3 look on one rounded card that floats below the edge)

@@ -76,6 +76,8 @@ def install_cmd():
         return "sudo apt install clamav && sudo freshclam"
     if "suse" in d:
         return "sudo zypper install clamav && sudo freshclam"
+    if "gentoo" in d.split() or "funtoo" in d.split():
+        return "sudo emerge --noreplace app-antivirus/clamav && sudo freshclam"
     if "nixos" in d:
         return "echo 'NixOS: add  services.clamav.scanner.enable = true;  and  services.clamav.updater.enable = true;  to your configuration.nix, then run: sudo nixos-rebuild switch'"
     return "echo 'Install the clamav package with your package manager, then run: sudo freshclam'"
