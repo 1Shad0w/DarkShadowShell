@@ -31,9 +31,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import urllib.parse
+import zipfile
 
 HOME = os.path.expanduser("~")
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", HOME + "/.cache"), "rice")
@@ -489,10 +491,49 @@ def strip_arch(name):
     return os.path.splitext(name)[0]
 
 
+def safe_names(a):
+    """Every member stays in the folder it is unpacked into: an archive cannot write over other files."""
+    # tar/zip: read the real names here. GNU tar hides a leading ../ when it lists, so its output is not trusted.
+    try:
+        if zipfile.is_zipfile(a):
+            with zipfile.ZipFile(a) as z:
+                names = z.namelist()
+            return all(not n.replace("\\", "/").startswith("/") and ".." not in n.replace("\\", "/").split("/")
+                       for n in names)
+        if tarfile.is_tarfile(a):
+            with tarfile.open(a) as t:
+                for m in t.getmembers():
+                    link = m.linkname if m.issym() or m.islnk() else ""
+                    if (m.name.startswith("/") or ".." in m.name.split("/")
+                            or link.startswith("/") or ".." in link.split("/")):
+                        return False
+            return True
+    except Exception:
+        return False
+    # 7z, rar, iso: the extractor itself lists them
+    if shutil.which("bsdtar"):
+        cmd = ["bsdtar", "-tf", a]
+    elif shutil.which("7z"):
+        cmd = ["7z", "l", "-ba", a]
+    else:
+        return False
+    rc, o, _ = run(cmd, 120)
+    if rc != 0:
+        return False
+    for n in o.splitlines():
+        n = n.strip()
+        if n.startswith("/") or ".." in n.split("/"):
+            return False
+    return True
+
+
 def extract(a):
     a = os.path.abspath(a)
     d = os.path.dirname(a)
     tmp = tempfile.mkdtemp(prefix=".rice-extract-", dir=d)
+    if not safe_names(a):
+        shutil.rmtree(tmp, ignore_errors=True)
+        return out({"ok": False, "error": "This archive could not be opened safely"})
     if shutil.which("bsdtar"):
         cmd = ["bsdtar", "-xf", a, "-C", tmp]
     elif a.lower().endswith(".zip") and shutil.which("unzip"):

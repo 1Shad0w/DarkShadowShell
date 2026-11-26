@@ -32,6 +32,9 @@ jobs:
       - name: Gentoo installer
         run: |
           bash tests/gentoo.sh
+      - name: Hot corner helpers
+        run: |
+          python3 tests/hotcorner.py
       - name: QML syntax
         run: |
           sudo apt-get install -y qt6-declarative-dev-tools

@@ -88,10 +88,10 @@ remote "git@github.com:notwafel/DarkShadowShell.git" && ok "accepts the ssh remo
 remote "https://github.com/shadowww-dev/DarkShadowShell" && ok "accepts the https remote" || bad "https remote"
 remote "https://github.com/evil/DarkShadowShell" && ok "accepts a fork" || bad "fork remote"
 remote "https://example.com/x/DarkShadowShell" && bad "accepted a foreign host" || ok "refuses a foreign host"
-remote "https://github.com/evil/other" && bad "accepted another repo" || ok "refuses another repo"
 remote "https://evil.example/github.com/evil/DarkShadowShell" && bad "accepted a path on a foreign host" || ok "refuses a foreign host with a github.com path"
 remote "ssh://git@evil.example/github.com/evil/DarkShadowShell.git" && bad "accepted a foreign ssh host" || ok "refuses a foreign ssh host"
 remote "https://gitlab.com/github.com/evil/DarkShadowShell.git" && bad "accepted another host with a github.com path" || ok "refuses another host with a github.com path"
+remote "https://github.com/evil/other" && bad "accepted another repo" || ok "refuses another repo"
 
 update_guard "$old" "$old" && ok "same commit needs no confirmation" || bad "same commit"
 update_guard "$new" "$other" </dev/null && ok "an update without a new installer passes" || bad "unchanged install.sh"
@@ -100,6 +100,14 @@ ok "refuses a changed installer without a terminal"
 out="$(update_guard "$old" "$new" </dev/null 2>&1 || true)"
 case "$out" in *"install.sh"*) ok "says which file changed" ;; *) bad "no summary shown" ;; esac
 RICE_TRUST_UPDATE=1 update_guard "$old" "$new" </dev/null && ok "RICE_TRUST_UPDATE=1 starts it" || bad "RICE_TRUST_UPDATE ignored"
+
+mkdir -p "$ROOT/bin"
+printf 'echo script\n' >"$ROOT/bin/rice-doctor"
+git -C "$ROOT" add bin
+git -C "$ROOT" -c user.name=t -c user.email=t@t commit -qm scripts
+scripts="$(git -C "$ROOT" rev-parse HEAD)"
+WAYLAND_DISPLAY= RICE_GUI=1 update_guard "$new" "$scripts" </dev/null && bad "started a changed bin script from Settings"
+ok "refuses a changed bin script without a terminal"
 
 # ---- the question comes before the pull: a refused update leaves the files as they were
 git clone -q "$ROOT" "$tmp/clone"
@@ -144,6 +152,30 @@ rm -f "$tmp/bs/ran"; run_border
 printf '%s\n%s\n' '#aabbcc' '#ddeeff' >"$tmp/bs/home/.config/hypr/border-colors.txt"
 rm -f "$tmp/bs/ran"; run_border
 [ -e "$tmp/bs/ran" ] && ok "border-sync still applies plain colors" || bad "border-sync refused a plain color"
+
+# ---- rice-apps-helper: opening an archive does not write outside the folder it is opened in
+python3 - "$root/bin/rice-apps-helper" "$tmp/evil.tar" "$tmp/good.tar" "$tmp/evil.zip" <<'PYA' && ok "an archive member with .. is refused" || bad "rice-apps-helper would unpack .."
+import importlib.machinery, importlib.util, sys, zipfile
+loader = importlib.machinery.SourceFileLoader("ah", sys.argv[1])
+spec = importlib.util.spec_from_loader("ah", loader)
+m = importlib.util.module_from_spec(spec)
+loader.exec_module(m)
+assert m.safe_names(sys.argv[2]) is False, "accepted ../ in tar"
+assert m.safe_names(sys.argv[3]) is True, "refused a plain archive"
+with zipfile.ZipFile(sys.argv[4], "w") as z:
+    z.writestr("../escaped", "x")
+assert m.safe_names(sys.argv[4]) is False, "accepted ../ in zip"
+PYA
+
+# ---- hypr-set: a command with an accent reaches the Lua config as UTF-8, not as an escape Lua cannot read
+mkdir -p "$tmp/hs/home/.config/hypr" "$tmp/hs/bin"
+printf '#!/usr/bin/env bash\necho ok\n' >"$tmp/hs/bin/hyprctl"
+chmod +x "$tmp/hs/bin/hyprctl"
+HOME="$tmp/hs/home" PATH="$tmp/hs/bin:$PATH" NIRI_SOCKET= HYPRLAND_INSTANCE_SIGNATURE= XDG_CURRENT_DESKTOP= \
+  python3 "$root/bin/hypr-set" bind-add "SUPER + X" "notify-send café" >/dev/null 2>&1
+hs="$tmp/hs/home/.config/hypr/rice-settings.lua"
+grep -q 'café' "$hs" && ok "a bind command keeps its accent" || bad "the accent was escaped or lost"
+grep -q '\\u00e9' "$hs" && bad "the Lua file has a \u escape" || ok "no \u escape in the Lua file"
 
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"

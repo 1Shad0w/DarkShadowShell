@@ -116,8 +116,9 @@ def niri_loop():
 
 
 def main():
-    lock = open(os.path.expanduser("~/.cache/rice/ws-watch.lock") if os.path.isdir(os.path.expanduser("~/.cache/rice"))
-                else "/tmp/rice-ws-watch-%d.lock" % os.getuid(), "w")
+    cache = os.path.expanduser("~/.cache/rice")
+    os.makedirs(cache, exist_ok=True)
+    lock = open(os.path.join(cache, "ws-watch.lock"), "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:

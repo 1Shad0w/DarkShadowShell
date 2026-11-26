@@ -17,7 +17,7 @@
 #                                       full: also the mouse (only when Hyprland cannot follow the pointer)
 #   rice-infinite allow                 join the input group, for the push at the edge on 0.56+ (on 0.55: the mouse)
 #   rice-infinite check                 what rice-canvasd finds (keyboards, mice, may it read them)
-c="${XDG_CONFIG_HOME:-$HOME/.config}/rice"
+c="$HOME/.config/rice"      # the installer and the Lua config use this, whatever XDG_CONFIG_HOME says
 st="$c/infinite.state" conf="$c/infinite.conf"
 mkdir -p "$c"
 hypr() { [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && command -v hyprctl >/dev/null 2>&1; }

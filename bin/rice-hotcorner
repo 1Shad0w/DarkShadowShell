@@ -309,6 +309,16 @@ def state():
 
 
 # ---------------- actions ----------------
+def unique(path):
+    """the same file name twice in one second: keep both, add -2, -3 ..."""
+    base, ext = os.path.splitext(path)
+    n = 1
+    while os.path.exists(path):
+        n += 1
+        path = "%s-%d%s" % (base, n, ext)
+    return path
+
+
 def apply_blur(c=None):
     """The hot corner panel is gone (V4.52). Take its blur rule out of the Hyprland config, so no file is missing."""
     changed = False
@@ -316,7 +326,10 @@ def apply_blur(c=None):
         h = open(HLUA).read()
         n = re.sub(r'\n?[ \t]*require\("rice-hotcorner"\)[ \t]*', "", h)
         if n != h:
-            open(HLUA, "w").write(n)
+            # a truncate-then-write killed halfway leaves an empty main config: write next to it, then swap
+            with open(HLUA + ".tmp", "w") as fh:
+                fh.write(n)
+            os.replace(HLUA + ".tmp", HLUA)
             changed = True
     except FileNotFoundError:
         pass
@@ -470,6 +483,10 @@ def record(mode, geo=None):
                 time.sleep(0.1)
                 if not alive(REC_PID, "recorder"):
                     break
+            if alive(REC_PID, "recorder"):
+                # it did not stop yet: keep the pid, or a second recorder starts and this file is never finished
+                notify("Recording is still stopping", "Try again in a moment", REC_DIR)
+                return
             try:
                 f = json.load(open(REC_INFO)).get("file", "")
             except Exception:
@@ -497,7 +514,7 @@ def record(mode, geo=None):
         geo = None
     os.makedirs(REC_DIR, exist_ok=True)
     os.makedirs(CACHE, exist_ok=True)
-    f = time.strftime(REC_DIR + "/Recording_%Y-%m-%d_%H-%M-%S.mp4")
+    f = unique(time.strftime(REC_DIR + "/Recording_%Y-%m-%d_%H-%M-%S.mp4"))
     tries = []
     if shutil.which("wf-recorder"):
         base = ["wf-recorder", "-f", f]
@@ -785,7 +802,7 @@ def shot_done(src, what):
         return
     if what == "pin":
         os.makedirs(PIN_DIR, exist_ok=True)
-        f = time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png")
+        f = unique(time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png"))
         shutil.move(src, f)
         tell_shell("shot-pin", f)
         return
@@ -832,7 +849,7 @@ def shot_done(src, what):
         notify("Screenshot copied", "It is on the clipboard", src)
         return
     os.makedirs(SHOT_DIR, exist_ok=True)
-    f = time.strftime(SHOT_DIR + "/Screenshot_%Y-%m-%d_%H-%M-%S.png")
+    f = unique(time.strftime(SHOT_DIR + "/Screenshot_%Y-%m-%d_%H-%M-%S.png"))
     shutil.move(src, f)
     if what == "edit":
         # V6.55: the shell's own editor; satty or swappy only when the shell is not running
@@ -858,7 +875,7 @@ def shot_take(mode):
         mode = "region"
     c = load()
     os.makedirs(SHOT_DIR, exist_ok=True)
-    f = time.strftime(SHOT_DIR + "/Screenshot_%Y-%m-%d_%H-%M-%S.png")
+    f = unique(time.strftime(SHOT_DIR + "/Screenshot_%Y-%m-%d_%H-%M-%S.png"))
     # -l 1: light PNG compression, a big screen is saved several times faster (the file is a bit bigger)
     cmd = ["grim", "-l", "1"]
     if mode == "region":
@@ -1082,7 +1099,7 @@ def main(argv):
     elif cmd in ("shot-card", "shot-edit", "shot-pin") and arg and os.path.isfile(arg) and arg.lower().endswith(".png"):
         if cmd == "shot-pin":
             os.makedirs(PIN_DIR, exist_ok=True)
-            f = time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png")
+            f = unique(time.strftime(PIN_DIR + "/pin-%Y%m%d-%H%M%S.png"))
             shutil.copyfile(arg, f)
             arg = f
         tell_shell(cmd, os.path.abspath(arg))

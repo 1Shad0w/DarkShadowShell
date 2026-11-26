@@ -303,9 +303,9 @@ def generate(s):
         L.append("pcall(hl.unbind, %s)" % json.dumps(k))
     for bd in s["binds"]:
         L.append("pcall(function() hl.bind(%s, hl.dsp.exec_cmd(%s)) end)"
-                 % (json.dumps(bd["keys"]), json.dumps(bd["cmd"])))
+                 % (lua(bd["keys"]), lua(bd["cmd"])))
     for c in s["autostart"]:
-        L.append('hl.on("hyprland.start", function() hl.exec_cmd(%s) end)' % json.dumps(c))
+        L.append('hl.on("hyprland.start", function() hl.exec_cmd(%s) end)' % lua(c))
     return "\n".join(L) + "\n"
 
 
@@ -559,7 +559,7 @@ def cmd_bind_add(keys, cmd):
     s = load()
     s["binds"].append({"keys": keys, "cmd": cmd})
     save(s)
-    ev("hl.bind(%s, hl.dsp.exec_cmd(%s))" % (json.dumps(keys), json.dumps(cmd)))
+    ev("hl.bind(%s, hl.dsp.exec_cmd(%s))" % (lua(keys), lua(cmd)))
 
 
 def cmd_bind_off(keys):

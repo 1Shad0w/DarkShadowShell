@@ -23,6 +23,14 @@
 - The wallpaper and the bar and dock still follow the move, live (the config writes the canvas place to a small file in the runtime folder, which the shell reads; before it, rice-canvasd sent it over a socket)
 - **The push at the edge** (SUPER + drag a window against the edge, the others come towards it) still reads the mouse directly, so it still needs the group: it is the one part that needs the movement past the edge of the screen. Its setting is hidden where it cannot work. On Hyprland 0.55 the whole mouse needs the group, as before
 - NixOS: `programs.shadows-shell.inputGroup = true` is only for that push now
+## V6.57: the second audit
+- **An update can no longer run new code without asking.** The "this changes the installer" question covered `install.sh` and `install/lib`; the installer also runs `install/patches` and the `bin` scripts it just pulled, so a change there opens the same question now
+- **An update comes only from `github.com` itself.** An address that merely has `github.com` somewhere in its path (another host, a fork page) is refused, in the installer and in rice-update
+- **A restore keeps what it replaces.** `./install.sh --restore` saves your current files first, so the changes made since the backup are not lost
+- **One update at a time.** Two installers (Settings and a terminal) wrote the same staging files, checksums and backups; the second one waits now
+- **Screenshots and recordings do not overwrite each other** when they land in the same second, the Hyprland config is swapped in rather than cut short, and a stop that the recorder has not finished keeps its pid (no second recorder on the same file)
+- **Smaller fixes:** a bind command with an accent no longer breaks the whole Hyprland config, one failed module no longer takes the rest of the config with it, opening an archive cannot write outside its folder, SDDM syncs one at a time, a Waybar preset name cannot point outside the presets, Infinite's CLI reads the config the installer writes, and its state is swapped in with closed windows dropped
+- **Docs:** `SECURITY.md` says which downloads are pinned (the AUR helper is built from the AUR at its current HEAD)
 
 ## V6.55: Styles, profiles, a new screenshot tool and screen time
 - **11 new styles** in Settings > Appearance > Themes: the palettes everyone knows (**Catppuccin**, **Rosé Pine**, **Tokyo Night**, **Gruvbox**, **Nord**, **Everforest**, **Kanagawa**) and four of our own: **Luxe** (gold on black), **OLED** (true black), **Brutal** (square, thick borders, no softness) and **Sakura** (blossom pink). A style now also brings its notifications' colors, the lock screen look and the minimal mode, and gives back yours when you move to a style that does not set them. A ring of the new color sweeps over the screen when one goes on. New color schemes: Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa and Dracula

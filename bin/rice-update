@@ -289,7 +289,8 @@ def installer_changes(r):
             return False
         up = subprocess.run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=r,
                             capture_output=True, text=True).stdout.strip() or "origin/main"
-        return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install/lib"], timeout=30, **q) == 1
+        return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install/lib",
+                                "install/patches", "bin"], timeout=30, **q) == 1
     except Exception:
         return False
 
@@ -366,7 +367,7 @@ def gui(args):
         terminal_update()
         os._exit(0)
     put_live(state="running", code=-1, started=t0, ended=0, pid=os.getpid(), was=installed())
-    env = dict(os.environ, RICE_GUI="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
+    env = dict(os.environ, RICE_GUI="1", RICE_UPDATE_LOCK="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
     env.pop("SUDO_ASKPASS", None)
     want = ["--update", "--yes"] + (args if args else ["--no-packages"])
     try:

@@ -90,6 +90,13 @@ BIN="$HOME/.local/bin"
 SUDO_PID=""
 cleanup() { [ -n "$SUDO_PID" ] && kill "$SUDO_PID" 2>/dev/null; rm -f "${PKG_SPLIT:-}"; show_cursor; }
 trap cleanup EXIT
+# one installer at a time: two of them write the same staging files, checksums and backups.
+# A GUI update holds rice-update's lock and passes RICE_UPDATE_LOCK=1, so its child is not stopped by this one.
+if [ "$DRY_RUN" != 1 ] && [ "${RICE_UPDATE_LOCK:-0}" != 1 ]; then
+  mkdir -p "$HOME/.cache/rice"
+  exec 9>"$HOME/.cache/rice/update.lock"
+  flock -n 9 || { fail "Another update is already running. Wait for it to finish."; exit 1; }
+fi
 
 # ------------------------------------------------------------------ helpers
 # ver_newer A B: true when version A is newer than B ("2.1" == "2.10" > "2.02")
@@ -1129,7 +1136,18 @@ do_restore() {
   title "Restore"
   kv "Backup" "$last"
   confirm "Put these files back over your current ones?" || { warn "Cancelled."; exit 0; }
-  [ "$DRY_RUN" = 1 ] || cp -a "$last"/. "$HOME"/
+  if [ "$DRY_RUN" != 1 ]; then
+    # a restore overwrites what is here now: keep it, or the changes made since the backup are gone for good
+    local f rel
+    while IFS= read -r -d '' f; do
+      rel="${f#"$last"/}"
+      [ -e "$HOME/$rel" ] || [ -L "$HOME/$rel" ] || continue
+      mkdir -p "$BK/$(dirname "$rel")"
+      cp -aL "$HOME/$rel" "$BK/$rel" 2>/dev/null || warn "could not back up ~/$rel"
+    done < <(find "$last" \( -type f -o -type l \) -print0)
+    cp -a "$last"/. "$HOME"/
+    info "Your current files are saved in ${BK/#$HOME/~}"
+  fi
   ok "Restored. Files that did not exist before the install were left in place."
   exit 0
 }

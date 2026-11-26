@@ -23,7 +23,7 @@ local function note(what, err)
 end
 
 -- every setting call: run it, and if Hyprland refuses it, write it down and go on
-for _, name in ipairs({ "config", "bind", "unbind", "env", "monitor", "animation", "curve", "window_rule", "layer_rule",
+for _, name in ipairs({ "config", "on", "bind", "unbind", "env", "monitor", "animation", "curve", "window_rule", "layer_rule",
                         "workspace_rule", "device", "gesture", "permission", "exec_cmd", "plugin" }) do
   pcall(function()
     local f = hl[name]
