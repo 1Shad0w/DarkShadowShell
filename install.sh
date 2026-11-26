@@ -1125,7 +1125,18 @@ do_restore() {
   title "Restore"
   kv "Backup" "$last"
   confirm "Put these files back over your current ones?" || { warn "Cancelled."; exit 0; }
-  [ "$DRY_RUN" = 1 ] || cp -a "$last"/. "$HOME"/
+  if [ "$DRY_RUN" != 1 ]; then
+    # a restore overwrites what is here now: keep it, or the changes made since the backup are gone for good
+    local f rel
+    while IFS= read -r -d '' f; do
+      rel="${f#"$last"/}"
+      [ -e "$HOME/$rel" ] || [ -L "$HOME/$rel" ] || continue
+      mkdir -p "$BK/$(dirname "$rel")"
+      cp -aL "$HOME/$rel" "$BK/$rel" 2>/dev/null || warn "could not back up ~/$rel"
+    done < <(find "$last" \( -type f -o -type l \) -print0)
+    cp -a "$last"/. "$HOME"/
+    info "Your current files are saved in ${BK/#$HOME/~}"
+  fi
   ok "Restored. Files that did not exist before the install were left in place."
   exit 0
 }
