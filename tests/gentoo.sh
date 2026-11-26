@@ -98,10 +98,12 @@ case " ${GENTOO_EMERGE_OPTS[*]} " in *--getbinpkg=y*) ok "a binhost is used when
 
 # ---- the distro detection and install.sh
 printf 'NAME=Gentoo\nID=gentoo\n' >"$tmp/os-release"
-fam="$(OS_RELEASE="$tmp/os-release" bash -c ". '$root/install/lib/distro.sh'; echo \$FAMILY")"
+# distro.sh reads only /etc/os-release (never a path from the caller): the test reads a copy pointed at its own file
+sed "s#/etc/os-release#$tmp/os-release#g" "$root/install/lib/distro.sh" >"$tmp/distro.sh"
+fam="$(bash -c ". '$tmp/distro.sh'; echo \$FAMILY")"
 [ "$fam" = gentoo ] && ok "Gentoo is detected" || bad "family: $fam"
 printf 'NAME="Calculate Linux"\nID=calculate\nID_LIKE=gentoo\n' >"$tmp/os-release"
-fam="$(OS_RELEASE="$tmp/os-release" bash -c ". '$root/install/lib/distro.sh'; echo \$FAMILY")"
+fam="$(bash -c ". '$tmp/distro.sh'; echo \$FAMILY")"
 [ "$fam" = gentoo ] && ok "a Gentoo-based distro is detected" || bad "family (calculate): $fam"
 grep -q 'GENTOO_SOURCED=1 . "$ROOT/install/gentoo.sh"' "$root/install.sh" && grep -q "gentoo_packages" "$root/install.sh" &&
   ok "install.sh hands Gentoo's packages to install/gentoo.sh" || bad "install.sh does not use install/gentoo.sh"
