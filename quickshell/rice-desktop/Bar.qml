@@ -41,7 +41,7 @@ PanelWindow {
     Behavior on barK { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
     // the style asked for; the bar fades and settles into it (sty follows want once the old look has gone)
     readonly property string want: bc.style === "google" || bc.style === undefined ? "dynamic"
-        : (["flat", "islands", "pills", "notch", "island", "edge"].indexOf(bc.style) >= 0 ? bc.style : "dynamic")
+        : (["flat", "islands", "pills", "notch", "island", "edge", "frame", "floating"].indexOf(bc.style) >= 0 ? bc.style : "dynamic")
     property string sty: "island"
     property real swap: 0                       // 0 shown .. 1 gone (while the style changes)
     property bool styReady: false
@@ -74,7 +74,11 @@ PanelWindow {
     // edge: the dark frame along the edge can be turned off (Settings > Bar > Frame along the edge): then the pills
     // keep their places, without anything behind them
     readonly property bool hugFrame: hug && bc.edge_frame !== false
-    readonly property bool dyn: sty === "dynamic" || hug
+    // V6.60 (Settings > Bar styles): frame = the Dynamic look on a bar that is one piece with a frame round the whole
+    // screen (ScreenFrame.qml); floating = the Dynamic look on one rounded card that floats below the edge
+    readonly property bool framed: sty === "frame"
+    readonly property bool card: sty === "floating"
+    readonly property bool dyn: sty === "dynamic" || hug || framed || card
     readonly property bool goo: dyn                              // the Material 3 look of the Dynamic style
     property var nf: null                                         // Notifs.qml, for the island
     readonly property bool islandNotifs: hasIsland && bc.island_dynamic !== false && bc.island_notifs !== false
@@ -91,7 +95,7 @@ PanelWindow {
     readonly property bool shownBar: (!hideOn || peek || !on) && !(on && Infinite.hideUi)
     Timer { id: leaveT; interval: 700; onTriggered: bar.peek = false }
     readonly property bool island: sty === "island"
-    readonly property bool floating: sty !== "flat"
+    readonly property bool floating: sty !== "flat" && sty !== "frame"
     // V3.36: the island is the clock (an old "clock" in the layout is the island now)
     function noClock(l) { return (l || []).map(function(m) { return m === "clock" ? "island" : m }) }
     readonly property var layRaw: bc.layout ? ({ left: noClock(bc.layout.left), center: noClock(bc.layout.center), right: noClock(bc.layout.right) })
@@ -112,7 +116,12 @@ PanelWindow {
     // tray icons: Settings > DarkShadow bar > Tray icon size (never taller than the bar)
     readonly property int traySize: Math.min(barH - 8, bc.tray_size ? bc.tray_size : 18)
     readonly property int nws: bc.workspaces ? bc.workspaces : 5
-    readonly property string wsStyle: bc.ws_style === "pacman" || bc.ws_style === "letters" || bc.ws_style === "numbers" ? bc.ws_style : "dots"
+    readonly property string wsStyle: ["pacman", "letters", "numbers", "lines", "squares", "rings", "bubbles", "numpills"].indexOf(bc.ws_style) >= 0 ? bc.ws_style : "dots"
+    // V6.60: how the workspaces move when you switch (Settings > Bar styles > Animation): bouncy (as before), smooth,
+    // snappy
+    readonly property string wsAnim: ["smooth", "snappy"].indexOf(bc.ws_anim) >= 0 ? bc.ws_anim : "bouncy"
+    readonly property int wsEase: wsAnim === "bouncy" ? Easing.OutBack : (wsAnim === "snappy" ? Easing.OutQuint : Easing.OutCubic)
+    readonly property int wsDur: wsAnim === "snappy" ? 150 : (wsAnim === "smooth" ? 340 : 260)
     // the launcher button: a distro logo (Nerd Font) or the app grid (Settings > DarkShadow bar > Launcher icon)
     readonly property var logos: ({
         tux: 0xF17C, arch: 0xF303, gentoo: 0xF30D, fedora: 0xF30A, debian: 0xF306, ubuntu: 0xF31B, nixos: 0xF313,
@@ -209,7 +218,7 @@ PanelWindow {
             const l = [], r = []
             const pill = bar.barH / 2
             if (!bar.on) { }
-            else if (bar.sty === "island" || bar.sty === "flat") { l.push(bodyBg); r.push(bar.sty === "island" ? pill : 0) }
+            else if (bar.sty === "island" || bar.sty === "flat" || bar.framed || bar.card) { l.push(bodyBg); r.push(bar.sty === "island" ? pill : (bar.card ? 18 : 0)) }
             else if (bar.notch) { l.push(notchBody); r.push(notchBg.corner) }
             else if (bar.hugFrame) { for (const z of [hl, hc, hr]) if (z.visible) { l.push(z); r.push(18) } }
             else if (bar.hug) { for (const z of [zl, zc, zr]) if (z.any && !z.onlyIsland) { l.push(z); r.push(pill) } }
@@ -345,6 +354,7 @@ PanelWindow {
         case "visualizer": return mViz
         case "weather": return mWeather
         case "sysmon": return mSysmon
+        case "focus": return mFocus
         case "music": return mMusic
         }
         return null
@@ -382,10 +392,14 @@ PanelWindow {
             readonly property string st: bar.wsStyle
             readonly property bool pac: st === "pacman"
             readonly property bool dots: st === "dots"
+            // V6.60: lines, squares, rings, bubbles (numbers in circles) and number pills
+            readonly property bool gen: ["lines", "squares", "rings", "bubbles", "numpills"].indexOf(st) >= 0
+            readonly property color wMid: bar.goo ? gp.inkContainer : Qt.rgba(0.965, 0.961, 0.957, 0.62)
+            readonly property color wFaint: bar.goo ? gp.track : Qt.rgba(0.965, 0.961, 0.957, 0.24)
             // every workspace has the same width, so nothing in the row moves; what moves is one marker that slides.
             // The sliding and the popping run as Animators, on the render thread: they stay smooth even while the
             // shell is busy (the desktop widgets coming back when you switch to an empty workspace)
-            readonly property real cw: dots ? 16 : (pac ? 20 : 18)
+            readonly property real cw: dots ? 16 : (pac ? 20 : (st === "lines" ? 11 : (st === "bubbles" ? 27 : (st === "numpills" ? 26 : 18))))
             readonly property int count: bar.maxWs()
             readonly property int fi: bar.focusedId - 1
             readonly property bool fiOk: fi >= 0 && fi < count
@@ -394,7 +408,8 @@ PanelWindow {
             Row {
                 id: wsRow
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: wsm.dots ? 7 : 0
+                spacing: wsm.dots ? 7 : (st === "numpills" ? 2 : 0)
+                readonly property string st: wsm.st
                 Repeater {
                     model: wsm.count
                     delegate: Item {
@@ -402,8 +417,8 @@ PanelWindow {
                         readonly property int wid: index + 1
                         readonly property bool act: bar.focusedId === wid
                         readonly property bool occ: bar.occupied(wid)
-                        width: wsm.dots && act ? 40 : wsm.cw; height: bar.barH
-                        Behavior on width { enabled: wsm.dots; NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                        width: (wsm.dots || wsm.st === "numpills") && act ? 40 : wsm.cw; height: bar.barH
+                        Behavior on width { enabled: wsm.dots || wsm.st === "numpills"; NumberAnimation { duration: bar.wsDur; easing.type: bar.wsEase; easing.overshoot: 1.4 } }
 
                         // dots: a dot, the active one stretched into a pill
                         Rectangle {
@@ -434,7 +449,7 @@ PanelWindow {
                         }
                         // letters (A B C) or numbers (1 2 3); Dynamic: the active one sits in a pill of your key color
                         Rectangle {
-                            visible: bar.goo && !wsm.dots && !wsm.pac
+                            visible: bar.goo && !wsm.dots && !wsm.pac && !wsm.gen
                             anchors.centerIn: parent
                             width: 22; height: 22; radius: Look.sq ? 0 : (11)
                             color: bar.wsTint(wid)
@@ -444,13 +459,41 @@ PanelWindow {
                             Behavior on scale { NumberAnimation { duration: 280; easing.type: Easing.OutBack } }
                         }
                         Text {
-                            visible: !wsm.dots && !wsm.pac
+                            visible: !wsm.dots && !wsm.pac && !wsm.gen
                             anchors.centerIn: parent
                             text: wsm.st === "numbers" ? String(wid) : String.fromCharCode(64 + wid)
                             font.family: Fonts.main; font.pixelSize: 14; font.weight: act ? Font.Bold : Font.Medium
                             color: bar.goo ? (act ? gp.inkPrimary : (occ ? gp.fg : gp.dim)) : (act ? bar.fg : (occ ? Qt.rgba(0.965, 0.961, 0.957, 0.9) : Qt.rgba(0.965, 0.961, 0.957, 0.32)))
                             scale: act ? (bar.goo ? 1 : 1.18) : (wm.containsMouse ? 1.12 : 1)
                             Behavior on scale { ScaleAnimator { duration: 220; easing.type: Easing.OutBack } }
+                        }
+                        // V6.60: the shapes of the new styles
+                        Rectangle {
+                            id: gw
+                            visible: wsm.gen
+                            anchors.centerIn: parent
+                            readonly property string st: wsm.st
+                            width: st === "lines" ? 4 : (st === "squares" ? 13 : (st === "rings" ? (act ? 14 : 11) : (st === "bubbles" ? 22 : (act ? 34 : 22))))
+                            height: st === "lines" ? (act ? 22 : (occ ? 15 : 11)) : (st === "squares" ? 13 : (st === "rings" ? width : 22))
+                            radius: Look.sq ? 0 : (st === "squares" ? 4 : Math.min(width, height) / 2)
+                            color: act ? bar.wsTint(wid)
+                                 : (st === "rings" || st === "squares" ? (occ && st === "squares" ? wsm.wMid : "transparent")
+                                 : (st === "bubbles" || st === "numpills" ? (occ ? Qt.rgba(bar.fg.r, bar.fg.g, bar.fg.b, 0.14) : (st === "bubbles" ? Qt.rgba(bar.fg.r, bar.fg.g, bar.fg.b, 0.05) : "transparent"))
+                                 : (occ ? wsm.wMid : wsm.wFaint)))
+                            border.width: act || st === "lines" || st === "bubbles" || st === "numpills" ? 0 : (st === "rings" ? (occ ? 3 : 1.5) : (occ ? 0 : 1.5))
+                            border.color: occ ? wsm.wMid : wsm.wFaint
+                            scale: wm.containsMouse && !act ? 1.15 : 1
+                            Behavior on width { NumberAnimation { duration: bar.wsDur; easing.type: bar.wsEase } }
+                            Behavior on height { NumberAnimation { duration: bar.wsDur; easing.type: bar.wsEase } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            Behavior on scale { ScaleAnimator { duration: 120 } }
+                            Text {
+                                anchors.centerIn: parent
+                                visible: gw.st === "bubbles" || gw.st === "numpills"
+                                text: String(wid)
+                                font.family: Fonts.main; font.pixelSize: 12; font.weight: act ? Font.Bold : Font.Medium
+                                color: act ? gp.inkPrimary : (occ ? bar.fg : bar.dim)
+                            }
                         }
                         MouseArea { id: wm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: bar.goWs(wid) }
                     }
@@ -732,6 +775,81 @@ PanelWindow {
             HoverLine { on: wm2.containsMouse; color: bar.fg }
         }
     }
+    // ---------- V6.60 focus mode (rice-focus): the time left of your work or your break ----------
+    property var fc: ({ phase: "idle" })
+    property real fcNow: Date.now() / 1000
+    readonly property bool focusLaid: laid(lay, "focus")
+    Trigger {
+        path: bar.focusLaid ? bar.home + "/.cache/rice/focus.json" : ""
+        every: 3000
+        onContent: function(t) { try { bar.fc = t.trim() === "" ? ({ phase: "idle" }) : JSON.parse(t) } catch (e) { } }
+    }
+    readonly property real fcLeft: fc.phase === "idle" ? 0 : (fc.paused ? (fc.left || 0) : Math.max(0, (fc.end || 0) - fcNow))
+    Timer {
+        interval: 1000; repeat: true; running: bar.focusLaid && bar.fc.phase !== "idle" && !bar.fc.paused
+        onTriggered: {
+            bar.fcNow = Date.now() / 1000
+            // the main bar moves the phase on when it is over (rice-focus notifies)
+            if (!bar.extra && bar.fcLeft <= 0) bar.run("\"$HOME/.local/bin/rice-focus\" next")
+        }
+    }
+    function fcText(sec) { const m = Math.floor(sec / 60), x = Math.floor(sec % 60); return m + ":" + (x < 10 ? "0" : "") + x }
+    Component { id: mFocus
+        Item {
+            id: fm
+            property bool shown: true
+            readonly property bool on: bar.fc.phase !== "idle"
+            readonly property bool brk: bar.fc.phase === "break"
+            readonly property real frac: on && bar.fc.len > 0 ? Math.max(0, Math.min(1, 1 - bar.fcLeft / bar.fc.len)) : 0
+            readonly property color tint: brk ? Qt.tint(gp.primary, Qt.rgba(1, 0.75, 0.45, 0.45)) : (bar.goo ? gp.primary : bar.fg)
+            width: fr.width + (on ? 14 : 6); height: bar.barH
+            Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            // a soft pill while it runs
+            Rectangle {
+                anchors.centerIn: parent; width: parent.width; height: Math.min(bar.barH - 8, 28); radius: Look.sq ? 0 : height / 2
+                color: Qt.rgba(fm.tint.r, fm.tint.g, fm.tint.b, fm.on ? (fma.containsMouse ? 0.24 : 0.16) : (fma.containsMouse ? 0.1 : 0))
+                Behavior on color { ColorAnimation { duration: 200 } }
+            }
+            Row {
+                id: fr
+                anchors.centerIn: parent; spacing: 6
+                Item {
+                    width: 20; height: 20; anchors.verticalCenter: parent.verticalCenter
+                    Canvas {
+                        anchors.fill: parent; visible: fm.on
+                        readonly property real v: fm.frac
+                        readonly property color c: fm.tint
+                        onVChanged: requestPaint(); onCChanged: requestPaint(); onVisibleChanged: requestPaint()
+                        onPaint: {
+                            const g = getContext("2d"); g.reset(); g.lineWidth = 2.2; g.lineCap = "round"
+                            g.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.25); g.beginPath(); g.arc(10, 10, 8.5, 0, Math.PI * 2); g.stroke()
+                            if (v > 0.003) { g.strokeStyle = c; g.beginPath(); g.arc(10, 10, 8.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * v); g.stroke() }
+                        }
+                    }
+                    MIcon { anchors.centerIn: parent; size: fm.on ? 11 : 18; filled: fm.on
+                        name: fm.brk ? "coffee" : (bar.fc.paused ? "pause" : (fm.on ? "bolt" : "timer"))
+                        glyph: String.fromCodePoint(fm.brk ? 0xF0176 : 0xF13AB); color: fm.on ? fm.tint : bar.dim }
+                }
+                Text {
+                    visible: fm.on; anchors.verticalCenter: parent.verticalCenter
+                    text: bar.fcText(bar.fcLeft)
+                    font.family: Fonts.main; font.pixelSize: 13; font.weight: Font.DemiBold; font.features: { "tnum": 1 }
+                    color: fm.tint; opacity: bar.fc.paused ? 0.6 : 1
+                    SequentialAnimation on opacity { running: bar.fc.paused === true; loops: Animation.Infinite
+                        NumberAnimation { to: 0.3; duration: 700 } NumberAnimation { to: 0.8; duration: 700 } }
+                }
+            }
+            MouseArea {
+                id: fma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                onClicked: function(e) {
+                    Sfx.play("click")
+                    bar.run("\"$HOME/.local/bin/rice-focus\" " + (e.button === Qt.LeftButton ? "toggle" : (e.button === Qt.MiddleButton ? "skip" : "stop")))
+                    bar.fcNow = Date.now() / 1000
+                }
+            }
+        }
+    }
     Component { id: mSysmon
         Item { property bool shown: true; width: sr.implicitWidth + 4; height: bar.barH
             Row { id: sr; anchors.centerIn: parent; spacing: 6
@@ -894,18 +1012,21 @@ PanelWindow {
             id: bodyBg
             Frame { }      // V4.98 Minimal mode
             anchors.fill: parent
-            visible: (bar.sty === "island" || bar.sty === "flat") && bar.barK > 0.01
+            visible: (bar.sty === "island" || bar.sty === "flat" || bar.framed || bar.card) && bar.barK > 0.01
             opacity: bar.barK
-            radius: Look.sq ? 0 : (bar.sty === "island" ? height / 2 : 0)
-            color: bar.bg
-            border.width: bar.sty === "island" ? 1 : 0
+            radius: Look.sq ? 0 : (bar.sty === "island" ? height / 2 : (bar.card ? 18 : 0))
+            color: bar.framed || bar.card ? body.frameFill : bar.bg
+            border.width: bar.sty === "island" || bar.card ? 1 : 0
             border.color: bar.line
             Rectangle { visible: bar.sty === "flat"; width: parent.width; height: 1; color: bar.line
                 anchors.bottom: bar.atBottom ? undefined : parent.bottom; anchors.top: bar.atBottom ? parent.top : undefined }
         }
 
         readonly property bool soft: bar.sty === "islands" || bar.goo
-        readonly property real edge: bar.sty === "island" ? 16 : (bar.sty === "flat" ? 14 : 0)
+        readonly property real edge: bar.sty === "island" ? 16 : (bar.sty === "flat" ? 14 : (bar.framed || bar.card ? 8 : 0))
+        // frame / floating: one background a step darker than the pills on it (the frame round the screen is the
+        // same color, ScreenFrame.qml)
+        readonly property color frameFill: Look.sq ? gp.minSurface : Qt.rgba(body.hbase.r, body.hbase.g, body.hbase.b, Look.flat ? 1 : Math.min(1, bar.alpha + 0.12))
         // notch: every zone sits inside one notch in the middle of the edge
         readonly property real ngap: 22
         readonly property real nW: (zl.any ? zl.width : 0) + (zc.any ? zc.width : 0) + (zr.any ? zr.width : 0)
@@ -923,15 +1044,15 @@ PanelWindow {
 
         // a soft shadow under every background (the bar floats above the wallpaper)
         Repeater {
-            model: bar.shadowOn && !bar.hug ? (bar.sty === "island" ? [body] : (bar.sty === "islands" || bar.goo ? [zl, zc, zr] : [])) : []
+            model: bar.shadowOn && !bar.hug && !bar.framed ? (bar.sty === "island" || bar.card ? [body] : (bar.sty === "islands" || bar.goo ? [zl, zc, zr] : [])) : []
             delegate: Item {
                 readonly property var src: modelData
                 visible: src.visible !== false && src.width > 0 && src.onlyIsland !== true && bar.barK > 0.01
                 opacity: bar.barK
                 x: src === body ? 0 : src.x; y: (src === body ? 0 : src.y) + 3
                 width: src.width; height: bar.barH
-                Rectangle { anchors.fill: parent; anchors.margins: -1; radius: Look.sq ? 0 : (height / 2); color: Qt.rgba(0, 0, 0, 0.18) }
-                Rectangle { anchors.fill: parent; anchors.margins: -3; radius: Look.sq ? 0 : (height / 2); color: Qt.rgba(0, 0, 0, 0.08) }
+                Rectangle { anchors.fill: parent; anchors.margins: -1; radius: Look.sq ? 0 : (bar.card && src === body ? 19 : height / 2); color: Qt.rgba(0, 0, 0, 0.18) }
+                Rectangle { anchors.fill: parent; anchors.margins: -3; radius: Look.sq ? 0 : (bar.card && src === body ? 21 : height / 2); color: Qt.rgba(0, 0, 0, 0.08) }
             }
         }
 
@@ -991,6 +1112,17 @@ PanelWindow {
             x: Math.round(bar.notch ? body.nX + (zl.any ? zl.width + body.ngap : 0) : (body.width - width) / 2) }
         Zone { id: zr; mods: bar.lay.right || []; soft: body.soft; opacity: bar.barK; visible: bar.barK > 0.01
             x: bar.notch ? body.nX + body.nW - width : body.width - width - (bar.hug ? 8 : body.edge) }
+
+        // ---------- V6.60 frame: the other three sides of the screen ----------
+        ScreenFrame {
+            screen: bar.screen
+            shown: bar.framed && bar.on && bar.shownBar && bar.swap < 0.5
+            fill: body.frameFill
+            thick: bar.bc.frame_width ? Math.max(4, Math.min(20, bar.bc.frame_width)) : 8
+            barH: bar.barH
+            atBottom: bar.atBottom
+            radius: Look.sq ? 0 : 22
+        }
 
         // ---------- dynamic: the island in the middle ----------
         DynIsland {

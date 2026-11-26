@@ -782,6 +782,7 @@ ShellRoot {
     LazyPanel { name: "shot-edit"; ShotEditor { } }
     LazyPanel { name: "shot-pin"; keep: 600000; ShotPin { } }
     LazyPanel { name: "theme-wave"; keep: 20000; ThemeWave { } }
+    LazyPanel { name: "rec-card"; RecCard { } }
     // SUPER + /: every key on one sheet
     LazyPanel { name: "keys-open"; Cheatsheet { } }
     LazyPanel { name: "volume-open"; VolumeMenu { } }

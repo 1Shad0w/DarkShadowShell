@@ -135,6 +135,9 @@ The installer asks which window manager you want (Hyprland, niri or both), insta
 | **Profiles** | Settings > System > Profiles: keep whole looks under a name and switch with one click (`rice-profile use NAME`) |
 | **Screenshots** | A card after each shot (edit, copy, pin, delete), a built-in editor with arrows, boxes, blur, steps and text, screenshots pinned over your windows, and QR codes read to the clipboard |
 | **Screen time** | Settings > System > Screen time: today, by hour, by app and the last week, kept only on your computer (`rice-screentime`) |
+| **Bar styles** | Settings > Bar & launcher > Bar styles: 9 bar styles (Frame and Floating new) and 9 workspace styles as live pictures, and how they move |
+| **Focus mode** | A work and break timer on the bar, with Do Not Disturb while you work (`rice-focus`) |
+| **Equalizer** | 8 presets through EasyEffects, in Settings > Sound & language (`rice-eq`) |
 | **Explore** | Settings > Appearance > Explore: themes made by the community, each checked before it is used; **Share my setup** sends yours in ([how](community/README.md)) |
 | **Monitors** | resolution, refresh rate, scale, rotation, arrangement and turning a screen off, on Hyprland and niri |
 | **Bar layout** | five ready-made Material 3 layouts, and drag and drop the modules between left, center and right: launcher, workspaces, window title, music, the island (your clock), tray (right-click an app: its menu and Close app; long menus scroll), volume, Bluetooth, Wi-Fi, battery, notifications, power, a music visualizer; the window title with its app icon on the left or right |

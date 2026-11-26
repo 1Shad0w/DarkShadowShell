@@ -416,7 +416,9 @@ FloatingWindow {
         { name: "Care", icon: "\uf0f1" },          // 41 (V6.00)
         { name: "Vibe", icon: "\uf001" },          // 42 (V6.10)
         { name: "Profiles", icon: "\uf0c0" },      // 43 (V6.55)
-        { name: "Screen time", icon: "\uf017" }    // 44 (V6.55)
+        { name: "Screen time", icon: "\uf017" },   // 44 (V6.55)
+        { name: "Bar styles", icon: "\uf1fc" },    // 45 (V6.60)
+        { name: "Equalizer", icon: "\uf1de" }      // 46 (V6.60)
     ]
 
 
@@ -428,8 +430,8 @@ FloatingWindow {
         { group: "look", name: "Appearance", icon: "\udb80\udfd8", sym: "palette", pages: [39, 40, 42, 34, 8, 21, 19, 24, 22, 9, 14], caption: I18n.t("Presets, Explore, Vibe, themes, colors, fonts, shapes, components, cursors and the dock") },
         { group: "motion", name: "Motion", icon: "\uf1e6", sym: "animation", pages: [20], caption: I18n.t("How windows and Settings move") },
         { group: "desk", name: "Desktop", icon: "\uf108", sym: "desktop_windows", pages: niri ? [29, 12, 25, 36, 4, 11] : [29, 33, 12, 25, 36, 4, 11], caption: I18n.t("Look & feel, widgets, windows, window rules, %1 and the lock screen", wmLabel) },
-        { group: "bar", name: "Bar & launcher", icon: "\uf0c9", sym: "toolbar", pages: [2, 3, 6, 7], caption: I18n.t("The bar, the dynamic island and the launcher") },
-        { group: "snd", name: "Sound & language", icon: "\uf028", sym: "graphic_eq", pages: [1, 10, 26], caption: I18n.t("Sounds, notifications, language and region") },
+        { group: "bar", name: "Bar & launcher", icon: "\uf0c9", sym: "toolbar", pages: [2, 45, 3, 6, 7], caption: I18n.t("The bar, its styles, the dynamic island and the launcher") },
+        { group: "snd", name: "Sound & language", icon: "\uf028", sym: "graphic_eq", pages: [1, 46, 10, 26], caption: I18n.t("Sounds, the equalizer, notifications, language and region") },
         { group: "sys", name: "System", icon: "\uf013", sym: "settings", pages: [41, 43, 44, 38, 30, 31, 28, 5, 23, 15], caption: I18n.t("Care, profiles, screen time, your account, keybinds, languages, monitors, recording, keyboard and services") },
         { group: "game", name: "Gaming", icon: "\uf11b", sym: "sports_esports", pages: [16], caption: I18n.t("Play without distractions") },
         { group: "about", name: "About", icon: "\uf05a", sym: "info", pages: [17], caption: I18n.t("Version, system and credits") },
@@ -1085,6 +1087,8 @@ FloatingWindow {
             PageSlot { nav: win; idx: 42; cur: win.page; page: Component { VibePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 43; cur: win.page; page: Component { ProfilesPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 44; cur: win.page; page: Component { ScreenTimePage { anchors.fill: parent; ctl: win } } }
+            PageSlot { nav: win; idx: 45; cur: win.page; page: Component { BarStylesPage { anchors.fill: parent; ctl: win } } }
+            PageSlot { nav: win; idx: 46; cur: win.page; page: Component { EqualizerPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 35; cur: win.page; page: Component { UpdatePage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 36; cur: win.page; page: Component { WindowRulesPage { anchors.fill: parent; ctl: win } } }
             PageSlot { nav: win; idx: 38; cur: win.page; page: Component { AccountPage { anchors.fill: parent; ctl: win } } }

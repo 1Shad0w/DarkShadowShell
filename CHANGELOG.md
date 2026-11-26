@@ -1,5 +1,14 @@
 # Changelog
 
+## V6.60: Bar styles, focus mode, an equalizer and a recording card
+- **A new page: Settings > Bar & launcher > Bar styles**. Every look of the bar as a small picture of your screen with your own wallpaper, and every look of the workspaces moving as they do on the bar: one click puts it on
+- **Two new bar styles**: **Frame** (the bar and a thin frame round the whole screen, with round inner corners; its width in Bar styles) and **Floating** (the Material 3 look on one rounded card that floats below the edge)
+- **Five new workspace styles**: lines, squares, rings, bubbles (numbers in circles) and number pills, and the **animation** of the workspaces: bouncy, smooth or snappy
+- **Focus mode**: work, a short break, again, and a long break every 4th round. Add **Focus** to your bar (Bar layout): it shows the time left in a ring; click starts or pauses, middle click skips, right click stops. Do Not Disturb is on while you work (urgent notifications still come), and Settings > System > Screen time counts your focus minutes and sets the lengths (`rice-focus`)
+- **Equalizer** (Settings > Sound & language > Equalizer): Flat, Bass, Treble, Voice, Loudness, Headphones, Gaming and Night, with a curve that glides from one to the next. It works through EasyEffects (`sudo pacman -S easyeffects`, `rice-eq`)
+- **A card after a screen recording** (like the one after a screenshot): play it, **trim** it (a strip of its frames with two handles: save the part between them, or make a GIF of just that part), a GIF of all of it, copy, the folder, delete
+- The ideas of the bar styles page come from apolloKapa's monolith shell (the code is our own)
+
 ## V6.55: Styles, profiles, a new screenshot tool and screen time
 - **11 new styles** in Settings > Appearance > Themes: the palettes everyone knows (**Catppuccin**, **Rosé Pine**, **Tokyo Night**, **Gruvbox**, **Nord**, **Everforest**, **Kanagawa**) and four of our own: **Luxe** (gold on black), **OLED** (true black), **Brutal** (square, thick borders, no softness) and **Sakura** (blossom pink). A style now also brings its notifications' colors, the lock screen look and the minimal mode, and gives back yours when you move to a style that does not set them. A ring of the new color sweeps over the screen when one goes on. New color schemes: Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa and Dracula
 - **Settings show what you changed**: a small dot next to every setting that is not at its default, and a button to put it back with one click (107 settings in Bar, Desktop, Idle, Interface, Island, Notifications, Recorder, Launcher, Sounds and Vibe)

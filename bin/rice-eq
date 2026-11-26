@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""rice-eq: the sound's equalizer through EasyEffects (Settings > Sound & language > Equalizer, V6.60).
+
+  rice-eq state          JSON: is EasyEffects there, the preset in use, and every preset with its 10 bands (dB)
+  rice-eq use NAME       put a preset on (it writes the preset for EasyEffects and loads it)
+  rice-eq off            the equalizer off (EasyEffects lets the sound through untouched)
+
+Presets: flat, bass, treble, voice, loudness, headphones, gaming, night. They are written as "DarkShadow <Name>" to
+EasyEffects' output presets, so you can also tune them further in EasyEffects itself. Needs easyeffects
+(sudo pacman -S easyeffects).
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+STATE = HOME + "/.config/rice/eq"
+# EasyEffects 7 keeps its presets in ~/.config/easyeffects, 8 in ~/.local/share/easyeffects: both get them
+DIRS = [HOME + "/.config/easyeffects/output", HOME + "/.local/share/easyeffects/output"]
+FREQ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+PRESETS = {
+    "flat":       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "bass":       [6, 5, 4, 2, 0, 0, 0, 0, 0, 0],
+    "treble":     [0, 0, 0, 0, 0, 1, 2, 4, 5, 5],
+    "voice":      [-3, -2, -1, 1, 3, 4, 3, 1, 0, -1],
+    "loudness":   [5, 4, 1, 0, -1, -1, 0, 2, 4, 4],
+    "headphones": [3, 2, 1, 0, -1, 0, 1, 2, 3, 2],
+    "gaming":     [-2, -1, 0, 0, 1, 2, 4, 5, 3, 0],
+    "night":      [-4, -3, -1, 0, 1, 1, 0, -1, -2, -3],
+}
+ORDER = ["flat", "bass", "treble", "voice", "loudness", "headphones", "gaming", "night"]
+
+
+def pname(k):
+    return "DarkShadow " + k.capitalize()
+
+
+def preset_json(gains):
+    def side():
+        return {"band%d" % i: {"frequency": float(f), "gain": float(g), "mode": "RLC (BT)", "mute": False, "q": 1.5,
+                               "slope": "x1", "solo": False, "type": "Bell", "width": 4.0}
+                for i, (f, g) in enumerate(zip(FREQ, gains))}
+    # a little less volume out than the biggest boost, so a boosted band does not clip
+    pre = -max(0.0, float(max(gains)))
+    return {"output": {"blocklist": [], "plugins_order": ["equalizer#0"],
+                       "equalizer#0": {"balance": 0.0, "bypass": False, "input-gain": pre, "output-gain": 0.0,
+                                       "mode": "IIR", "num-bands": 10, "pitch-left": 0.0, "pitch-right": 0.0,
+                                       "split-channels": False, "left": side(), "right": side()}}}
+
+
+def have():
+    return shutil.which("easyeffects") is not None
+
+
+def current():
+    try:
+        v = open(STATE).read().strip()
+        return v if v in PRESETS or v == "off" else "off"
+    except OSError:
+        return "off"
+
+
+def keep(v):
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE, "w") as f:
+        f.write(v + "\n")
+
+
+def ee(*a):
+    try:
+        subprocess.Popen(["easyeffects"] + list(a), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+        return True
+    except OSError:
+        return False
+
+
+def main(a):
+    cmd = a[0] if a else "state"
+    if cmd == "state":
+        print(json.dumps({"installed": have(), "current": current(), "freq": FREQ,
+                          "presets": [{"key": k, "bands": PRESETS[k]} for k in ORDER]}))
+    elif cmd == "use" and len(a) == 2 and a[1] in PRESETS:
+        k = a[1]
+        for d in DIRS:
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, pname(k) + ".json"), "w") as f:
+                json.dump(preset_json(PRESETS[k]), f, indent=4)
+        keep(k)
+        if not have():
+            sys.exit("easyeffects is not installed: sudo pacman -S easyeffects")
+        ee("-b", "2")                       # bypass off
+        ee("-l", pname(k))
+        print("equalizer: " + k)
+    elif cmd == "off":
+        keep("off")
+        if have():
+            ee("-b", "1")                   # EasyEffects lets the sound through
+        print("equalizer: off")
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

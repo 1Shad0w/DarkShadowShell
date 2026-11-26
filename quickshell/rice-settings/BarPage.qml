@@ -31,7 +31,7 @@ Item {
         "launcher": "󰀻", "workspaces": "󰇘", "title": "󰖲", "media": "󰝚",
         "clock": "12:34", "tray": "󰕰", "volume": "󰕾", "network": "󰖩",
         "bluetooth": "󰂯", "battery": "󰁹 82%", "notifications": "󰂚", "power": "󰐥", "island": "12:34 \u25ac",
-        "weather": "󰖙 7°", "sysmon": "󰄨 󰍛 󰋊", "music": "󰝚 ▂▅▃"
+        "weather": "󰖙 7°", "sysmon": "󰄨 󰍛 󰋊", "music": "󰝚 ▂▅▃", "focus": "󱎫 24:13"
     })
     readonly property string wsText: page.v("ws_style", "dots") === "pacman" ? "\u25d6 \u2022 \u2022 \u2022" : (page.v("ws_style", "dots") === "letters" ? "A  B  C  D" : page.v("ws_style", "dots") === "numbers" ? "1  2  3  4" : "\u25cf  \u2022  \u2022  \u2022")
     readonly property var logos: [

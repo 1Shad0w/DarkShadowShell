@@ -513,7 +513,9 @@ Item {
                         id: wc
                         readonly property int wid: index + 1
                         readonly property bool act: isl.wsId === wid
-                        readonly property string st: isl.bar ? isl.bar.wsStyle : "dots"
+                        // (V6.60: the new styles show as numbers or dots here)
+                        readonly property string st: { const w = isl.bar ? isl.bar.wsStyle : "dots"
+                            return w === "bubbles" || w === "numpills" ? "numbers" : (["lines", "squares", "rings"].indexOf(w) >= 0 ? "dots" : w) }
                         anchors.verticalCenter: parent.verticalCenter
                         width: st === "dots" ? (act ? 30 : 8) : (st === "pacman" ? 16 : 22)
                         height: 22

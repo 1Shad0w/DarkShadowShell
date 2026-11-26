@@ -16,3 +16,6 @@ rule({ name = "rice-calendar-float", match = { class = "org.gnome.Calendar" }, f
 -- the bar and its island: blurred here too (rice-rofi.lua has the same rule, but it is only wired in once Settings >
 -- Launcher was used: on a fresh install the bar had no blur at all)
 pcall(hl.layer_rule, { name = "rice-bar-blur-desktop", match = { namespace = "rice-bar" }, blur = true, ignore_alpha = 0.25 })
+-- V6.60: the frame round the screen (Settings > Bar styles > Frame) blurs like the bar
+pcall(hl.layer_rule, { name = "rice-frame-blur", match = { namespace = "rice-frame" }, blur = true, ignore_alpha = 0.25 })
+pcall(hl.layer_rule, { name = "rice-frame-noanim", match = { namespace = "rice-frame" }, no_anim = true })

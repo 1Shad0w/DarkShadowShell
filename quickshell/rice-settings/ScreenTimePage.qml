@@ -11,6 +11,20 @@ Item {
     property var td: ({ total: 0, apps: [], hours: [], off: false })
     property var wk: ({ days: [], avg: 0, off: false })
     property bool askClear: false
+    // V6.60 focus mode (rice-focus): its lengths and today's focus minutes
+    property var fo: ({ phase: "idle", work: 25, "break": 5, long: 15, rounds: 4, dnd: true, today: 0 })
+    Process {
+        id: foP
+        command: ["bash", "-c", "\"$HOME/.local/bin/rice-focus\" state 2>/dev/null"]
+        running: true
+        stdout: StdioCollector { onStreamFinished: { try { page.fo = JSON.parse(text) } catch (e) { } } }
+    }
+    function focus(args, msg) {
+        Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-focus\" \"$@\"", "_"].concat(args))
+        page.ctl.status = msg
+        foT.restart()
+    }
+    Timer { id: foT; interval: 500; onTriggered: foP.running = true }
     Process {
         id: loadP
         command: ["bash", "-c", "\"$HOME/.local/bin/rice-screentime\" today 2>/dev/null; echo; \"$HOME/.local/bin/rice-screentime\" week 2>/dev/null"]
@@ -21,7 +35,7 @@ Item {
             try { page.wk = JSON.parse(l[1]) } catch (e) { }
         } }
     }
-    onVisibleChanged: if (visible && !loadP.running) loadP.running = true
+    onVisibleChanged: if (visible) { if (!loadP.running) loadP.running = true; if (!foP.running) foP.running = true }
     Timer { interval: 60000; running: page.visible; repeat: true; onTriggered: if (!loadP.running) loadP.running = true }
     function cmd(c, msg) {
         Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/rice-screentime\" \"$1\"", "_", c])
@@ -144,6 +158,30 @@ Item {
                 }
             }
         }
+
+        // ---------- V6.60 focus mode ----------
+        SectionTitle { text: I18n.t("Focus mode"); sub: I18n.t("Work, then a short break, again and again; every few rounds a long one. Add Focus to your bar (Bar layout) to see the time left: click starts or pauses, right click stops.") }
+        SettingRow {
+            label: page.fo.phase === "idle" ? I18n.t("Start focusing") : (page.fo.phase === "work" ? I18n.t("Focusing now") : I18n.t("On a break"))
+            desc: I18n.t("Today: %1 of focus", page.dur((page.fo.today || 0) * 60))
+            sym: "bolt"; lit: page.fo.phase !== "idle"
+            reserved: 260
+            Row {
+                anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                Btn { visible: page.fo.phase !== "idle"; sym: "stop"; icon: ""; text: I18n.t("Stop"); onClicked: page.focus(["stop"], I18n.t("Stopped")) }
+                Btn { primary: true; sym: page.fo.phase === "idle" || page.fo.paused ? "play_arrow" : "pause"; icon: ""
+                    text: page.fo.phase === "idle" ? I18n.t("Start") : (page.fo.paused ? I18n.t("Go on") : I18n.t("Pause"))
+                    onClicked: page.focus(["toggle"], I18n.t("Focus")) }
+            }
+        }
+        SliderRow { label: I18n.t("Work"); desc: I18n.t("Minutes of one round"); from: 5; to: 90; step: 5; decimals: 0; unit: " min"
+            dflt: 25; value: page.fo.work || 25; onCommitted: function(x) { page.focus(["set", "work", String(Math.round(x))], I18n.t("Applied")) } }
+        SliderRow { label: I18n.t("Short break"); desc: I18n.t("Minutes after every round"); from: 1; to: 20; step: 1; decimals: 0; unit: " min"
+            dflt: 5; value: page.fo["break"] || 5; onCommitted: function(x) { page.focus(["set", "break", String(Math.round(x))], I18n.t("Applied")) } }
+        SliderRow { label: I18n.t("Long break"); desc: I18n.t("Minutes after every 4th round"); from: 5; to: 45; step: 5; decimals: 0; unit: " min"
+            dflt: 15; value: page.fo.long || 15; onCommitted: function(x) { page.focus(["set", "long", String(Math.round(x))], I18n.t("Applied")) } }
+        ToggleRow { label: I18n.t("Do Not Disturb while working"); desc: I18n.t("Notifications wait until your break (urgent ones still come)")
+            dflt: true; checked: page.fo.dnd !== false; onToggled: function(x) { page.focus(["set", "dnd", x ? "on" : "off"], I18n.t("Applied")) } }
 
         // ---------- the switches ----------
         SectionTitle { text: I18n.t("Counting"); sub: I18n.t("Only on this computer, one small file a day in ~/.local/share/rice/screentime; the last 60 days are kept.") }

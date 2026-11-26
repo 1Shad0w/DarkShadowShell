@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""rice-focus: focus mode (V6.60). Work, then a short break, again and again; every 4th break is a long one.
+While you work, Do Not Disturb is on (when you want it), and the bar's Focus module shows the time that is left.
+
+  rice-focus state             JSON: phase (idle|work|break), end (epoch seconds), left (seconds), paused, round,
+                               the lengths, and today's focus minutes
+  rice-focus toggle            start, pause or go on (the bar's Focus module: a click)
+  rice-focus start [MIN]       start working now (MIN minutes, or your work length)
+  rice-focus stop              stop (the bar's module: a right click)
+  rice-focus next              the phase is over: work -> break -> work (the shell calls it at the end; it notifies)
+  rice-focus skip              end this phase now and go to the next one
+  rice-focus set work|break|long|rounds N     the lengths (minutes) and how many rounds before a long break
+  rice-focus set dnd on|off    Do Not Disturb while you work
+
+The state is in ~/.cache/rice/focus.json, your lengths in ~/.config/rice/focus.json, and the minutes you focused
+in ~/.local/share/rice/focus/YYYY-MM-DD (it stays on this computer).
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+
+HOME = os.path.expanduser("~")
+STATE = HOME + "/.cache/rice/focus.json"
+CFG = HOME + "/.config/rice/focus.json"
+LOG = HOME + "/.local/share/rice/focus"
+BIN = HOME + "/.local/bin/"
+DEF = {"work": 25, "break": 5, "long": 15, "rounds": 4, "dnd": True}
+LIMITS = {"work": (5, 120), "break": (1, 30), "long": (5, 60), "rounds": (2, 8)}
+
+
+def cfg():
+    c = dict(DEF)
+    try:
+        j = json.load(open(CFG))
+        for k in LIMITS:
+            if isinstance(j.get(k), (int, float)):
+                c[k] = int(max(LIMITS[k][0], min(LIMITS[k][1], j[k])))
+        if isinstance(j.get("dnd"), bool):
+            c["dnd"] = j["dnd"]
+    except (OSError, ValueError):
+        pass
+    return c
+
+
+def load():
+    try:
+        s = json.load(open(STATE))
+        if isinstance(s, dict) and s.get("phase") in ("idle", "work", "break"):
+            return s
+    except (OSError, ValueError):
+        pass
+    return {"phase": "idle", "end": 0, "paused": False, "left": 0, "round": 1, "len": 0, "dnd_ours": False}
+
+
+def write(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+def run(*a):
+    try:
+        return subprocess.run(list(a), capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def notify(title, body):
+    run("notify-send", "-a", "Focus", "-i", "alarm", title, body)
+
+
+def dnd_on(s, c):
+    if c["dnd"] and run(BIN + "rice-cc", "dnd") == "off":
+        run(BIN + "rice-cc", "dnd", "on")
+        s["dnd_ours"] = True
+
+
+def dnd_off(s):
+    if s.get("dnd_ours"):
+        run(BIN + "rice-cc", "dnd", "off")
+    s["dnd_ours"] = False
+
+
+def add_minutes(sec):
+    """the minutes of a finished (or stopped) work phase go into today's focus"""
+    if sec < 30:
+        return
+    day = time.strftime("%Y-%m-%d")
+    p = os.path.join(LOG, day)
+    try:
+        have = int(open(p).read().strip() or 0)
+    except (OSError, ValueError):
+        have = 0
+    os.makedirs(LOG, exist_ok=True)
+    with open(p, "w") as f:
+        f.write(str(have + int(round(sec / 60.0))))
+
+
+def today():
+    try:
+        return int(open(os.path.join(LOG, time.strftime("%Y-%m-%d"))).read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def left(s):
+    if s["phase"] == "idle":
+        return 0
+    if s.get("paused"):
+        return max(0, int(s.get("left", 0)))
+    return max(0, int(round(s.get("end", 0) - time.time())))
+
+
+def begin(s, phase, minutes):
+    s.update({"phase": phase, "end": time.time() + minutes * 60, "paused": False, "left": minutes * 60, "len": minutes * 60})
+
+
+def main(a):
+    c = cfg()
+    s = load()
+    cmd = a[0] if a else "state"
+    if cmd == "state":
+        out = dict(s)
+        out.update({"left": left(s), "work": c["work"], "break": c["break"], "long": c["long"], "rounds": c["rounds"],
+                    "dnd": c["dnd"], "today": today(), "now": time.time()})
+        print(json.dumps(out))
+        return
+    if cmd == "set" and len(a) == 3:
+        k, v = a[1], a[2]
+        try:
+            j = json.load(open(CFG))
+        except (OSError, ValueError):
+            j = {}
+        if k == "dnd":
+            j["dnd"] = v in ("on", "true", "1", "yes")
+        elif k in LIMITS:
+            try:
+                j[k] = int(max(LIMITS[k][0], min(LIMITS[k][1], float(v))))
+            except ValueError:
+                sys.exit("%s: a number" % k)
+        else:
+            sys.exit(__doc__)
+        write(CFG, j)
+        return
+    if cmd == "start":
+        m = c["work"]
+        if len(a) > 1:
+            try:
+                m = int(max(1, min(180, float(a[1]))))
+            except ValueError:
+                pass
+        if s["phase"] != "work":
+            s["round"] = 1 if s["phase"] == "idle" else s.get("round", 1)
+        begin(s, "work", m)
+        dnd_on(s, c)
+    elif cmd == "toggle":
+        if s["phase"] == "idle":
+            return main(["start"])
+        if s.get("paused"):
+            s["end"] = time.time() + s.get("left", 0)
+            s["paused"] = False
+            if s["phase"] == "work":
+                dnd_on(s, c)
+        else:
+            s["left"] = left(s)
+            s["paused"] = True
+            dnd_off(s)
+    elif cmd == "stop":
+        if s["phase"] == "work":
+            add_minutes(s.get("len", 0) - left(s))
+        dnd_off(s)
+        s.update({"phase": "idle", "end": 0, "paused": False, "left": 0, "round": 1})
+    elif cmd in ("next", "skip"):
+        if s["phase"] == "idle":
+            return
+        # "next" from the shell comes a moment after the end; a second call (two screens) changes nothing
+        if cmd == "next" and (s.get("paused") or left(s) > 2):
+            return
+        if s["phase"] == "work":
+            add_minutes(s.get("len", 0) - (left(s) if cmd == "skip" else 0))
+            long_one = s.get("round", 1) % c["rounds"] == 0
+            begin(s, "break", c["long"] if long_one else c["break"])
+            dnd_off(s)
+            if cmd == "next":
+                notify("Time for a break", "%d minutes. Stand up, look away from the screen." % (c["long"] if long_one else c["break"]))
+        else:
+            s["round"] = s.get("round", 1) + 1
+            begin(s, "work", c["work"])
+            dnd_on(s, c)
+            if cmd == "next":
+                notify("Back to work", "Round %d: %d minutes of focus." % (s["round"], c["work"]))
+    else:
+        sys.exit(__doc__)
+    write(STATE, s)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
