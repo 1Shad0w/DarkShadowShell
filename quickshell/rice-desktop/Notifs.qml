@@ -12,11 +12,8 @@ Scope {
     property bool dnd: false
     readonly property var list: srvLoader.item ? srvLoader.item.trackedNotifications.values : []
     readonly property int count: list.length
-    // the lock screen shows how many wait (rice-lock notif-count)
-    onCountChanged: {
-        Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/.cache/rice\"; echo " + count + " > \"$HOME/.cache/rice/notif-count\""])
-        appsT.restart()
-    }
+    // the lock screen shows how many wait and from which apps (rice-lock notif-count / notif-apps.json)
+    onCountChanged: appsT.restart()
     // V5.03: which apps they are from (the Glance lock screen shows their icons): names and counts only, never text
     Timer {
         id: appsT
@@ -29,8 +26,8 @@ Scope {
                 if (!by[a]) { by[a] = { app: a, icon: String(n.appIcon || n.desktopEntry || ""), n: 0 }; order.push(a) }
                 by[a].n++
             }
-            Quickshell.execDetached(["bash", "-c", "mkdir -p \"$HOME/.cache/rice\"; printf '%s' \"$1\" > \"$HOME/.cache/rice/notif-apps.json\"", "_",
-                                     JSON.stringify(order.map(function(k) { return by[k] }))])
+            Quickshell.execDetached(["bash", "-c", "d=\"$HOME/.cache/rice\"; mkdir -p \"$d\"; printf '%s' \"$1\" > \"$d/notif-count.tmp\" && printf '%s' \"$2\" > \"$d/notif-apps.json.tmp\" && mv -f \"$d/notif-count.tmp\" \"$d/notif-count\" && mv -f \"$d/notif-apps.json.tmp\" \"$d/notif-apps.json\"", "_",
+                                     String(nfy.count), JSON.stringify(order.map(function(k) { return by[k] }))])
         }
     }
     property var pops: []              // notifications on screen right now
