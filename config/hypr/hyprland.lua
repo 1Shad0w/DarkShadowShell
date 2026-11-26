@@ -334,11 +334,6 @@ hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = tr
 hl.bind("SUPER + F12", hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume up"))
 hl.bind("SUPER + F11", hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume down"))
 hl.bind("SUPER + F10", hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume mute"))
--- volume keys of laptops, keyboards and headphones (the shell shows how loud it is)
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume up"),   { locked = true })
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume down"), { locked = true })
-hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume mute"), { locked = true })
-hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("$HOME/.local/bin/rice-volume mic"),  { locked = true })
 
 
 --------------------------------
@@ -466,13 +461,6 @@ hl.window_rule({
 hl.bind("SUPER + U", hl.dsp.exec_cmd("$HOME/.local/bin/rice-settings"))
 
 hl.layer_rule({
-    name  = "rice-widget-blur",
-    match = { namespace = "rice-widget" },
-    blur = true,
-    ignore_alpha = 0.1,
-})
-
-hl.layer_rule({
     name  = "waybar-slide",
     match = { namespace = "waybar" },
     animation = "slide top",
@@ -507,7 +495,7 @@ pcall(require, "rice-infinite")
 require("rice-dashboard")
 
 -- must stay last: gaming mode and "no blur & transparency" override
-require("rice-gaming")
+pcall(require, "rice-gaming")
 
 -- your own keys for the shell's actions (Settings > System > Keybinds)
 pcall(require, "rice-keymap")
