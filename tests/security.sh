@@ -146,5 +146,15 @@ assert m.safe_names(sys.argv[2]) is False, "accepted ../"
 assert m.safe_names(sys.argv[3]) is True, "refused a plain archive"
 PYA
 
+# ---- hypr-set: a command with an accent reaches the Lua config as UTF-8, not as an escape Lua cannot read
+mkdir -p "$tmp/hs/home/.config/hypr" "$tmp/hs/bin"
+printf '#!/usr/bin/env bash\necho ok\n' >"$tmp/hs/bin/hyprctl"
+chmod +x "$tmp/hs/bin/hyprctl"
+HOME="$tmp/hs/home" PATH="$tmp/hs/bin:$PATH" NIRI_SOCKET= HYPRLAND_INSTANCE_SIGNATURE= XDG_CURRENT_DESKTOP= \
+  python3 "$root/bin/hypr-set" bind-add "SUPER + X" "notify-send café" >/dev/null 2>&1
+hs="$tmp/hs/home/.config/hypr/rice-settings.lua"
+grep -q 'café' "$hs" && ok "a bind command keeps its accent" || bad "the accent was escaped or lost"
+grep -q '\\u00e9' "$hs" && bad "the Lua file has a \u escape" || ok "no \u escape in the Lua file"
+
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"
