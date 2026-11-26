@@ -634,7 +634,8 @@ function RI.reload()
     pcall(RI.load_cfg)
     pcall(hold_parse)
     -- the keys may be other ones now: a hold from before is not one
-    poll.last, poll.ax, poll.ay, poll.held = nil, 0, 0, false
+    poll.last, poll.ax, poll.ay, poll.held, poll.wait = nil, 0, 0, false, 0
+    tick_rate(TICK_IDLE)
     pcall(bind_toggle)
     if RI.on then bind_keys() end
     -- every screen <-> this workspace: the windows of a screen that joins float too (the ones that leave are still
