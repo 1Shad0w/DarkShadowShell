@@ -5,7 +5,8 @@ files=(config.jsonc style.css)
 
 case "$1" in
   apply)
-    name="$2"
+    name="${2//[^A-Za-z0-9_-]/_}"
+    [ -n "$name" ] || exit 1
     [ -d "$dir/$name" ] || { echo "no such preset: $name" >&2; exit 1; }
     tmp="$(mktemp -d)"
     for f in "${files[@]}"; do [ -f "$live/$f" ] && cp -f "$live/$f" "$tmp/$f"; done
