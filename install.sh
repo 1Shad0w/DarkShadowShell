@@ -90,6 +90,13 @@ BIN="$HOME/.local/bin"
 SUDO_PID=""
 cleanup() { [ -n "$SUDO_PID" ] && kill "$SUDO_PID" 2>/dev/null; rm -f "${PKG_SPLIT:-}"; show_cursor; }
 trap cleanup EXIT
+# one installer at a time: two of them write the same staging files, checksums and backups.
+# A GUI update holds rice-update's lock and passes RICE_UPDATE_LOCK=1, so its child is not stopped by this one.
+if [ "$DRY_RUN" != 1 ] && [ "${RICE_UPDATE_LOCK:-0}" != 1 ]; then
+  mkdir -p "$HOME/.cache/rice"
+  exec 9>"$HOME/.cache/rice/update.lock"
+  flock -n 9 || { fail "Another update is already running. Wait for it to finish."; exit 1; }
+fi
 
 # ------------------------------------------------------------------ helpers
 # ver_newer A B: true when version A is newer than B ("2.1" == "2.10" > "2.02")
