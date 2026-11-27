@@ -21,7 +21,8 @@ Item {
     property bool starting: false
     property int now: Math.floor(Date.now() / 1000)
 
-    readonly property bool running: lv.state === "running" || starting
+    readonly property bool waitingForTerminal: lv.state === "terminal" && now - (lv.started || 0) < 60
+    readonly property bool running: lv.state === "running" || waitingForTerminal || starting
     readonly property bool finished: !running && (lv.state === "done" || lv.state === "failed")
     readonly property bool failed: !running && lv.state === "failed"
     readonly property bool hasUpdate: !!st.update
@@ -150,7 +151,7 @@ Item {
                 page.lv = o
                 if (page.starting && (o.state === "running" || (o.started && o.started >= page.startedAt))) page.starting = false
                 page.steps = page.parse(cut >= 0 ? text.substring(cut + 1) : "")
-                if (was === "running" && o.state !== "running") { stateP.running = true; page.loadPackages(true)
+                if ((was === "running" || was === "terminal") && (o.state === "done" || o.state === "failed")) { stateP.running = true; page.loadPackages(true)
                     page.ctl.status = o.state === "done" ? I18n.t("Updated") : I18n.t("The update did not finish") }
             }
         }
@@ -251,7 +252,8 @@ Item {
                 width: parent.width - 124 - 24
                 spacing: 6
                 T { kind: "title"; font.pixelSize: 26; font.weight: Font.Medium; color: M3.inkPrimaryC; width: parent.width; wrapMode: Text.WordWrap
-                    text: page.running ? I18n.t("Updating...")
+                    text: page.running && page.lv.terminal ? I18n.t("The update goes on in the terminal")
+                        : page.running ? I18n.t("Updating...")
                         : page.failed ? I18n.t("The update did not finish")
                         : page.finished && !page.hasUpdate && page.lv.ended && page.now - page.lv.ended < 3600 ? I18n.t("Updated to V%1", page.st.installed || page.lv.now || "?")
                         : page.hasUpdate ? (page.st.installed === page.st.latest ? I18n.t("Updates are ready")
@@ -261,7 +263,8 @@ Item {
                         : page.st.error ? I18n.t("DarkShadow's Shell V%1", page.st.installed || "?")
                         : I18n.t("You are up to date") }
                 T { kind: "reading"; font.pixelSize: 13; color: M3.inkPrimaryC; opacity: 0.85; width: parent.width; wrapMode: Text.WordWrap
-                    text: page.running ? (page.current ? page.current.t : I18n.t("Getting the newest version from GitHub..."))
+                    text: page.running && page.lv.terminal ? I18n.t("Finish it in the terminal; this list updates after")
+                        : page.running ? (page.current ? page.current.t : I18n.t("Getting the newest version from GitHub..."))
                         : page.failed ? I18n.t("Nothing is broken: what was done stays, the rest keeps your old files. Try again, or look at the steps below.")
                         : page.hasUpdate ? (page.st.installed !== page.st.latest ? I18n.t("You have V%1.", page.st.installed) : I18n.t("%1 new changes on GitHub.", page.st.changes))
                         : I18n.t("DarkShadow's Shell V%1", page.st.installed || "?") + (page.st.checked ? "  ·  " + I18n.t("checked %1", page.ago(page.st.checked)) : "") }
@@ -285,8 +288,8 @@ Item {
                     text: page.pkgNotes.map(function(m) { return I18n.t(m.note) }).join("\n") }
                 // the progress line while it runs
                 Item {
-                    width: parent.width; height: page.running ? 22 : 0
-                    visible: page.running
+                    width: parent.width; height: visible ? 22 : 0
+                    visible: page.running && !page.lv.terminal
                     Rectangle {
                         y: 8; width: parent.width; height: 6; radius: M3.sq ? 0 : (3); color: M3.alpha(M3.primary, 0.2)
                         Rectangle { width: Math.max(12, parent.width * page.progress); height: parent.height; radius: M3.sq ? 0 : (3); color: M3.primary
