@@ -32,6 +32,15 @@ The bar, welcome screen, and Settings automatically display **your distro's logo
 
 ---
 
+
+## Release channels and updates
+
+The stable channel selects the most recently published regular GitHub release. The dev channel selects the most recently published release, including prereleases. Both use the release tag, and drafts are ignored.
+
+The installer at `https://get.aurorian.es/dotfiles` selects stable. Use `https://get.aurorian.es/dotfiles-dev` for dev. After installation, the selected channel is saved for future update checks. You can change it in Settings or with `rice-update channel stable` and `rice-update channel dev`.
+
+The update center checks published releases and applies the selected tag. A newer commit on a branch is available after it has been published as a release.
+
 ## Hyprland or niri
 
 The shell supports both **Hyprland (0.55+)** and **niri (25.05+)** across every distro above:
