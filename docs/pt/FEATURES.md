@@ -66,4 +66,4 @@ Tudo no **DarkShadow's Shell** é controlado pelo app de **Configurações** em 
 | **Care, perfis & tempo de tela** | Atualizações completas do sistema (com snapshots snapper/timeshift), limpeza de cache, backup único, perfis (`rice-profile`) e estatísticas locais (`rice-screentime`) |
 | **Regras de janela & equalizador** | Regras por app salvas em `~/.config/rice/rules.json`, workspace gaming opcional e 8 presets EasyEffects (`rice-eq`) |
 | **Teclado, idiomas & monitores** | Até 4 layouts de teclado, interface em inglês e polonês (com instalador de fontes CJK) e configuração de monitores para Hyprland e niri |
-| **Boas-vindas & sincronização** | Intro interativa (`rice-welcome show`) e `./sync.sh` para exportar configurações sem segredos |
+| **Boas-vindas & sincronização** | Assistente obrigatório de 14 etapas no primeiro login (`Idioma e região`, `Teclado`, `Wi-Fi e Bluetooth`, `Visual`, `Cores`, `Barra e dock`, `Widgets`, `Fonte e cursor`, `Sons`, `Notificações`, `Energia e bloqueio`, `Desempenho`, `Perfil e login`, `Resumo`; repetível via `rice-welcome show`) e `./sync.sh` para exportar configurações sem segredos |
