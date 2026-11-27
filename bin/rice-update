@@ -104,7 +104,7 @@ def make_git(r):
     stamp = time.strftime("%Y%m%d-%H%M%S")
     tmp = target + ".new-" + stamp
     print("Downloading the project with git ...")
-    c = subprocess.call(["git", "-c", "credential.helper=", "clone", "--quiet", NEW_URL, tmp],
+    c = subprocess.call(["git", "-c", "credential.helper=", "clone", "--quiet", FORK_URL, tmp],
                         env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never"))
     if c != 0 or not os.path.exists(tmp + "/install.sh"):
         shutil.rmtree(tmp, ignore_errors=True)
@@ -189,7 +189,9 @@ def git(r, *a, timeout=25):
                           timeout=timeout, env=env)
 
 
-NEW_URL = "https://github.com/shadowww-dev/DarkShadowShell.git"
+FORK_SLUG = "1Shad0w/DarkShadowShell"
+FORK_URL = "https://github.com/" + FORK_SLUG + ".git"
+UPSTREAM_URL = "https://github.com/shadowww-dev/DarkShadowShell.git"
 
 
 # the installer's rule (install/lib/secure.sh update_remote_ok): an update may only come from this project, or a
@@ -211,7 +213,7 @@ def fix_remote(r):
     try:
         u = git(r, "remote", "get-url", "origin", timeout=5).stdout.strip()
         if "shadowww-dev/shadows-shell" in u:
-            git(r, "remote", "set-url", "origin", NEW_URL, timeout=5)
+            git(r, "remote", "set-url", "origin", UPSTREAM_URL, timeout=5)
     except Exception:
         pass
 
@@ -226,7 +228,7 @@ def repo_slug(r):
                 return m.group(1)
         except Exception:
             pass
-    return "1Shad0w/DarkShadowShell"
+    return FORK_SLUG
 
 
 def published_releases(r, offline=False):
@@ -466,7 +468,7 @@ def gui(args):
     r = repo()
     if not r:
         open(LIVE_LOG, "w").write("    \u2718 Could not find your copy of the repo (~/shadows-shell). Clone it again:\n"
-                                  "      git clone https://github.com/shadowww-dev/DarkShadowShell ~/shadows-shell\n")
+                                  "      git clone " + FORK_URL + " ~/shadows-shell\n")
         put_live(state="failed", code=1, started=int(time.time()), ended=int(time.time()), pid=0)
         return 1
     if is_zip(r):
@@ -645,7 +647,7 @@ def run_installer(args):
     r = repo()
     if not r:
         print("Could not find your copy of the repo. Clone it again:")
-        print("  git clone https://github.com/shadowww-dev/DarkShadowShell ~/shadows-shell")
+        print("  git clone " + FORK_URL + " ~/shadows-shell")
         return 1
     if is_zip(r):
         print(ZIP_MSG.replace(" Run rice-update in a terminal: it turns", " This turns"))
