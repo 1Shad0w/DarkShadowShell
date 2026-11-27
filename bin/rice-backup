@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 
 HOME = os.path.expanduser("~")
@@ -73,19 +74,23 @@ def save(folder, quiet=False):
     meta = {"format": FORMAT, "app": "DarkShadow's Shell", "made": time.strftime("%Y-%m-%d %H:%M"), "version": ver,
             "host": os.uname().nodename, "wallpaper": os.path.basename(wall) if wall else "", "wallpaper_path": wall,
             "files": len(files)}
-    tmp = path + ".part"
-    with tarfile.open(tmp, "w:gz") as t:
-        data = json.dumps(meta, indent=1).encode()
-        ti = tarfile.TarInfo("backup.json"); ti.size = len(data); ti.mtime = int(time.time())
-        t.addfile(ti, io.BytesIO(data))
-        for arc, real in files:
-            try:
-                t.add(real, arcname=arc, recursive=False)
-            except OSError:
-                pass
-        if wall:
-            t.add(wall, arcname="wallpaper/" + os.path.basename(wall), recursive=False)
-    os.replace(tmp, path)
+    fd, tmp = tempfile.mkstemp(prefix=".darkshadow-", suffix=".part", dir=folder)
+    try:
+        with os.fdopen(fd, "wb") as stream, tarfile.open(fileobj=stream, mode="w:gz") as t:
+            data = json.dumps(meta, indent=1).encode()
+            ti = tarfile.TarInfo("backup.json"); ti.size = len(data); ti.mtime = int(time.time())
+            t.addfile(ti, io.BytesIO(data))
+            for arc, real in files:
+                try:
+                    t.add(real, arcname=arc, recursive=False)
+                except OSError:
+                    pass
+            if wall:
+                t.add(wall, arcname="wallpaper/" + os.path.basename(wall), recursive=False)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
     if not quiet:
         print(path)
     return path
@@ -163,9 +168,19 @@ def restore(path, before=True, out=True):
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 src = t.extractfile(m)
                 tmp = dest + ".restore-tmp"
-                with open(tmp, "wb") as o:
-                    shutil.copyfileobj(src, o)
-                os.replace(tmp, dest)
+                if m.name == "home/.config/rice/clipboard.json":
+                    fd, tmp = tempfile.mkstemp(prefix=".clipboard-", suffix=".tmp", dir=os.path.dirname(dest))
+                    try:
+                        with os.fdopen(fd, "wb") as o:
+                            shutil.copyfileobj(src, o)
+                        os.replace(tmp, dest)
+                    finally:
+                        if os.path.exists(tmp):
+                            os.unlink(tmp)
+                else:
+                    with open(tmp, "wb") as o:
+                        shutil.copyfileobj(src, o)
+                    os.replace(tmp, dest)
     except (tarfile.TarError, ValueError) as e:
         sys.exit("rice-backup: " + str(e))
     # start again with it: Hyprland reads its files, then the wallpaper, the bar and the shell
