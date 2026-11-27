@@ -119,20 +119,15 @@ Item {
 
 
     // ---------- what the info card reads ----------
-    // the weather (rice-weather, at most every half hour)
-    property string wCond: ""
-    property string wTemp: ""
-    property string wPlace: ""
-    Process {
-        id: wProc
-        command: ["bash", "-c", "f=\"$HOME/.cache/rice/weather.txt\"; [ -n \"$(find \"$f\" -mmin -30 2>/dev/null)\" ] || \"$HOME/.local/bin/rice-weather\" >/dev/null 2>&1; cat \"$f\" 2>/dev/null"]
-        stdout: StdioCollector { onStreamFinished: {
-            const p = text.trim().split("|")
-            if (p.length >= 2) { isl.wCond = p[0].trim(); isl.wTemp = p[1].trim().replace(/^\+/, ""); isl.wPlace = (p[2] || "").trim() } } }
+    readonly property var weather: BarSvc.weather
+    readonly property string wCond: weather ? weather.cond : ""
+    readonly property string wTemp: weather ? weather.temperature : ""
+    readonly property string wPlace: weather ? weather.place : ""
+    WeatherHold {
+        forecast: false
+        on: isl.visible && ((!isl.ghost && isl.cfg.island_weather !== false) ||
+                                 (isl.infoOpen && isl.infoTab === "today"))
     }
-    onInfoOpenChanged: if (infoOpen && !wProc.running) wProc.running = true
-    Timer { interval: 1800000; repeat: true; triggeredOnStart: true; running: isl.visible && (!isl.ghost || isl.infoOpen) && isl.cfg.island_weather !== false
-        onTriggered: if (!wProc.running) wProc.running = true }
     function wGlyph(c) {
         const s = String(c).toLowerCase()
         if (s.indexOf("thunder") >= 0) return ""

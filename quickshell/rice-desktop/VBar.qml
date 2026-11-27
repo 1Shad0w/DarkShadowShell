@@ -405,8 +405,8 @@ PanelWindow {
     }
     // Weather, System, Date: their cards open at the top of the screen, beside this bar (Bar.qml shows them)
     function pop(k) { run("mkdir -p \"$HOME/.cache/rice\"; printf '%s %s %s\\n' \"$(date +%s.%N)\" " + k + " " + (atRight ? (vb.screen ? vb.screen.width - 420 : 1500) : 230) + " > \"$HOME/.cache/rice/barpop-open\"") }
-    property var wx: null
-    Trigger { path: vb.home + "/.cache/rice/weather.json"; every: 60000; onContent: function(t) { try { vb.wx = JSON.parse(t) } catch (e) { } } }
+    readonly property var wx: BarSvc.wx
+    WeatherHold { on: vb.on && vb.hasMod("weather") }
     Component { id: cWeather
         Item { width: vb.barW - 10; height: wc.implicitHeight + 6
             Column { id: wc; anchors.centerIn: parent; spacing: 0
