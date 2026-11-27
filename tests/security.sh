@@ -87,6 +87,8 @@ remote() { git -C "$ROOT" remote remove origin 2>/dev/null; git -C "$ROOT" remot
 remote "git@github.com:notwafel/DarkShadowShell.git" && ok "accepts the ssh remote" || bad "ssh remote"
 remote "https://github.com/shadowww-dev/DarkShadowShell" && ok "accepts the https remote" || bad "https remote"
 remote "https://github.com/evil/DarkShadowShell" && ok "accepts a fork" || bad "fork remote"
+remote "https://github.com/user/dotfiles" && ok "accepts a dotfiles fork (https)" || bad "dotfiles https remote"
+remote "git@github.com:user/dotfiles.git" && ok "accepts a dotfiles fork (ssh)" || bad "dotfiles ssh remote"
 remote "https://example.com/x/DarkShadowShell" && bad "accepted a foreign host" || ok "refuses a foreign host"
 remote "https://evil.example/github.com/evil/DarkShadowShell" && bad "accepted a path on a foreign host" || ok "refuses a foreign host with a github.com path"
 remote "ssh://git@evil.example/github.com/evil/DarkShadowShell.git" && bad "accepted a foreign ssh host" || ok "refuses a foreign ssh host"

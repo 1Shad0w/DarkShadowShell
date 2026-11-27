@@ -18,7 +18,8 @@ public issue for something that runs code or exposes data.
   to allow a new download.
 - **Archives cannot write outside their folder.** `extract_verified` refuses absolute paths, `../` and links
   pointing out of the destination.
-- **Updates only come from this project.** The origin must be `github.com/<owner>/DarkShadowShell`.
+- **Updates only come from this project.** The origin must be `github.com/<owner>/DarkShadowShell` or
+  `github.com/<owner>/dotfiles`.
 - **A changed installer is not started on its own.** An update that brings a new `install.sh` shows the diffstat
   and asks in a terminal before anything is pulled; an update started from Settings opens a terminal with
   `rice-update` for that question instead of going on. `RICE_TRUST_UPDATE=1` is the explicit opt-out.
@@ -49,9 +50,8 @@ All three are in Settings > Language & region > Online lookups.
 - **The AUR helper is built, not pinned.** When Arch has neither paru nor yay, the installer clones the helper's
   package from the AUR at its current HEAD and builds it. The hashes above cover the downloads the installer makes
   itself, not AUR packages.
-- **Other downloads are data, not code.** `rice-cursor` pins Bibata to a release and checks its SHA-256, and every
-  archive it opens is path-checked; the other cursor packs and the fonts `rice-fonts` downloads come over HTTPS
-  from GitHub but are not hash-pinned here.
+- **Other downloads are verified too.** `rice-cursor` and `rice-fonts` pin their downloads to releases/commits
+  and verify SHA-256 against `install/checksums.txt`, and every archive opened is path-checked.
 - **Local code is trusted.** The shell runs what is in `~/.config/quickshell` and `~/.config/hypr` at login. The
   checks above cover the path *into* your machine, not someone who can already write there.
 
