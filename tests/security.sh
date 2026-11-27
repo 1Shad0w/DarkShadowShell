@@ -17,6 +17,23 @@ n=0
 ok() { n=$((n + 1)); printf 'ok %d - %s\n' "$n" "$1"; }
 bad() { printf 'not ok %d - %s\n' "$n" "$1"; exit 1; }
 
+# put() runs inside task's conditional, so its return value must expose write failures.
+(
+  HOME="$tmp/copy-home"
+  BK="$HOME/backups"
+  DRY_RUN=0
+  # shellcheck disable=SC1090
+  source <(sed -n '/^put() {/,/^}/p' "$root/install.sh")
+  mkdir -p "$HOME/collision"
+  printf 'original\n' >"$HOME/config"
+  printf 'new @HOME@\n' >"$tmp/copy-source"
+  put "$tmp/copy-source" "$HOME/collision" && exit 1
+  put "$tmp/does-not-exist" "$HOME/config" && exit 1
+  grep -qx 'original' "$HOME/config" || exit 1
+  put "$tmp/copy-source" "$HOME/config" || exit 1
+  grep -Fxq "new $HOME" "$HOME/config" && grep -qx 'original' "$BK/config"
+) && ok "file-copy errors propagate and leave the previous file in place" || bad "installer file copy"
+
 # ---- the checksum list: "<64 hex>  <name>", unique names
 awk 'NF && $1 !~ /^#/ { print NF, $1, $2 }' "$CHECKSUMS" >"$tmp/list"
 [ -s "$tmp/list" ] && ok "checksums.txt has entries" || bad "checksums.txt is empty"
