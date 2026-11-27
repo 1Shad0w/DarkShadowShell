@@ -32,6 +32,15 @@ La barra, la pantalla de bienvenida y Ajustes muestran automáticamente **el log
 
 ---
 
+
+## Canales y actualizaciones
+
+El canal estable selecciona la publicación normal más reciente de GitHub. El canal dev selecciona la publicación más reciente, incluidas las pre-release. Ambos utilizan el tag de la publicación e ignoran los borradores.
+
+El instalador de `https://get.aurorian.es/dotfiles` selecciona estable. Usa `https://get.aurorian.es/dotfiles-dev` para dev. Tras instalar, se guarda el canal para las siguientes comprobaciones. Puedes cambiarlo en Ajustes o con `rice-update channel stable` y `rice-update channel dev`.
+
+El centro de actualizaciones consulta las publicaciones y aplica el tag seleccionado. Los commits nuevos de una rama estarán disponibles cuando se publiquen como release.
+
 ## Hyprland o niri
 
 El shell soporta tanto **Hyprland (0.55+)** como **niri (25.05+)** en cualquiera de las distros anteriores:
