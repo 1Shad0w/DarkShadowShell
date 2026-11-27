@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 
 HOME = os.path.expanduser("~")
 DIR = HOME + "/.config/rice"
@@ -122,17 +123,19 @@ def make_git(r):
 
 
 def key(v):
-    """'2.02' < '2.1' == '2.10' < '3.0' (the part after the dot reads like decimals)"""
+    """'2.02' < '2.1' == '2.10' < '3.0', with optional '-pre' suffix sorting before the final release."""
     try:
-        major, _, minor = v.strip().lstrip("vV").partition(".")
-        return (int(major), float("0." + (minor or "0")))
+        s = (v or "").strip().lstrip("vV")
+        base, _, pre = s.partition("-")
+        major, _, minor = base.partition(".")
+        return (int(major), float("0." + (minor or "0")), 1 if not pre else 0, pre)
     except ValueError:
-        return (0, 0.0)
+        return (0, 0.0, 0, "")
 
 
 def clean(v):
     v = (v or "").strip().lstrip("vV")
-    return v if v and key(v) > (0, 0.0) else ""
+    return v if v and key(v)[:2] > (0, 0.0) else ""
 
 
 def installed():
@@ -192,13 +195,50 @@ def news(text, version):
     return out
 
 
+def repo_slug(r):
+    """Extract 'owner/repo' from origin remote if it matches REPO_ORIGIN, else default."""
+    if r and os.path.isdir(r + "/.git"):
+        try:
+            u = git(r, "remote", "get-url", "origin", timeout=5).stdout.strip()
+            m = re.search(r"github\.com[:/]([^/]+/(?:DarkShadowShell|dotfiles))(?:\.git)?/?$", u)
+            if m:
+                return m.group(1)
+        except Exception:
+            pass
+    return "1Shad0w/DarkShadowShell"
+
+
+def release_version(r, want_pre):
+    """Fetch the newest non-draft GitHub release matching channel: pre-release for dev, normal release for stable."""
+    url = "https://api.github.com/repos/%s/releases?per_page=20" % repo_slug(r)
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "rice-update"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            items = json.loads(resp.read().decode("utf-8", "replace"))
+        if not isinstance(items, list):
+            return ""
+        vers = []
+        for rel in items:
+            if not isinstance(rel, dict) or rel.get("draft"):
+                continue
+            if bool(rel.get("prerelease")) != bool(want_pre):
+                continue
+            v = clean(rel.get("tag_name") or "")
+            if v:
+                vers.append(v)
+        return max(vers, key=key) if vers else ""
+    except Exception:
+        return ""
+
+
 def latest(offline=False):
-    """newest version: GitHub (through your repo's git remote), else the raw file, else your repo.
+    """newest version: GitHub (through your repo's git remote + Releases), else the raw file, else your repo.
     Also: how many new commits GitHub has that this computer does not (an update without a new number)."""
     r = repo()
     br = branch()
+    want_pre = channel() == "dev"
     found, err = [], ""
-    latest.ahead, latest.sha, latest.log = 0, "", ""
+    latest.ahead, latest.sha, latest.log, latest.release = 0, "", "", ""
     if r and os.path.isdir(r + "/.git") and shutil.which("git"):
         try:
             if not offline:
@@ -225,6 +265,11 @@ def latest(offline=False):
                     break
         except Exception as e:
             err = str(e)
+    if not offline:
+        rel_v = release_version(r, want_pre)
+        if rel_v:
+            latest.release = rel_v
+            found.append(rel_v)
     if not found and not offline and shutil.which("curl"):
         try:
             c = subprocess.run(["curl", "-fsSL", "--max-time", "15", raw_url()], capture_output=True, text=True, timeout=20)
@@ -254,7 +299,7 @@ def check(offline=False):
     ahead = getattr(latest, "ahead", 0)
     out = {"installed": have, "latest": new or have, "update": newer or ahead > 0,
            "changes": ahead, "commit": getattr(latest, "sha", ""),
-           "channel": channel(), "branch": branch(),
+           "channel": channel(), "branch": branch(), "release": getattr(latest, "release", ""),
            "news": news(getattr(latest, "log", ""), new or have)[:4],
            "checked": int(time.time()), "error": err if not new else ""}
     if is_zip(repo()):
