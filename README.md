@@ -65,12 +65,26 @@ See the full compatibility table, WM flags (`--wm=hyprland|niri|both`), and dist
 
 ## Quick install
 
-Clone the repository (avoid ZIP downloads so `rice-update` can keep it updated), run `./install.sh`, then log out, choose **Hyprland** or **niri** on the login screen, and press `SUPER + U`:
+Install in one command (stable `main` or `dev` branch), or clone manually (avoid ZIP downloads so `rice-update` can keep it updated), then log out, choose **Hyprland** or **niri** on the login screen, and press `SUPER + U`:
+
+```bash
+# Stable (main)
+curl -fsSL https://get.aurorian.es/dotfiles | bash
+
+# Development (dev)
+curl -fsSL https://get.aurorian.es/dotfiles-dev | bash
+```
+
+<details>
+<summary>Manual git clone</summary>
 
 ```bash
 git clone https://github.com/1Shad0w/DarkShadowShell shadows-shell && cd shadows-shell
+# Optional: switch to dev branch -> git checkout dev
 ./install.sh
 ```
+
+</details>
 
 > **Updating:** Open **Settings → Update Center → Update now**, click an update notification, or run `rice-update` in a terminal.
 
