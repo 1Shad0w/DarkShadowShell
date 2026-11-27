@@ -338,7 +338,7 @@ def terminal_update():
 
 
 def installer_changes(r):
-    """does the newest version change the installer (install.sh, install/lib)? Then the update must be asked about in a
+    """does the newest version change the installer (install.sh, install/, bin/)? Then the update must be asked about in a
     terminal. Checked here, before the installer runs: an installer from before V4.56 got this wrong from Settings and
     opened terminals without end"""
     q = dict(cwd=r, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -350,8 +350,7 @@ def installer_changes(r):
         if subprocess.call(["git", "-c", "credential.helper=", "fetch", "--quiet", "origin"], timeout=60, **q) != 0:
             return False
         up = "origin/" + branch()
-        return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install/lib",
-                                "install/patches", "bin"], timeout=30, **q) == 1
+        return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install", "bin"], timeout=30, **q) == 1
     except Exception:
         return False
 

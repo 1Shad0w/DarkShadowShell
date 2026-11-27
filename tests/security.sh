@@ -111,6 +111,14 @@ scripts="$(git -C "$ROOT" rev-parse HEAD)"
 WAYLAND_DISPLAY= RICE_GUI=1 update_guard "$new" "$scripts" </dev/null && bad "started a changed bin script from Settings"
 ok "refuses a changed bin script without a terminal"
 
+mkdir -p "$ROOT/install"
+printf 'echo Gentoo installer\n' >"$ROOT/install/gentoo.sh"
+git -C "$ROOT" add install/gentoo.sh
+git -C "$ROOT" -c user.name=t -c user.email=t@t commit -qm gentoo
+gentoo="$(git -C "$ROOT" rev-parse HEAD)"
+WAYLAND_DISPLAY= RICE_GUI=1 update_guard "$scripts" "$gentoo" </dev/null && bad "started a changed Gentoo installer from Settings"
+ok "refuses a changed Gentoo installer without a terminal"
+
 # ---- the question comes before the pull: a refused update leaves the files as they were
 git clone -q "$ROOT" "$tmp/clone"
 git -C "$tmp/clone" reset -q --hard "$old"

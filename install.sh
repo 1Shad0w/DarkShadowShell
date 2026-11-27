@@ -1232,9 +1232,9 @@ if [ "$MODE" = update ]; then
   title "Update"
   if [ "$PULLED" = 1 ]; then ok "Got the newest version"
   elif [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
-    old="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)"
+    old="$(git -C "$ROOT" rev-parse --verify HEAD)" || exit 1
     export RICE_PREV_REV="${RICE_PREV_REV:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)}"
-    if [ "$DRY_RUN" = 1 ]; then info "would run: git pull"
+    if [ "$DRY_RUN" = 1 ]; then info "would fetch, check, and apply the selected GitHub commit"
     elif ! { u="$(git -C "$ROOT" remote get-url origin 2>/dev/null)"
              # the project's old name first (GitHub sends it on), then: only this project or a fork of it
              case "$u" in *shadowww-dev/shadows-shell*) git -C "$ROOT" remote set-url origin https://github.com/shadowww-dev/DarkShadowShell.git ;; esac
@@ -1243,32 +1243,29 @@ if [ "$MODE" = update ]; then
       exit 1
     elif ! update_precheck; then
       exit 1
-    elif GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" pull --ff-only >>"$LOG" 2>&1; then
-      new="$(git -C "$ROOT" rev-parse --short HEAD)"
+    elif GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" merge --ff-only "$GUARD_CHECKED" >>"$LOG" 2>&1; then
+      new="$(git -C "$ROOT" rev-parse --verify HEAD)" || exit 1
+      if [ "$old" != "$new" ] && [ "$new" != "$GUARD_CHECKED" ]; then
+        fail "The repository moved during the update. Run the update again."
+        exit 1
+      fi
       if [ "$old" != "$new" ]; then
         # new files from GitHub, maybe a new installer too (asked about before the pull): start the new one
         exec "$ROOT/install.sh" --update --pulled "$@"
       fi
     else
-      # the pull did not go (files changed in the repo, or its history went another way). It used to carry on with
+      # the fast-forward did not go (files changed in the repo, or its history went another way). It used to carry on with
       # the old files and say it was done, so the version never moved (Settings > Update Center looked like it
       # updated and nothing changed). Now: what you changed is kept (a stash and a branch), and the repo is set to
       # GitHub's newest version
-      info "git pull did not go through; keeping your changes aside and taking GitHub's version"
+      info "The fast-forward did not go through; keeping your changes aside and taking GitHub's version"
       gq() { GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" "$@" >>"$LOG" 2>&1; }
-      up="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)"
-      if gq fetch origin; then
-        prev="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
-        target="$(git -C "$ROOT" rev-parse "$up" 2>/dev/null || true)"
-        # asked already before the pull, unless GitHub moved on since
-        [ "$target" = "${GUARD_CHECKED:-}" ] || update_guard "$prev" "$target" || exit 1
-        stamp="$(date +%Y%m%d-%H%M%S)"
-        gq branch "rice-before-update-$stamp" HEAD || true
-        # only reset when the stash really kept the changes (a failed stash + reset --hard would lose them)
-        if gq stash push -u -m "rice: your changes before the update of $stamp" && gq reset --hard "$up"; then
-          ok "Took the newest version (your old state: branch rice-before-update-$stamp, and git stash list)"
-          exec "$ROOT/install.sh" --update --pulled "$@"
-        fi
+      stamp="$(date +%Y%m%d-%H%M%S)"
+      gq branch "rice-before-update-$stamp" HEAD || true
+      # Only reset after saving local changes, and use the exact commit that passed the guard.
+      if gq stash push -u -m "rice: your changes before the update of $stamp" && gq reset --hard "$GUARD_CHECKED"; then
+        ok "Took the newest version (your old state: branch rice-before-update-$stamp, and git stash list)"
+        exec "$ROOT/install.sh" --update --pulled "$@"
       fi
       if [ -n "${RICE_GUI:-}" ]; then
         fail "Could not get the newest version from GitHub (offline?). Nothing was changed."
