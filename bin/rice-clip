@@ -21,6 +21,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 import sys
 import time
+import tempfile
 
 HOME = os.path.expanduser("~")
 CFG = HOME + "/.config/rice/clipboard.json"
@@ -32,7 +33,10 @@ DEFAULTS = {"enabled": True, "paste": True, "images": True, "max": 200, "pins": 
 def load():
     c = dict(DEFAULTS)
     try:
-        j = json.load(open(CFG))
+        with os.fdopen(os.open(CFG, os.O_RDONLY | os.O_NOFOLLOW), "r") as f:
+            if os.fstat(f.fileno()).st_mode & 0o077:
+                os.fchmod(f.fileno(), 0o600)
+            j = json.load(f)
         for k in DEFAULTS:
             if k in j:
                 c[k] = j[k]
@@ -49,9 +53,14 @@ def load():
 
 def save(c):
     os.makedirs(os.path.dirname(CFG), exist_ok=True)
-    tmp = CFG + ".tmp"
-    json.dump(c, open(tmp, "w"), indent=1)
-    os.replace(tmp, CFG)
+    fd, tmp = tempfile.mkstemp(prefix=".clipboard-", dir=os.path.dirname(CFG), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(c, f, indent=1)
+        os.replace(tmp, CFG)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 def run(cmd, inp=None, timeout=4, text=True):
