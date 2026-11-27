@@ -20,23 +20,12 @@ PanelWindow {
     screen: Mon.screen
 
     // ---------- settings (~/.config/rice/bar.json, the same file as the top bar) ----------
-    property var bc: ({})
-    property string cfgText: ""
+    readonly property var bc: BarConfig.values
     readonly property string home: Quickshell.env("HOME")
-    Trigger {
-        path: vb.home + "/.config/rice/bar.json"
-        every: 2000
-        onContent: function(t) {
-            const x = t.trim()
-            if (x === vb.cfgText) return
-            vb.cfgText = x
-            try { vb.bc = x === "" ? ({}) : JSON.parse(x) } catch (e) { }
-        }
-    }
     // the edge it sits on now. A move to the other edge (or a new style) plays out: it slides away, changes, slides back
     readonly property bool wantRight: bc.position === "right"
     property bool atRight: false
-    readonly property bool on: bc.enabled !== false && (bc.position === "left" || bc.position === "right")
+    readonly property bool on: (bc.position === "left" || bc.position === "right")
     // styles, like the top bar: flat (the whole edge), island (one pill), islands (a pill for each zone: top, middle,
     // bottom), pills (a pill for each module), dynamic (islands in the Material colors of your theme). notch has no
     // edge to grow out of standing up: islands
@@ -72,7 +61,12 @@ PanelWindow {
     property bool ready: false
     Behavior on t { enabled: vb.ready && !moveAnim.running; NumberAnimation { duration: vb.on ? 460 : 220; easing.type: Easing.Linear } }
     onOnChanged: t = on ? 1 : 0
-    Timer { running: true; interval: 1200; onTriggered: { vb.atRight = vb.wantRight; vb.sty = vb.want; vb.ready = true; vb.t = vb.on ? 1 : 0 } }
+    Component.onCompleted: {
+        atRight = wantRight
+        sty = want
+        t = on ? 1 : 0
+        ready = true
+    }
     onWantRightChanged: if (ready && wantRight !== atRight) moveAnim.restart()
     onWantChanged: if (ready && want !== sty) moveAnim.restart()
     SequentialAnimation {
@@ -104,18 +98,12 @@ PanelWindow {
         if (P[k]) return P[k]
         return kind === "moon" ? ["#ffffff", "#b9bfd8", "#8a93d8", "#cfd6ff"] : ["#fff6e4", "#ffb35c", "#a46bff", "#ff9d4d"]
     }
-    property var osIds: []
-    Process {
-        running: true
-        command: ["bash", "-c", ". /etc/os-release 2>/dev/null; echo \"$ID $ID_LIKE\""]
-        stdout: StdioCollector { onStreamFinished: vb.osIds = text.trim().toLowerCase().split(/\s+/) }
-    }
     readonly property string logoKey: {
         const k = bc.logo || "auto"
         if (k === "apps" || k === "blackhole" || k === "moon") return k
         if (k !== "auto") return logos[k] !== undefined ? k : "apps"
-        for (let i = 0; i < osIds.length; i++) {
-            const id = osIds[i] === "opensuse-tumbleweed" || osIds[i] === "opensuse-leap" ? "opensuse" : osIds[i]
+        for (let i = 0; i < BarConfig.osIds.length; i++) {
+            const id = BarConfig.osIds[i] === "opensuse-tumbleweed" || BarConfig.osIds[i] === "opensuse-leap" ? "opensuse" : BarConfig.osIds[i]
             if (logos[id] !== undefined) return id
         }
         return "tux"

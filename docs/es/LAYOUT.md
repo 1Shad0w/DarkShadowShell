@@ -4,9 +4,9 @@
 
 | Ruta | Contenido |
 | --- | --- |
-| `bin/` | Scripts auxiliares instalados en `~/.local/bin` (`rice-*`, `waybar-set`, `hypr-set`, etc.) |
+| `bin/` | Scripts auxiliares instalados en `~/.local/bin` (`rice-*`, `rice-bar`, `hypr-set`, etc.) |
 | `quickshell/` | Aplicaciones Quickshell (`rice-desktop`, `rice-settings`, `rice-welcome`, `rice-lockscreen`, `rice-apps`, `rice-scene`) |
-| `config/` | Dotfiles instalados en `~/.config` (Hyprland, Waybar, Kitty, Rofi, etc.; la config de niri se genera con `bin/rice-niri`) |
+| `config/` | Dotfiles instalados en `~/.config` (Hyprland, Kitty, Rofi, etc.; la config de niri se genera con `bin/rice-niri`) |
 | `lua/` | Complementos Lua para Hyprland (atajos, Infinite Desktop, gestos, modo gaming, reglas de ventanas) |
 | `install/` | Asistentes de instalación, soporte por distro (`install/gentoo.sh`) y hashes SHA-256 `checksums.txt` |
 | `install.sh` | Instalador y actualizador interactivo (`install`, `update`, `choose`, `restore`) |

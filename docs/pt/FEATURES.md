@@ -10,7 +10,7 @@ Tudo no **DarkShadow's Shell** é controlado pelo app de **Configurações** em 
 
 | Recurso | Detalhes |
 | --- | --- |
-| **Barra DarkShadow** | Barra em Quickshell com posição superior/inferior/esquerda/direita, ocultação automática, sombra suave, transparência, relógio com segundos e retorno opcional para Waybar |
+| **Barra DarkShadow** | Barra em Quickshell com posição superior/inferior/esquerda/direita, ocultação automática, sombra suave, transparência, relógio com segundos |
 | **Estilos de barra e workspaces** | 9 estilos de barra (Dynamic, Flat, Floating, Islands, One island, Frame, Pills, Notch, etc.) e 9 estilos de workspaces (pontos, Pac-Man, letras) |
 | **Ilha Dinâmica** | Relógio central que expande para mostrar player de mídia, volume, workspaces, notificações, bateria/carregador e gravação |
 | **Cartão Hoje & Sistema** | Clique no relógio (ou `SUPER + ALT + D`) para calendário, clima, onda do dia e anéis de CPU/GPU/RAM/disco |

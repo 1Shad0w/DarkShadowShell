@@ -60,7 +60,7 @@ in
       programs.hyprland.enable = lib.mkDefault true;
 
       environment.systemPackages = wallpaperDaemon ++ have [
-        "waybar" "swaynotificationcenter" "hyprlock" "hypridle" "hyprsunset" "hyprpolkitagent"
+        "swaynotificationcenter" "hyprlock" "hypridle" "hyprsunset" "hyprpolkitagent"
         "quickshell" "matugen" "imagemagick" "kitty" "fish" "fastfetch"
         "cava" "curl" "jq" "python3" "playerctl" "brightnessctl" "pamixer" "zenity"
         "wf-recorder" "grim" "slurp" "wl-clipboard" "libnotify" "xdg-user-dirs"

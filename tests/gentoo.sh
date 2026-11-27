@@ -16,7 +16,7 @@ bad() { printf 'not ok %d - %s\n' "$((n + 1))" "$1"; exit 1; }
 
 # ---- a fake Gentoo: three repositories, an installed-package database, /etc/portage
 mk() { mkdir -p "$tmp/repos/$1/$2"; : >"$tmp/repos/$1/$2/$(basename "$2")-1.0.ebuild"; }
-for p in dev-qt/qtwayland media-video/pipewire app-shells/fish gui-apps/waybar sys-auth/elogind gui-apps/wf-recorder \
+for p in dev-qt/qtwayland media-video/pipewire app-shells/fish sys-auth/elogind gui-apps/wf-recorder \
          sys-apps/xdg-desktop-portal x11-themes/papirus-icon-theme; do mk gentoo "$p"; done
 for p in gui-apps/quickshell gui-apps/awww x11-misc/matugen gui-apps/swaync x11-themes/bibata-xcursors; do mk guru "$p"; done
 for p in gui-wm/hyprland gui-apps/hyprlock sys-auth/hyprpolkitagent gui-libs/xdg-desktop-portal-hyprland; do mk hyproverlay "$p"; done

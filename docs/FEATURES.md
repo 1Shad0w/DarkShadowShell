@@ -10,7 +10,7 @@ Everything in **DarkShadow's Shell** is controlled through the Material 3 **Sett
 
 | Feature | Details |
 | --- | --- |
-| **DarkShadow Bar** | Quickshell bar with top/bottom/left/right placement, autohide, soft shadow, transparency, seconds clock, and Waybar fallback |
+| **DarkShadow Bar** | Quickshell bar with top/bottom/left/right placement, autohide, soft shadow, transparency, seconds clock |
 | **Bar & Workspace Styles** | 9 bar styles (Dynamic, Flat, Floating, Islands, One island, Frame, Pills, Notch, etc.) and 9 workspace styles (dots, Pac-Man, letters) |
 | **Dynamic Island** | Center clock that expands into media player, volume, workspaces, notifications, battery/charger, and screen recording |
 | **Today & System Card** | Click the clock (or `SUPER + ALT + D`) for calendar, weather, day wave, and CPU/GPU/RAM/disk rings |
@@ -33,7 +33,7 @@ Everything in **DarkShadow's Shell** is controlled through the Material 3 **Sett
 | Feature | Details |
 | --- | --- |
 | **Color Schemes & Themes** | 21 schemes (Auto, Grey, monochrome, and 13 accents) plus 17 one-click preset themes (Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa, OLED, Brutal, Sakura, etc.) |
-| **App Integration** | Applies your palette to Waybar, borders, notifications, lockscreen, VS Code / VSCodium, and Discord (Vesktop, Vencord, Equicord, BetterDiscord) |
+| **App Integration** | Applies your palette to the bar, borders, notifications, lockscreen, VS Code / VSCodium, and Discord (Vesktop, Vencord, Equicord, BetterDiscord) |
 | **Explore Community Themes** | Browse verified `.dstheme` community setups and share yours ([guide](../community/README.md)) |
 | **Typography & Components** | Uses **Google Sans Flex** (UI) and **Google Sans Code** (code), JetBrainsMono Nerd Font (terminal), plus shape/corner/slider controls |
 | **Motion** | Animation presets (calm, lively, bouncy, snappy, minimal), speed, spring/easing curves |

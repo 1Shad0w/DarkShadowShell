@@ -251,9 +251,9 @@ reboot_now() {
 config_dirs() { local d; for d in "$ROOT"/config/*/; do [ -d "$d" ] && basename "$d"; done; }
 pretty_dir() {
   case "$1" in
-    hypr) echo "Hyprland" ;; waybar) echo "Waybar" ;; swaync) echo "Notifications (swaync)" ;;
+    hypr) echo "Hyprland" ;; waybar) echo "Shared color palette" ;; swaync) echo "Notifications (swaync)" ;;
     rofi) echo "Rofi" ;; matugen) echo "Matugen colors" ;; kitty) echo "Kitty terminal" ;;
-    fastfetch) echo "Fastfetch" ;; btop) echo "btop theme (transparent)" ;; fish) echo "Fish shell" ;; waybar-presets) echo "Waybar presets" ;; *) echo "$1" ;;
+    fastfetch) echo "Fastfetch" ;; btop) echo "btop theme (transparent)" ;; fish) echo "Fish shell" ;; *) echo "$1" ;;
   esac
 }
 
@@ -806,8 +806,8 @@ step_configs() {
 copy_lua() { local f; for f in "$ROOT"/lua/*.lua; do [ -f "$f" ] && put "$f" "$HOME/.config/hypr/$(basename "$f")"; done; return 0; }
 
 # ------------------------------------------------------------------ your saved settings
-# settings/ holds what you chose in Settings on the computer that ran ./sync.sh: the Waybar look
-# (ui.json), dashboard, widgets, notifications, lock screen, rofi, fonts, cursor, effects.
+# settings/ holds what you chose in Settings on the computer that ran ./sync.sh: the bar layout
+# (bar.json), dashboard, widgets, notifications, lock screen, rofi, fonts, cursor, effects.
 # A file is put in place when you do not have it yet, or when you did not change it since the
 # installer put it there last time. Files you changed on this computer are kept, unless you said
 # "use the saved settings" (then yours are backed up first, like every other file).
@@ -817,7 +817,6 @@ settings_dst() {
   local rel="${1#"$ROOT/settings/"}"
   case "$rel" in
     rice/*) echo "$HOME/.config/rice/${rel#rice/}" ;;
-    waybar/*) echo "$HOME/.config/waybar/${rel#waybar/}" ;;
   esac
 }
 settings_sum() { sed -e "s|@HOME@|$HOME|g" -e "s|@USER@|$USER|g" "$1" | sha256sum | cut -c1-16; }
@@ -863,7 +862,6 @@ step_settings() {
     note "To take the saved ones too:  ./install.sh --update --use-saved-settings"
   fi
   if [ "${n_set:-0}" -gt 0 ] && [ "$DRY_RUN" != 1 ]; then
-    [ -f "$HOME/.config/waybar/config.jsonc" ] && task "Waybar: your look" t "$BIN/waybar-set" reapply
     [ -x "$BIN/rice-cursor" ] && task "Cursor" t "$BIN/rice-cursor" restore
   fi
   rm -f "$sf"
@@ -1063,13 +1061,11 @@ remove_old_parts() {
 }
 # the quiet version of those tasks, for updates
 refresh_look() {
-  [ -f "$HOME/.config/waybar/config.jsonc" ] && t "$BIN/waybar-set" distro-icon on
   [ -x "$BIN/desktop-set" ] && t "$BIN/desktop-set" state
   [ -x "$BIN/rice-cc" ] && t "$BIN/rice-cc" migrate
   t "$BIN/rice-notify" apply
   command -v hyprlock >/dev/null 2>&1 && t "$BIN/rice-lock" apply
   t "$BIN/rice-rofi" apply
-  [ -x "$BIN/rice-bar" ] && t bash -c "\"$BIN/rice-bar\" migrate && \"$BIN/rice-bar\" start"
   t "$BIN/rice-hotcorner" apply     # takes the old hot corner blur rule out of your Hyprland config
   remove_old_parts
   [ -x "$BIN/desktop-set" ] && t "$BIN/desktop-set" dock-blur
@@ -1096,13 +1092,11 @@ step_finish() {
     # an update re-applies your settings quietly: one line instead of ten
     task "Refreshing your settings (bar, dock, blur, notifications, lock screen)" refresh_look
   else
-    [ -f "$HOME/.config/waybar/config.jsonc" ] && task "Waybar: ${DISTRO_NAME} logo" t "$BIN/waybar-set" distro-icon on
     [ -x "$BIN/desktop-set" ] && task "Desktop widgets settings" t "$BIN/desktop-set" state
     [ -x "$BIN/rice-cc" ] && task "Notifications shown by the shell (Google-style pop-ups and control center)" t "$BIN/rice-cc" migrate
     task "Notifications style and blur" t "$BIN/rice-notify" apply
     command -v hyprlock >/dev/null 2>&1 && task "Lock screen and idle timers" t "$BIN/rice-lock" apply
     task "Launcher and bar blur" t "$BIN/rice-rofi" apply
-    [ -x "$BIN/rice-bar" ] && task "DarkShadow bar (Waybar stays off)" t bash -c "\"$BIN/rice-bar\" migrate && \"$BIN/rice-bar\" start"
     task "Remove the old hot corner rule" t "$BIN/rice-hotcorner" apply
     remove_old_parts
     [ -x "$BIN/desktop-set" ] && task "Dock and widget blur" t "$BIN/desktop-set" dock-blur
@@ -1185,12 +1179,6 @@ step_finish() {
   fi
 }
 restart_shell() {
-  if [ -x "$BIN/rice-bar" ] && "$BIN/rice-bar" enabled 2>/dev/null; then
-    "$BIN/rice-bar" start
-  else
-    pkill -x waybar 2>/dev/null; pkill -x .waybar-wrapped 2>/dev/null; sleep 0.3
-    command -v waybar >/dev/null 2>&1 && detach waybar
-  fi
   [ -x "$BIN/rice-desktop" ] && T=10 t "$BIN/rice-desktop" restart
   return 0
 }
@@ -1338,7 +1326,7 @@ WM="${WM_ARG:-$(wm_guess)}"
 wm_packages
 if [ "$MENU_CHOICE" = 2 ]; then
   menu_multi "Choose what to install" \
-    "Packages|$(wm_name), Quickshell, Waybar, tools|${WANT[0]}" \
+    "Packages|$(wm_name), Quickshell, tools|${WANT[0]}" \
     "Fonts|Inter, Rubik, Nerd Font icons and clock fonts|1" \
     "Config files|Hyprland, bar, notifications, launcher|1" \
     "Apps and scripts|Settings app, widgets, dock|1" \

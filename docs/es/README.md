@@ -11,7 +11,7 @@ Bienvenido al centro de documentación de **DarkShadow's Shell** (fork `1Shad0w/
 | **[Instalación](INSTALL.md)** | Distros soportadas (Arch, CachyOS, Artix, Fedora, Gentoo, NixOS), Hyprland vs. niri, opciones del instalador, copias de seguridad y actualización |
 | **[Funciones](FEATURES.md)** | Catálogo detallado de la barra, Isla Dinámica, widgets, Vibe, temas, dock, lanzador, Infinite Desktop, SDDM, Care y más |
 | **[Atajos](KEYBINDS.md)** | Todos los atajos de teclado, ratón y touchpad para Hyprland y niri |
-| **[Personalización](CUSTOMIZE.md)** | Alternativas por línea de comandos (`waybar-set`, `rice-rofi`, `rice-colors`, `rice-notify`, `rice-lock`, `rice-hotcorner`) |
+| **[Personalización](CUSTOMIZE.md)** | Alternativas por línea de comandos (`rice-bar`, `rice-rofi`, `rice-colors`, `rice-notify`, `rice-lock`, `rice-hotcorner`) |
 | **[Estructura del repositorio](LAYOUT.md)** | Mapa carpeta por carpeta del código y cómo funciona `sync.sh` |
 
 ## Proyecto y seguridad

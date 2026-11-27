@@ -752,7 +752,7 @@ ShellRoot {
     // the bar on the left or right edge (Settings > DarkShadow bar > Position)
     // V4.96: the side bar only while the bar is on the left or right (and a moment after, for its way out)
     property bool vbAlive: false
-    readonly property bool vbWant: mainBar.vertical && mainBar.bc.enabled !== false
+    readonly property bool vbWant: mainBar.vertical
     onVbWantChanged: { if (vbWant) { vbOff.stop(); vbAlive = true } else vbOff.restart() }
     Timer { id: vbOff; interval: 2500; onTriggered: root.vbAlive = false }
     LazyLoader { active: root.vbAlive; VBar { } }

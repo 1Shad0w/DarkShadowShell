@@ -57,12 +57,10 @@ local menu        = "$HOME/.local/bin/rice-launch"   -- the launcher (SUPER + R,
 -- Or execute your favorite apps at launch like this:
 --
 hl.on("hyprland.start", function ()
-    hl.exec_cmd("$HOME/.local/bin/rice-bar start")
    hl.exec_cmd("$HOME/.local/bin/rice-walls awww")
    hl.exec_cmd("$HOME/.local/bin/rice-notifyd")
    hl.exec_cmd("hypridle")
    hl.exec_cmd("$HOME/.local/bin/border-sync")
-   hl.exec_cmd("$HOME/.local/bin/ws-watch")
  end)
 
 
@@ -432,13 +430,6 @@ hl.layer_rule({
     ignore_alpha = 0.1,
 })
 
-hl.layer_rule({
-    name  = "waybar-blur",
-    match = { namespace = "waybar" },
-    blur = true,
-    ignore_alpha = 0.1,
-})
-
 hl.window_rule({
     name  = "rice-settings",
     match = { title = "^Rice Settings$" },
@@ -456,12 +447,6 @@ hl.window_rule({
 
 hl.bind("SUPER + U", hl.dsp.exec_cmd("$HOME/.local/bin/rice-settings"))
 
-hl.layer_rule({
-    name  = "waybar-slide",
-    match = { namespace = "waybar" },
-    animation = "slide top",
-})
-
 for _, m in ipairs({ "hyprland-gui", "rice-settings", "rice-dock", "rice-notify", "rice-rofi", "rice-desktop" }) do
     pcall(require, m)
 end
@@ -477,7 +462,7 @@ hl.window_rule({
 })
 
 
--- rice-tooltip-blur: blur for waybar tooltips (popups)
+-- rice-tooltip-blur: blur for tooltips (popups)
 pcall(hl.config, { decoration = { blur = { popups = true, popups_ignorealpha = 0.2 } } })
 
 pcall(require, "rice-keys")

@@ -505,15 +505,6 @@ Item {
             }
 
             ToggleRow {
-                label: I18n.t("Bar transparency")
-                desc: I18n.t("Translucent bar with blur; off makes it solid")
-                checked: page.ctl.st.transparent === true
-                onToggled: function(v) {
-                    page.ctl.setSt("transparent", v)
-                    page.ctl.run(["transparency", v ? "on" : "off"])
-                }
-            }
-            ToggleRow {
                 label: I18n.t("Window blur")
                 desc: I18n.t("Blur behind the bar, notifications and see-through windows")
                 checked: page.ctl.hv["decoration.blur.enabled"] !== false

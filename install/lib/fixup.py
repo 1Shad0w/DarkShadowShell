@@ -2,8 +2,6 @@
 
 - require("x") lines whose x.lua does not exist here are commented out (instead of breaking the config)
 - values that newer Hyprland versions reject are clamped (shadow render_power 1..4)
-- V3.17: the Hyprland autostart starts the DarkShadow bar (rice-bar start: Waybar only if you switched it off) and
-  ALT + Space opens the DarkShadow Launcher (rice-launch: Rofi if you chose Rofi). A copy of the file is kept next to it
 Prints one line per change. Safe to run many times.
 
 Every file is read and written while holding hypr-set's lock (~/.config/rice/.hypr.lock), so an update that runs
@@ -120,8 +118,9 @@ def migrate_main(path):
     except OSError:
         return
     n = s
-    if "rice-bar start" not in n:
-        n = re.sub(r'hl\.exec_cmd\(\s*"waybar"\s*\)', 'hl.exec_cmd("$HOME/.local/bin/rice-bar start")', n)
+    # Drop the old shell-managed Waybar startup commands on existing installations.
+    n = re.sub(r'^[ \t]*hl\.exec_cmd\(\s*"\$HOME/\.local/bin/(?:rice-bar start|ws-watch)"\s*\)[ \t]*\n',
+               "", n, flags=re.M)
     # V3.24: swaync starts through rice-notifyd, which leaves it off when the shell shows notifications itself
     if "rice-notifyd" not in n:
         n = re.sub(r'hl\.exec_cmd\(\s*"swaync"\s*\)', 'hl.exec_cmd("$HOME/.local/bin/rice-notifyd")', n)

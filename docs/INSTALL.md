@@ -96,7 +96,7 @@ Packages are declared in your system configuration:
 Run `sudo nixos-rebuild switch && ./install.sh` (set `programs.niri.enable = false;` if you do not want niri).
 
 ### Other distros
-The installer lists missing dependencies (`Hyprland`, `Waybar`, `Quickshell qs`, `swaync`, `cava`, `rofi`, `jq`, `python3`, `awww`, `hyprlock`). Install them with your package manager, then run `./install.sh`.
+The installer lists missing dependencies (`Hyprland`, `Quickshell qs`, `swaync`, `cava`, `rofi`, `jq`, `python3`, `awww`, `hyprlock`). Install them with your package manager, then run `./install.sh`.
 
 ---
 
