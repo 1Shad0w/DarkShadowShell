@@ -3,15 +3,16 @@ import Quickshell.Io
 import QtQuick
 
 // Guided onboarding over the night backdrop, mandatory on first login. One step per area of the shell:
-//   0 Language & region   1 Keyboard     2 Look          3 Colors        4 Bar & dock     5 Widgets
-//   6 Font & cursor       7 Sounds       8 Power & lock  9 Performance  10 Profile & login  11 All set
+//   0 Language & region   1 Keyboard      2 Wi-Fi & Bluetooth  3 Look          4 Colors      5 Bar & dock   6 Widgets
+//   7 Font & cursor       8 Sounds        9 Notifications      10 Power & lock 11 Performance 12 Profile & login
+//   13 All set
 // Every selection runs the same commands Settings uses, so the live desktop changes immediately.
 Item {
     id: su
     property bool shown: false
     property bool mandatory: false
     property int page: 0
-    readonly property int last: 11       // the summary page
+    readonly property int last: 13       // the summary page
 
     readonly property bool niri: !!Quickshell.env("NIRI_SOCKET")
 
@@ -24,7 +25,11 @@ Item {
     // 1: Keyboard
     property string kbdLayout: "us"
 
-    // 2: Look
+    // 2: Wi-Fi & Bluetooth
+    property bool wifiOn: true
+    property bool btOn: false
+
+    // 3: Look
     property var presets: []
     property string look: ""             // "" = keep my desktop
     property string lookName: ""
@@ -46,6 +51,13 @@ Item {
     property var cursors: []
     property string cursorTheme: ""
     property int cursorSize: 24
+
+    // 9: Notifications
+    property bool dndOn: false
+    property string notifX: "right"
+    property string notifY: "top"
+    property int notifTimeout: 6
+    property string notifSound: "glass"
 
     // 7: Sounds
     property bool sfxOn: true
@@ -73,18 +85,20 @@ Item {
 
     readonly property string bin: Quickshell.env("HOME") + "/.local/bin/"
     readonly property var pageNames: [
-        "Language & region", "Keyboard", "Pick a look", "Colors", "Bar & dock", "Desktop widgets",
-        "Font & cursor", "Sounds", "Power & lock", "Performance", "Profile & login", "All set"
+        "Language & region", "Keyboard", "Wi-Fi & Bluetooth", "Pick a look", "Colors", "Bar & dock", "Desktop widgets",
+        "Font & cursor", "Sounds", "Notifications", "Power & lock", "Performance", "Profile & login", "All set"
     ]
     readonly property var pageText: [
         "Set your shell language, clock format, and temperature units.",
         "Choose the layout you type with.",
+        "Turn the wireless radios on or off. Connect to networks and devices from the bar later.",
         "A whole desktop look in one click. You can change it any time in Settings.",
         "The accent color the whole desktop is tinted with.",
         "Choose your top bar style and whether a bottom dock appears.",
         "Pick the widgets that live on your desktop. Move them later with SUPER + ALT + W.",
         "Pick the interface font and your pointer cursor theme and size.",
         "Interface sounds when you click, switch and open things.",
+        "Where notifications pop up, how long they stay and whether they make a sound.",
         "When the screen locks, turns off and the computer sleeps.",
         "Full effects look best; Light mode is kinder to slower computers.",
         "Confirm your profile and style the lock screen and login clock.",
@@ -119,6 +133,11 @@ Item {
         { k: "Inter", n: "Inter", s: "Crisp neutral sans" },
         { k: "Rubik", n: "Rubik", s: "Soft rounded UI" }
     ]
+    readonly property var notifXs: [{ k: "left", n: "Left" }, { k: "center", n: "Center" }, { k: "right", n: "Right" }]
+    readonly property var notifYs: [{ k: "top", n: "Top" }, { k: "bottom", n: "Bottom" }]
+    readonly property var notifTimeouts: [4, 6, 10, 15]
+    readonly property var notifSounds: [{ k: "glass", n: "Glass" }, { k: "droplet", n: "Droplet" }, { k: "chime", n: "Chime" },
+                                        { k: "bubble", n: "Bubble" }, { k: "marimba", n: "Marimba" }, { k: "off", n: "Silent" }]
     readonly property var cursorSizes: [24, 28, 32]
     readonly property var volumes: [{ k: 25, n: "Quiet" }, { k: 45, n: "Normal" }, { k: 70, n: "Loud" }]
     readonly property var lockChoices: [0, 5, 10, 15, 30]
@@ -168,6 +187,35 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 try { const j = JSON.parse(text); if (j.layouts && j.layouts.length > 0) su.kbdLayout = j.layouts[0] } catch (e) {}
+            }
+        }
+    }
+    Process {
+        command: [su.bin + "rice-services", "state"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const j = JSON.parse(text)
+                    su.wifiOn = j.wifi !== false
+                    su.btOn = j.bluetooth === true
+                    su.dndOn = j.dnd === true
+                } catch (e) {}
+            }
+        }
+    }
+    Process {
+        command: [su.bin + "rice-notify", "state"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const j = JSON.parse(text)
+                    su.notifX = j.pos_x || "right"
+                    su.notifY = j.pos_y || "top"
+                    su.notifTimeout = j.timeout || 6
+                    su.notifSound = j.sound || "glass"
+                } catch (e) {}
             }
         }
     }
@@ -299,6 +347,13 @@ Item {
     function pickClock(k) { clock = k; Sfx.play("select"); run(bin_("rice-region") + " set clock " + shQuote(k) + " >/dev/null 2>&1") }
     function pickUnits(k) { units = k; Sfx.play("select"); run(bin_("rice-region") + " set units " + shQuote(k) + " >/dev/null 2>&1") }
     function pickKbd(k) { kbdLayout = k; Sfx.play("select"); run(bin_("hypr-set") + " kbd-set " + shQuote(k) + " >/dev/null 2>&1 || true") }
+    function setWifi(v) { wifiOn = v; Sfx.play(v ? "switch-on" : "switch-off"); run(bin_("rice-services") + " set wifi " + (v ? "on" : "off") + " >/dev/null 2>&1") }
+    function setBt(v) { btOn = v; Sfx.play(v ? "switch-on" : "switch-off"); run(bin_("rice-services") + " set bluetooth " + (v ? "on" : "off") + " >/dev/null 2>&1") }
+    function setDnd(v) { dndOn = v; Sfx.play(v ? "switch-on" : "switch-off"); run(bin_("rice-services") + " set dnd " + (v ? "on" : "off") + " >/dev/null 2>&1") }
+    function pickNotifX(k) { notifX = k; Sfx.play("select"); run(bin_("rice-notify") + " set pos_x " + shQuote(k) + " >/dev/null 2>&1") }
+    function pickNotifY(k) { notifY = k; Sfx.play("select"); run(bin_("rice-notify") + " set pos_y " + shQuote(k) + " >/dev/null 2>&1") }
+    function pickNotifTimeout(n) { notifTimeout = n; Sfx.play("select"); run(bin_("rice-notify") + " set timeout " + n + " >/dev/null 2>&1") }
+    function pickNotifSound(k) { notifSound = k; Sfx.play("select"); run(bin_("rice-notify") + " set sound " + shQuote(k) + " >/dev/null 2>&1") }
     function pickLook(k, n) {
         if (look === k) return
         look = k; lookName = n || ""; Sfx.play("select")
@@ -416,8 +471,8 @@ Item {
                     }
                     Loader {
                         y: 88; width: parent.width; height: parent.height - 88
-                        sourceComponent: [regionPage, keyboardPage, lookPage, colorsPage, barDockPage, widgetsPage,
-                                          fontCursorPage, soundsPage, powerPage, performancePage, profilePage, donePage][pg.index]
+                        sourceComponent: [regionPage, keyboardPage, networkPage, lookPage, colorsPage, barDockPage, widgetsPage,
+                                          fontCursorPage, soundsPage, notificationsPage, powerPage, performancePage, profilePage, donePage][pg.index]
                     }
                 }
             }
@@ -535,7 +590,38 @@ Item {
         }
     }
 
-    // ---------- 2: Look ----------
+    // ---------- 2: Wi-Fi & Bluetooth ----------
+    Component {
+        id: networkPage
+        Column {
+            spacing: 24
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "WI-FI"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    PillChoice { text: "On"; on: su.wifiOn; onClicked: su.setWifi(true) }
+                    PillChoice { text: "Off"; on: !su.wifiOn; onClicked: su.setWifi(false) }
+                }
+            }
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "BLUETOOTH"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    PillChoice { text: "On"; on: su.btOn; onClicked: su.setBt(true) }
+                    PillChoice { text: "Off"; on: !su.btOn; onClicked: su.setBt(false) }
+                }
+            }
+            T {
+                width: parent.width; wrapMode: Text.WordWrap
+                text: "Turning Wi-Fi off disconnects you from the internet if you are not on a cable."
+                font.pixelSize: 13; color: "#7d8092"
+            }
+        }
+    }
+
+    // ---------- 3: Look ----------
     Component {
         id: lookPage
         Flow {
@@ -566,7 +652,7 @@ Item {
         }
     }
 
-    // ---------- 3: Colors ----------
+    // ---------- 4: Colors ----------
     Component {
         id: colorsPage
         Flow {
@@ -604,7 +690,7 @@ Item {
         }
     }
 
-    // ---------- 4: Bar & dock ----------
+    // ---------- 5: Bar & dock ----------
     Component {
         id: barDockPage
         Column {
@@ -679,7 +765,7 @@ Item {
         }
     }
 
-    // ---------- 5: Desktop widgets ----------
+    // ---------- 6: Desktop widgets ----------
     Component {
         id: widgetsPage
         Column {
@@ -702,7 +788,7 @@ Item {
         }
     }
 
-    // ---------- 6: Font & cursor ----------
+    // ---------- 7: Font & cursor ----------
     Component {
         id: fontCursorPage
         Column {
@@ -767,7 +853,7 @@ Item {
         }
     }
 
-    // ---------- 7: Sounds ----------
+    // ---------- 8: Sounds ----------
     Component {
         id: soundsPage
         Column {
@@ -820,7 +906,93 @@ Item {
         }
     }
 
-    // ---------- 8: Power & lock ----------
+    // ---------- 9: Notifications ----------
+    Component {
+        id: notificationsPage
+        Column {
+            spacing: 20
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "DO NOT DISTURB"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    PillChoice { text: "Off"; on: !su.dndOn; onClicked: su.setDnd(false) }
+                    PillChoice { text: "On"; on: su.dndOn; onClicked: su.setDnd(true) }
+                }
+            }
+            Row {
+                spacing: 40
+                Column {
+                    spacing: 10
+                    T { kind: "mono"; text: "POPUP SIDE"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                    Row {
+                        spacing: 10
+                        Repeater {
+                            model: su.notifXs
+                            delegate: PillChoice {
+                                required property var modelData
+                                text: modelData.n
+                                on: su.notifX === modelData.k
+                                onClicked: su.pickNotifX(modelData.k)
+                            }
+                        }
+                    }
+                }
+                Column {
+                    spacing: 10
+                    T { kind: "mono"; text: "POPUP EDGE"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                    Row {
+                        spacing: 10
+                        Repeater {
+                            model: su.notifYs
+                            delegate: PillChoice {
+                                required property var modelData
+                                text: modelData.n
+                                on: su.notifY === modelData.k
+                                onClicked: su.pickNotifY(modelData.k)
+                            }
+                        }
+                    }
+                }
+            }
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "STAYS ON SCREEN FOR"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    Repeater {
+                        model: su.notifTimeouts
+                        delegate: PillChoice {
+                            required property int modelData
+                            text: modelData + " s"
+                            on: su.notifTimeout === modelData
+                            onClicked: su.pickNotifTimeout(modelData)
+                        }
+                    }
+                }
+            }
+            Column {
+                spacing: 10
+                width: parent.width
+                T { kind: "mono"; text: "NOTIFICATION SOUND"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Flow {
+                    width: parent.width
+                    spacing: 10
+                    Repeater {
+                        model: su.notifSounds
+                        delegate: PillChoice {
+                            required property var modelData
+                            text: modelData.n
+                            on: su.notifSound === modelData.k
+                            onClicked: su.pickNotifSound(modelData.k)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- 10: Power & lock ----------
     Component {
         id: powerPage
         Column {
@@ -876,7 +1048,7 @@ Item {
         }
     }
 
-    // ---------- 9: Performance ----------
+    // ---------- 11: Performance ----------
     Component {
         id: performancePage
         Row {
@@ -904,7 +1076,7 @@ Item {
         }
     }
 
-    // ---------- 10: Profile & login ----------
+    // ---------- 12: Profile & login ----------
     Component {
         id: profilePage
         Column {
@@ -957,23 +1129,25 @@ Item {
         }
     }
 
-    // ---------- 11: Summary ----------
+    // ---------- 13: Summary ----------
     Component {
         id: donePage
         Grid {
             columns: 2
             columnSpacing: 40
-            rowSpacing: 10
+            rowSpacing: 6
             Repeater {
                 model: [
                     { t: "Language & region", v: su.langName + " · " + su.clock + "h · " + (su.units === "f" ? "°F" : "°C") },
                     { t: "Keyboard", v: su.niri ? "Set in Settings" : su.kbdLayout },
+                    { t: "Wi-Fi & Bluetooth", v: "Wi-Fi " + (su.wifiOn ? "on" : "off") + " · Bluetooth " + (su.btOn ? "on" : "off") },
                     { t: "Look", v: su.look === "" ? "Kept yours" : (su.look === "backup" ? "Your backup" : su.lookName) },
                     { t: "Colors", v: su.colorKey },
                     { t: "Bar & dock", v: (su.bar === "" ? "Default bar" : su.barName()) + " · " + (su.dock === "" ? "Default dock" : su.dock) },
                     { t: "Widgets", v: su.widgetsSummary() },
                     { t: "Font & cursor", v: su.uiFont + " · " + (su.cursorTheme === "" ? "Default" : su.cursorTheme) + " (" + su.cursorSize + "px)" },
                     { t: "Sounds", v: su.sfxOn ? (su.sfxPack + " · " + su.sfxVolume + "%") : "Off" },
+                    { t: "Notifications", v: (su.dndOn ? "Do not disturb · " : "") + su.notifY + " " + su.notifX + " · " + su.notifTimeout + " s · " + su.notifSound },
                     { t: "Power & lock", v: "lock " + su.mins(su.lockAfter) + " · sleep " + su.mins(su.suspendAfter) },
                     { t: "Performance", v: su.lite ? "Light mode" : "Full effects" },
                     { t: "Profile & login", v: "@" + su.accountUser + " · " + su.sddmClock + (su.sddmSynced ? " (synced)" : "") }
