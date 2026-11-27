@@ -69,21 +69,17 @@ update_remote_ok() {
   [[ "$u" =~ ^(https://|git@|ssh://(git@)?)(www\.)?github\.com[:/][^/]+/(DarkShadowShell|dotfiles)(\.git)?/?$ ]]
 }
 
-# update_precheck: before the pull moves anything, fetch and ask about a changed installer (an answer after the pull
-# came too late: the new files were already there, and the next run started them without asking)
-update_precheck() {
-  local up t old
-  GUARD_CHECKED=
-  if ! GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" fetch origin >>"${LOG:-/dev/null}" 2>&1; then
-    fail "Could not fetch the update from GitHub."
+update_release_precheck() {
+  local tag="$1" ref old
+  ref="refs/tags/$tag"
+  git -C "$ROOT" check-ref-format "$ref" >/dev/null || return 1
+  if ! GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" fetch --no-tags origin "$ref:$ref" >>"$LOG" 2>&1; then
+    fail "Could not fetch the selected release tag: $tag"
     return 1
   fi
-  up="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)"
-  t="$(git -C "$ROOT" rev-parse --verify "$up^{commit}" 2>/dev/null)" || return 1
-  old="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null)" || return 1
-  update_guard "$old" "$t" || return 1
-  # shellcheck disable=SC2034  # install.sh reads this variable after sourcing this file
-  GUARD_CHECKED="$t"
+  RELEASE_REVISION="$(git -C "$ROOT" rev-parse --verify "$ref^{commit}" 2>/dev/null)" || return 1
+  old="$(git -C "$ROOT" rev-parse --verify HEAD)" || return 1
+  update_guard "$old" "$RELEASE_REVISION"
 }
 
 # update_guard OLD NEW: an update can bring a new install.sh, or scripts it runs, and that code runs with your

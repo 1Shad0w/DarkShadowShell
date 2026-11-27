@@ -316,8 +316,8 @@ Item {
         SegRow {
             label: I18n.t("Update channel")
             desc: page.channel === "dev"
-                ? I18n.t("Checks commits on the dev branch")
-                : I18n.t("Checks commits on the main branch")
+                ? I18n.t("Checks releases and pre-releases")
+                : I18n.t("Checks stable releases")
             options: [
                 { label: I18n.t("Stable (main)"), value: "stable" },
                 { label: I18n.t("Dev (dev)"), value: "dev" }
