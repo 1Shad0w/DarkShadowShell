@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Io
 import QtQuick
 
 // Desktop widget "Forecast": where you are, the temperature now in big numbers, the sky in your shape, how it
@@ -9,19 +8,14 @@ Item {
     property var pal: null
     property real bg: 1
     property bool running: true
-    property var w: null
+    readonly property var w: BarSvc.wx
     readonly property color fg: pal ? pal.fg : "#F6F5F4"
     readonly property color fg2: pal ? pal.fg2 : "#c8c8cc"
     readonly property color fg3: pal ? pal.fg3 : "#8a8a8f"
     readonly property color acc: pal ? pal.primary : "#9ec9bd"
     readonly property bool night: { const h = new Date().getHours(); return h < 6 || h >= 19 }
 
-    Process {
-        id: fetch
-        command: [Quickshell.env("HOME") + "/.local/bin/rice-weather", "json"]
-        stdout: StdioCollector { onStreamFinished: { try { const j = JSON.parse(text.trim().split("\n").pop()); if (j && j.temp !== undefined) fw.w = j } catch (e) { } } }
-    }
-    Timer { interval: 1800000; running: fw.running; repeat: true; triggeredOnStart: true; onTriggered: if (!fetch.running) fetch.running = true }
+    WeatherHold { on: fw.running }
 
     Card { anchors.fill: parent; k: fw.bg; pal: fw.pal }
 
