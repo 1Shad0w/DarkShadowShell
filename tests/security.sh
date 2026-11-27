@@ -484,5 +484,53 @@ hs="$tmp/hs/home/.config/hypr/rice-settings.lua"
 grep -q 'café' "$hs" && ok "a bind command keeps its accent" || bad "the accent was escaped or lost"
 grep -q '\\u00e9' "$hs" && bad "the Lua file has a \u escape" || ok "no \u escape in the Lua file"
 
+# The fork tag is the visible version, and untagged commits still have distinct update notes.
+mkdir -p "$tmp/version/home/.config/rice"
+HOME="$tmp/version/home" python3 - "$root/bin/rice-update" <<'PYV' && ok "update versions follow the installed and target revisions" || bad "update release versions"
+import json
+import os
+from pathlib import Path
+import runpy
+import subprocess
+import sys
+
+m = runpy.run_path(sys.argv[1])
+home = Path(os.environ["HOME"])
+repo = home / "shadows-shell"
+repo.mkdir()
+def git(*args):
+    return subprocess.check_output(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=t@example.com",
+                                    *args], text=True).strip()
+def commit(subject):
+    git("commit", "-qam", subject, "--allow-empty")
+    return git("rev-parse", "HEAD")
+git("init", "-q")
+(repo / "install.sh").touch()
+(repo / "VERSION").write_text("6.83\n")
+(repo / "CHANGELOG.md").write_text("## V6.83: upstream\n- Old upstream message\n")
+git("add", ".")
+old = commit("First fork release")
+git("tag", "V.6.82-0.2.0")
+current = commit("Second fork release")
+git("tag", "-a", "V.6.82-0.2.1", "-m", "Release")
+git("update-ref", "refs/remotes/origin/main", current)
+Path(m["INSTALLED"]).write_text("6.83\n")
+Path(m["INSTALLED_REV"]).write_text(old + "\n")
+st = m["check"](offline=True)
+assert (st["installed"], st["latest"], st["update"]) == ("6.82-0.2.0", "6.82-0.2.1", True), st
+assert st["news"] == ["Second fork release"], st
+assert m["key"]("V.6.82-0.2.10") > m["key"]("V.6.82-0.2.9")
+assert m["clean"]("Dotfiles-V6.82-V0.1.0") == "6.82-0.1.0"
+Path(m["INSTALLED_REV"]).unlink()
+st = m["check"](offline=True)
+assert (st["installed"], st["latest"], st["update"]) == ("6.82-0.2.1", "6.82-0.2.1", False), st
+Path(m["INSTALLED_REV"]).write_text(current + "\n")
+next_rev = commit("New bar behavior")
+git("update-ref", "refs/remotes/origin/main", next_rev)
+st = m["check"](offline=True)
+assert st["installed"] == st["latest"] == "6.82-0.2.1", st
+assert st["changes"] == 1 and st["update"] and st["news"] == ["New bar behavior"], st
+PYV
+
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"

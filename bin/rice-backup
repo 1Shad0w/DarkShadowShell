@@ -150,7 +150,7 @@ def restore(path, before=True, out=True):
             for m in members:
                 # V6.55: the shell's own record of which version is installed (and where its repo is) stays as it is
                 # here: an older backup or profile made the updater think an old version was back
-                if m.name in ("home/.config/rice/version", "home/.config/rice/repo"):
+                if m.name in ("home/.config/rice/version", "home/.config/rice/version-revision", "home/.config/rice/repo"):
                     continue
                 if m.name.startswith("wallpaper/"):
                     os.makedirs(walls, exist_ok=True)
