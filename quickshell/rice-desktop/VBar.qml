@@ -149,7 +149,7 @@ PanelWindow {
     readonly property bool charging: batt && (batt.state === UPowerDeviceState.Charging || batt.state === UPowerDeviceState.FullyCharged)
     readonly property bool plugged: hasBatt && !UPower.onBattery
     readonly property var svc: BarSvc.state
-    Binding { target: BarSvc; property: "sideShown"; value: vb.on }
+    Binding { target: BarSvc; property: "sideShown"; value: vb.on && (vb.hasMod("network") || vb.hasMod("bluetooth") || vb.hasMod("notifications")) }
     property var now: new Date()
     Timer { interval: 15000; running: vb.on; repeat: true; triggeredOnStart: true; onTriggered: vb.now = new Date() }
     property bool h12: false

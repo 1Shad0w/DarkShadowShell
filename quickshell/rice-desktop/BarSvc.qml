@@ -8,8 +8,8 @@ import QtQuick
 // own rice-services every 8 s and its own rice-weather.
 Singleton {
     id: svc
-    property bool shown: false          // the top bar is on screen
-    property bool sideShown: false      // the side bar (VBar) is on screen; only while one of them is, anything is asked
+    property bool shown: false          // the horizontal bar shows a service module
+    property bool sideShown: false      // the vertical bar shows a service module
     property bool dockShown: false      // V4.92: the dock shows Wi-Fi, Bluetooth or notifications (its modules)
     property var state: ({})            // rice-services state
     property var wx: null               // full forecast read by the weather module and cards
