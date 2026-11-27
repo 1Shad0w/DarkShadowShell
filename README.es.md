@@ -7,12 +7,6 @@
 </p>
 
 <p align="center">
-  <b>Un rice para Hyprland y niri con su propia app de Ajustes en Quickshell, barra, lanzador, widgets de escritorio y dock.</b><br>
-  Todo se configura con deslizadores e interruptores en una sola aplicación. Sin editar archivos a mano.<br>
-  Proyecto original de <a href="https://github.com/shadowww-dev/DarkShadowShell">shadowww-dev</a> · Fork mantenido: <a href="https://github.com/1Shad0w/DarkShadowShell">1Shad0w/DarkShadowShell</a>
-</p>
-
-<p align="center">
   <a href="docs/es/INSTALL.md#sistemas-soportados"><img src="https://img.shields.io/badge/Arch_Linux-1793D1?style=for-the-badge&labelColor=11111b&logo=archlinux&logoColor=1793D1&color=1a1b26" alt="Arch Linux"></a>
   <a href="docs/es/INSTALL.md#artix-linux-openrc-runit-s6-dinit"><img src="https://img.shields.io/badge/Artix_Linux-10A0CC?style=for-the-badge&labelColor=11111b&logo=artixlinux&logoColor=10A0CC&color=1a1b26" alt="Artix Linux"></a>
   <a href="docs/es/INSTALL.md#arch-linux-cachyos-endeavouros-garuda"><img src="https://img.shields.io/badge/CachyOS-08A283?style=for-the-badge&labelColor=11111b&logo=cachyos&logoColor=08A283&color=1a1b26" alt="CachyOS"></a>
