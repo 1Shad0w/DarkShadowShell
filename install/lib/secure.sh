@@ -79,6 +79,17 @@ update_release_precheck() {
   fi
   RELEASE_REVISION="$(git -C "$ROOT" rev-parse --verify "$ref^{commit}" 2>/dev/null)" || return 1
   old="$(git -C "$ROOT" rev-parse --verify HEAD)" || return 1
+  # A known older commit must stay blocked even if its tag was absent during the check.
+  local installed_rev
+  installed_rev="$(cat "$HOME/.config/rice/version-revision" 2>/dev/null || true)"
+  if [ -z "$installed_rev" ] && [ -n "${HAVE_VERSION:-}" ] && [ "$HAVE_VERSION" = "${RICE_VERSION:-}" ]; then
+    installed_rev="$old"
+  fi
+  if [[ "$installed_rev" =~ ^[0-9a-f]{40,64}$ ]] && [ "$RELEASE_REVISION" != "$installed_rev" ] &&
+    git -C "$ROOT" merge-base --is-ancestor "$RELEASE_REVISION" "$installed_rev"; then
+    fail "Release $tag is older than the installed revision."
+    return 1
+  fi
   update_guard "$old" "$RELEASE_REVISION"
 }
 

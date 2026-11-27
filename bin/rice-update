@@ -271,6 +271,23 @@ def published_at(release):
     return release["published_at"], key(release["tag_name"])
 
 
+def release_is_older(r, tag):
+    if not r or not os.path.exists(r + "/.git"):
+        return False
+    try:
+        revision = installed_revision(r)
+        if not revision:
+            return False
+        current = git(r, "rev-parse", "--verify", revision + "^{commit}", timeout=5)
+        candidate = git(r, "rev-parse", "--verify", "refs/tags/" + tag + "^{commit}", timeout=5)
+        if current.returncode != 0 or candidate.returncode != 0 or current.stdout == candidate.stdout:
+            return False
+        return git(r, "merge-base", "--is-ancestor", candidate.stdout.strip(), current.stdout.strip(),
+                   timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def check(offline=False, r=None):
     r = r or repo()
     have = installed(r)
@@ -282,7 +299,8 @@ def check(offline=False, r=None):
     target = clean(latest["tag_name"]) if latest else have
     # Compare publications, not branch tips or the upstream VERSION fallback.
     update = bool(latest and target != have and
-                  (installed_release is None or published_at(latest) > published_at(installed_release)))
+                  (installed_release is None or published_at(latest) > published_at(installed_release))
+                  and not release_is_older(r, latest["tag_name"]))
     notes = [line.strip()[2:].strip() for line in ((latest or {}).get("body") or "").splitlines()
              if line.strip().startswith(("- ", "* "))]
     out = {"installed": have, "latest": target, "update": update, "changes": 0, "commit": "",

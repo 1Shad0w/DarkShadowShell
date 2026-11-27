@@ -133,6 +133,14 @@ git -C "$ROOT" -c user.name=t -c user.email=t@t commit --allow-empty -qm later
 ( ROOT="$tmp/clone"; LOG=/dev/null; RICE_TRUST_UPDATE=1; update_release_precheck v6.82-0.2.1 && [ "$RELEASE_REVISION" = "$target" ] ) \
   && ok "the release guard selects the tag even when the branch has moved" || bad "release guard followed a branch tip"
 
+mkdir -p "$tmp/release-home/.config/rice"
+git -C "$tmp/clone" fetch -q origin
+git -C "$ROOT" rev-parse HEAD >"$tmp/release-home/.config/rice/version-revision"
+( export HOME="$tmp/release-home"; ROOT="$tmp/clone"; LOG=/dev/null; RICE_TRUST_UPDATE=1
+  update_release_precheck v6.82-0.2.1 </dev/null
+) && bad "guard accepted a release older than the installed revision"
+ok "an older release is rejected even with installer changes approved"
+
 # ---- rice-cursor reads the same list (installed copy) and refuses unpinned files
 mkdir -p "$tmp/home/.local/bin" "$tmp/home/.local/share/rice"
 cp "$root/bin/rice-cursor" "$tmp/home/.local/bin/"
@@ -522,7 +530,7 @@ stable = commit("Stable release")
 git("tag", "V.6.82-0.2.1")
 latest = commit("Preview release")
 git("tag", "-a", "V.6.82-0.2.2", "-m", "Release")
-commit("Unpublished branch change")
+ahead = commit("Unpublished branch change")
 Path(m["INSTALLED"]).write_text("6.83\n")
 Path(m["INSTALLED_REV"]).write_text(old + "\n")
 releases = [
@@ -544,6 +552,11 @@ with patch.dict(state, {"published_releases": lambda r, offline: (releases, "")}
     Path(m["INSTALLED_REV"]).write_text(latest + "\n")
     st = m["check"](offline=True)
     assert not st["update"] and st["installed"] == "6.82-0.2.2" and st["changes"] == 0, st
+    git("tag", "V.6.83", ahead)
+    Path(m["INSTALLED_REV"]).write_text(ahead + "\n")
+    st = m["check"](offline=True)
+    assert not st["update"], st
+    Path(m["INSTALLED_REV"]).write_text(latest + "\n")
     releases.append({"tag_name": "V.6.82-0.2.3", "published_at": "2026-11-28T00:00:00Z", "prerelease": False})
     assert m["check"](offline=True)["tag"] == "V.6.82-0.2.3"
     Path(m["UPDATE_CFG"]).write_text(json.dumps({"channel": "stable"}))
