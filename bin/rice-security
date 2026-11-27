@@ -274,15 +274,16 @@ def cmd_scan(what, notify=False):
         sys.exit(1)
     os.makedirs(CACHE, exist_ok=True)
     # not the quarantine itself, and not the big caches
-    cmd = [exe, "-r", "--max-filesize=100M", "--max-scansize=200M", "--exclude-dir=" + re.escape(QDIR),
+    cmd = [exe, "-r", "--alert-exceeds-max=yes", "--max-filesize=100M", "--max-scansize=200M", "--exclude-dir=" + re.escape(QDIR),
            "--exclude-dir=/.cache/", "--exclude-dir=/.local/share/Steam/", "--exclude-dir=/node_modules/"] + paths
-    st = {"running": True, "pid": os.getpid(), "what": what, "files": 0, "current": "", "found": [], "start": int(time.time()), "done": False, "error": ""}
+    st = {"running": True, "pid": os.getpid(), "what": what, "files": 0, "current": "", "found": [], "start": int(time.time()), "done": False, "coverage": "", "skipped": 0, "error": ""}
     write_prog(st)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
 
     def stop(*a):
         p.terminate()
         st["running"] = False
+        st["coverage"] = "failed"
         st["error"] = "Stopped"
         write_prog(st)
         sys.exit(0)
@@ -292,7 +293,12 @@ def cmd_scan(what, notify=False):
         line = line.rstrip("\n")
         m = re.match(r"^(.*): (.+) FOUND$", line)
         if m:
-            st["found"].append({"path": m.group(1), "name": m.group(2)})
+            if m.group(2).startswith("Heuristics.Limits.Exceeded"):
+                st["skipped"] += 1
+            else:
+                st["found"].append({"path": m.group(1), "name": m.group(2)})
+        elif line.endswith(" ERROR"):
+            st["skipped"] += 1
         elif re.match(r"^.*: (OK|Empty file)$", line):
             st["files"] += 1
             st["current"] = line.rsplit(": ", 1)[0]
@@ -303,16 +309,23 @@ def cmd_scan(what, notify=False):
     st["running"] = False
     st["done"] = True
     st["end"] = int(time.time())
-    if p.returncode not in (0, 1):
+    if p.returncode not in (0, 1) or (p.returncode == 1 and not st["found"] and not st["skipped"]):
+        st["coverage"] = "failed"
         st["error"] = "ClamAV stopped with an error (code %d)" % p.returncode
+    else:
+        st["coverage"] = "partial" if st["skipped"] else "complete"
     write_prog(st)
     if st["done"] and not st["error"]:
-        json.dump({"when": st["end"], "what": what, "files": st["files"], "found": st["found"]}, open(LAST, "w"))
+        json.dump({"when": st["end"], "what": what, "files": st["files"], "found": st["found"],
+                   "coverage": st["coverage"], "skipped": st["skipped"]}, open(LAST, "w"))
     if notify and shutil.which("notify-send"):
         if st["found"]:
             subprocess.run(["notify-send", "-u", "critical", "-i", "security-low", "Virus scan: %d threat(s) found" % len(st["found"]),
                             "Open Settings > Security to move them to quarantine."])
-        elif st["done"] and not st["error"]:
+        elif st["coverage"] == "partial":
+            subprocess.run(["notify-send", "-i", "security-medium", "Virus scan incomplete",
+                            "Some files could not be scanned. Open Settings > Security for details."])
+        elif st["coverage"] == "complete":
             subprocess.run(["notify-send", "-i", "security-high", "Virus scan done", "%d files, nothing found." % st["files"]])
 
 
