@@ -61,12 +61,16 @@ update_remote_ok() {
 # update_precheck: before the pull moves anything, fetch and ask about a changed installer (an answer after the pull
 # came too late: the new files were already there, and the next run started them without asking)
 update_precheck() {
-  local up t
-  GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" fetch origin >>"${LOG:-/dev/null}" 2>&1 || return 0
+  local up t old
+  GUARD_CHECKED=
+  if ! GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" fetch origin >>"${LOG:-/dev/null}" 2>&1; then
+    fail "Could not fetch the update from GitHub."
+    return 1
+  fi
   up="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)"
-  t="$(git -C "$ROOT" rev-parse "$up" 2>/dev/null || true)"
-  update_guard "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" "$t" || return 1
-  # shellcheck disable=SC2034  # read by install.sh, which sources this file
+  t="$(git -C "$ROOT" rev-parse --verify "$up^{commit}" 2>/dev/null)" || return 1
+  old="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null)" || return 1
+  update_guard "$old" "$t" || return 1
   GUARD_CHECKED="$t"
 }
 
@@ -76,14 +80,14 @@ update_precheck() {
 update_guard() {
   local old="$1" new="$2" a=""
   [ -n "$old" ] && [ -n "$new" ] && [ "$old" != "$new" ] || return 0
-  # install/patches and bin are run by the installer it just pulled, so they are code too
-  git -C "$ROOT" diff --quiet "$old" "$new" -- install.sh install/lib install/patches bin 2>/dev/null && return 0
+  # The installer loads helper code from install/ and bin/.
+  git -C "$ROOT" diff --quiet "$old" "$new" -- install.sh install bin 2>/dev/null && return 0
   if [ "${RICE_TRUST_UPDATE:-0}" = 1 ]; then
     warn "new installer started because RICE_TRUST_UPDATE=1"
     return 0
   fi
   warn "This update changes install.sh or the scripts it runs, with your files and maybe sudo:"
-  git -C "$ROOT" diff --stat "$old" "$new" -- install.sh install/lib install/patches bin 2>/dev/null | sed 's/^/      /'
+  git -C "$ROOT" diff --stat "$old" "$new" -- install.sh install bin 2>/dev/null | sed 's/^/      /'
   if [ ! -t 0 ] || [ -n "${RICE_GUI:-}" ]; then
     # from Settings > Update Center: a terminal opens with rice-update, which shows this and asks (nothing moves here)
     local mark="$HOME/.cache/rice/update-terminal" now last=0
