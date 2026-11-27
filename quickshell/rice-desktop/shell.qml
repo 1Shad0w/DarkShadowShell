@@ -743,13 +743,19 @@ ShellRoot {
 
     // ---- dashboard (middle of the bar edge, SUPER + W for wallpapers)
     // made when it is first opened, let go after 10 minutes closed (V4.84: it held every app's icon from the start)
-    LazyPanel { name: "launcher-open"; keep: 600000; Launcher { } }
+    LazyPanel { id: launcherPanel; name: "launcher-open"; keep: 600000; Launcher { } }
     // SUPER + Tab: every workspace with its windows; ALT + Tab: the window switcher (rice-taskview)
     TaskView { }
     // the clipboard history (SUPER + V)
     LazyPanel { name: "clip-open"; ClipboardPanel { } }
     LazyPanel { name: "walls-open"; WallPicker { } }
-    Bar { id: mainBar; nf: notifs }
+    Bar {
+        id: mainBar
+        nf: notifs
+        // These standalone panels open on Mon.screen, alongside the main bar.
+        panelMenuVisible: [launcherPanel, wifiPanel, bluetoothPanel, powerPanel, volumePanel, controlPanel]
+            .some(panel => panel.item && panel.item.visible)
+    }
     // the bar on the left or right edge (Settings > DarkShadow bar > Position)
     // V4.96: the side bar only while the bar is on the left or right (and a moment after, for its way out)
     property bool vbAlive: false
@@ -773,9 +779,9 @@ ShellRoot {
         WlrLayershell.namespace: "rice-island-catch"
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onPressed: mainBar.closeCards() }
     }
-    LazyPanel { name: "wifi-open"; WifiMenu { } }
-    LazyPanel { name: "bluetooth-open"; BluetoothMenu { } }
-    LazyPanel { name: "power-open"; PowerMenu { } }
+    LazyPanel { id: wifiPanel; name: "wifi-open"; WifiMenu { } }
+    LazyPanel { id: bluetoothPanel; name: "bluetooth-open"; BluetoothMenu { } }
+    LazyPanel { id: powerPanel; name: "power-open"; PowerMenu { } }
     // Print: the screenshot tool (the screen frozen, then Region / Window / Screen / Color), and the record menu
     LazyPanel { name: "snip-open"; Snip { } }
     // what the screenshot tool read (text, a translation, a color)
@@ -788,12 +794,12 @@ ShellRoot {
     LazyPanel { name: "rec-card"; RecCard { } }
     // SUPER + /: every key on one sheet
     LazyPanel { name: "keys-open"; Cheatsheet { } }
-    LazyPanel { name: "volume-open"; VolumeMenu { } }
+    LazyPanel { id: volumePanel; name: "volume-open"; VolumeMenu { } }
     VolumeOsd { islandTakes: mainBar.islandVolume }
     LazyPanel { name: "gamebar-open"; GamePanel { gb: root.cfg.gamebar ? root.cfg.gamebar : ({}) } }
     Notifs { id: notifs; islandTakes: mainBar.islandNotifs && notifs.shellMode }
     // made only when opened, let go two minutes after it closed (less memory from the start)
-    LazyPanel { name: "cc-open"; ControlCenter { nf: notifs } }
+    LazyPanel { id: controlPanel; name: "cc-open"; ControlCenter { nf: notifs } }
 
     Dock { id: dockObj; dc: root.cfg.dock ? root.cfg.dock : ({}); ic: root.iconCfg; desk: root; editing: root.editing }
 
