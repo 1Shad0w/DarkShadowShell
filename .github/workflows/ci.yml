@@ -23,6 +23,9 @@ jobs:
       - name: Shared QML copies match
         run: |
           bash tests/qml-shared.sh
+      - name: SDDM package command
+        run: |
+          bash tests/sddm.sh
       - name: Infinite Desktop screens
         run: |
           sudo apt-get install -y lua5.4
