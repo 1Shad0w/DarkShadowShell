@@ -258,11 +258,7 @@ hl.config({
     },
 })
 
-hl.gesture({
-    fingers = 3,
-    direction = "horizontal",
-    action = "workspace"
-})
+pcall(require, "rice-gestures")
 
 ----------------------------
 ---- SEE-THROUGH WINDOWS ----
