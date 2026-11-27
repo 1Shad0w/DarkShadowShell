@@ -66,4 +66,4 @@ Todo en **DarkShadow's Shell** se configura desde la app de **Ajustes** en Mater
 | **Care, perfiles y tiempo de uso** | Actualizaciones completas del sistema (con snapshots de snapper/timeshift), limpiador de caché, copia completa en un archivo, perfiles (`rice-profile`) y tiempo de pantalla local (`rice-screentime`) |
 | **Reglas de ventanas y ecualizador** | Reglas por app guardadas en `~/.config/rice/rules.json`, workspace gaming opcional y 8 presets de ecualizador EasyEffects (`rice-eq`) |
 | **Teclado, idiomas y monitores** | Hasta 4 distribuciones de teclado, interfaz en inglés y polaco (con instalador de fuentes CJK) y configuración de pantallas para Hyprland y niri |
-| **Bienvenida y sincronización** | Intro interactiva (`rice-welcome show`) y `./sync.sh` para guardar tu configuración sin filtrar secretos |
+| **Bienvenida y sincronización** | Asistente obligatorio de 6 pasos en el primer inicio de sesión (`Idioma y región`, `Aspecto`, `Barra y dock`, `Fuente y cursor`, `Perfil y bloqueo/SDDM`, `Resumen`; repetible con `rice-welcome show`) y `./sync.sh` para guardar tu configuración sin filtrar secretos |

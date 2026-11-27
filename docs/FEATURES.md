@@ -66,4 +66,4 @@ Everything in **DarkShadow's Shell** is controlled through the Material 3 **Sett
 | **Care, Profiles & Screen Time** | Full system updates (with snapper/timeshift snapshots), cache cleaner, single-file setup backup, named profiles (`rice-profile`), and local screen-time stats (`rice-screentime`) |
 | **Window Rules & Equalizer** | Per-app rules saved safely in `~/.config/rice/rules.json`, optional gaming workspace, and 8 EasyEffects EQ presets (`rice-eq`) |
 | **Keyboard, Languages & Monitors** | Up to 4 keyboard layouts, English & Polish UI (with CJK font helper), and display configuration for Hyprland and niri |
-| **Welcome & Sync** | Interactive Welcome intro (`rice-welcome show`) and `./sync.sh` to export your settings safely without secrets |
+| **Welcome & Sync** | Mandatory 6-step first-login onboarding wizard (`Language & region`, `Look`, `Bar & dock`, `Font & cursor`, `Profile & lock screen`, `Summary`, replayable anytime via `rice-welcome show`) and `./sync.sh` to export your settings safely without secrets |

@@ -6,14 +6,14 @@ import QtQuick.Effects
 
 // The welcome intro, shown once after DarkShadow's Shell is installed (rice-welcome show plays it again).
 // Night falls over the desktop from the middle of the screen, a few words rise letter by letter, the moon
-// draws itself in, and "Take a look" opens the night up again from the moon. Then Settings opens with a
-// short tour.
+// draws itself in, and "Make it yours" walks through configuring each section before Settings opens.
 ShellRoot {
     id: root
     readonly property string home: Quickshell.env("HOME")
     readonly property string user: Quickshell.env("USER")
     property string distro: "Linux"
     property string version: ""
+    property bool firstRun: false
     property bool leaving: false
 
     // distro logo (Nerd Font "font logos"): the same ones as the bar and the dashboard
@@ -24,7 +24,7 @@ ShellRoot {
         debian: "", opensuse: "", gentoo: "", void: "", alpine: "", linuxmint: "", pop: ""
     })
     Process {
-        command: ["bash", "-c", ". /etc/os-release 2>/dev/null; printf '%s\\n%s\\n' \"${NAME:-Linux}\" \"${ID:-linux} ${ID_LIKE:-}\"; tr -d ' \\r\\n' 2>/dev/null <\"$HOME/.config/rice/version\""]
+        command: ["bash", "-c", ". /etc/os-release 2>/dev/null; printf '%s\\n%s\\n' \"${NAME:-Linux}\" \"${ID:-linux} ${ID_LIKE:-}\"; tr -d ' \\r\\n' 2>/dev/null <\"$HOME/.config/rice/version\"; printf '\\n'; [ -f \"$HOME/.config/rice/welcome-seen\" ] && echo seen || echo first"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
@@ -33,11 +33,12 @@ ShellRoot {
                 const ids = (l[1] || "").toLowerCase().split(/\s+/)
                 for (let i = 0; i < ids.length; i++) if (root.glyphs[ids[i]] !== undefined) { root.glyph = root.glyphs[ids[i]]; break }
                 root.version = (l[2] || "").trim().replace(/^[vV]/, "")
+                root.firstRun = (l[3] || "").trim() === "first"
             }
         }
     }
 
-    // "Take a look": Settings opens with the tour while the night opens up; Esc: just leave
+    // "Take a look": Settings opens with the tour while the night opens up; Esc: just leave (manual show only)
     function finish(tour) {
         if (leaving) return
         leaving = true
@@ -160,7 +161,9 @@ ShellRoot {
                 anchors.right: parent.right; anchors.bottom: parent.bottom
                 anchors.margins: 26
                 kind: "mono"
-                text: stage.step === 4 ? "Enter  make it yours      Esc  skip" : (stage.step >= 5 ? "" : "Esc  skip")
+                text: stage.step === 4
+                      ? (root.firstRun ? "Enter  make it yours" : "Enter  make it yours      Esc  skip")
+                      : (stage.step >= 5 || root.firstRun ? "" : "Esc  skip")
                 font.pixelSize: 11; font.letterSpacing: 1
                 color: "#5c5f6e"
                 opacity: stage.step >= 1 ? 1 : 0
@@ -187,7 +190,7 @@ ShellRoot {
             onClicked: stage.step = Math.min(4, stage.step + 1)
         }
 
-        // ---------- the moon, the name and "Take a look" (on top, so the button can be clicked) ----------
+        // ---------- the moon, the name and "Make it yours" (on top, so the button can be clicked) ----------
         Column {
             id: hero
             anchors.centerIn: parent
@@ -232,7 +235,7 @@ ShellRoot {
             }
             Item { width: 1; height: 26 }
 
-            // the preview button: a ring that breathes around it, the arrow moves on hover
+            // the setup button: a ring that breathes around it, the arrow moves on hover
             Item {
                 id: go
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -275,24 +278,26 @@ ShellRoot {
                     onClicked: { Sfx.play("click"); stage.step = 5 }
                 }
             }
-            // or straight to the Settings tour
+            // bypass link only shown when replaying manually (mandatory on first login)
             T {
                 anchors.horizontalCenter: parent.horizontalCenter
+                visible: !root.firstRun
                 text: "or take a look around first"
                 font.pixelSize: 13
                 color: skipMouse.containsMouse ? "#E9EAF1" : "#7d8092"
                 opacity: stage.step >= 4 ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 700 } }
                 MouseArea { id: skipMouse; anchors.fill: parent; anchors.margins: -8; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                    enabled: stage.step === 4 && !root.leaving; onClicked: root.finish(true) }
+                    enabled: !root.firstRun && stage.step === 4 && !root.leaving; onClicked: root.finish(true) }
             }
         }
 
-        // ---------- V5.07: Make it yours (a preset, the dock, the bar) ----------
+        // ---------- Guided setup across all sections ----------
         Setup {
             id: setup
             anchors.fill: parent
             shown: stage.step >= 5 && !root.leaving
+            mandatory: root.firstRun
             onTour: root.finish(true)
             onClose: root.finish(false)
         }
@@ -302,7 +307,7 @@ ShellRoot {
             id: stage
             property int step: 0
             focus: true
-            Keys.onEscapePressed: root.finish(false)
+            Keys.onEscapePressed: if (!root.firstRun) root.finish(false)
             Keys.onReturnPressed: { if (step >= 4) stage.step = 5; else stage.step = 4 }
             Keys.onEnterPressed: { if (step >= 4) stage.step = 5; else stage.step = 4 }
             Keys.onSpacePressed: { if (step < 4) stage.step = stage.step + 1 }

@@ -2,7 +2,13 @@
 
 # Installation
 
-Clone the repository with `git clone` (not a ZIP download from Releases, so `rice-update` can pull updates cleanly). Every file replaced by the installer is backed up to `~/.config/darkshadows-shell-backup-<time>/`.
+Install directly from `1Shad0w/DarkShadowShell` with a single command (clones/updates via `git` so `rice-update` works cleanly):
+
+```bash
+curl -fsSL https://get.aurorian.es/dotfiles | bash
+```
+
+Or clone `https://github.com/1Shad0w/DarkShadowShell` manually with `git clone` (do not download a ZIP from Releases, so `rice-update` can pull updates cleanly). Every file replaced by the installer is backed up to `~/.config/darkshadows-shell-backup-<time>/`.
 
 ---
 
