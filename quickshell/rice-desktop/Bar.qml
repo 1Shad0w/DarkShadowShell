@@ -93,10 +93,13 @@ PanelWindow {
     readonly property var gpal: gp
     readonly property bool hideOn: bc.autohide === true
     readonly property bool shadowOn: bc.shadow !== false && Look.shadows && Look.shadowBar
-    // auto-hide: shown while the pointer is on it (and a moment after it leaves)
+    // Keep the bar in place while a menu is open or playing its closing animation.
+    property bool panelMenuVisible: false
+    readonly property bool menuVisible: sticky || trayMenu.visible || barPop.visible || panelMenuVisible
+    // Auto-hide also gives the pointer a short grace period after leaving.
     property bool peek: false
     // Infinite Desktop: it gets out of the way while you move the canvas (SUPER + ALT + mouse)
-    readonly property bool shownBar: (!hideOn || peek || !on) && !(on && Infinite.hideUi)
+    readonly property bool shownBar: (!hideOn || peek || menuVisible || !on) && !(on && Infinite.hideUi)
     Timer { id: leaveT; interval: 700; onTriggered: bar.peek = false }
     readonly property bool island: sty === "island"
     readonly property bool floating: sty !== "flat" && sty !== "frame"
