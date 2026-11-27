@@ -11,6 +11,7 @@ Item {
 
     readonly property string bin: Quickshell.env("HOME") + "/.local/bin/rice-update"
     property var st: ({})            // rice-update check: installed, latest, update, news, error
+    property string channel: "stable"
     property var pk: ({})            // rice-care updates: what the system's packages (any distro), Flatpak and Snap have waiting
     readonly property var pkgNotes: ((page.pk && page.pk.managers) || []).filter(function(m) { return m.manual && !m.count && m.note })
     property bool inTerminal: false  // the packages need the password, so the update moved to a terminal
@@ -83,6 +84,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 try { page.st = JSON.parse(text) } catch (e) { page.st = {} }
+                if (page.st.channel === "dev" || page.st.channel === "stable") page.channel = page.st.channel
                 // nothing checked yet, or long ago: ask GitHub now
                 if (!page.st.checked || page.now - page.st.checked > 600) page.check()
             }
@@ -95,10 +97,24 @@ Item {
             onStreamFinished: {
                 page.checking = false
                 try { page.st = JSON.parse(text.trim().split("\n").pop()) } catch (e) {}
+                if (page.st.channel === "dev" || page.st.channel === "stable") page.channel = page.st.channel
                 page.ctl.status = page.st.update ? I18n.t("Update V%1 is available", page.st.latest) : I18n.t("Up to date")
             }
         }
         onExited: page.checking = false
+    }
+    Process {
+        id: chanP
+        command: ["true"]
+        onExited: page.check()
+    }
+    function setChannel(ch) {
+        const next = ch === "dev" ? "dev" : "stable"
+        if (page.channel === next || page.running) return
+        page.channel = next
+        page.checking = true
+        chanP.command = [page.bin, "channel", next]
+        chanP.running = true
     }
     function check() { if (checkP.running || page.running) return; page.checking = true; page.inTerminal = false; checkP.running = true
         page.loadPackages(true) }
@@ -289,6 +305,20 @@ Item {
         T { visible: !!page.st.error && !page.running; text: I18n.t("Could not reach GitHub: %1", page.st.error || ""); font.pixelSize: 12; color: M3.inkDim
             leftPadding: 6; width: parent.width; wrapMode: Text.WordWrap }
 
+        SegRow {
+            label: I18n.t("Update channel")
+            desc: page.channel === "dev"
+                ? I18n.t("Checks commits on the dev branch")
+                : I18n.t("Checks commits on the main branch")
+            options: [
+                { label: I18n.t("Stable (main)"), value: "stable" },
+                { label: I18n.t("Dev (dev)"), value: "dev" }
+            ]
+            dflt: "stable"
+            current: page.channel
+            onChosen: function(v) { page.setChannel(v) }
+        }
+
         // ---------- what the update is doing, live ----------
         SectionTitle {
             visible: page.running || page.steps.length > 0
@@ -391,7 +421,7 @@ Item {
                 }
             }
             Btn { text: I18n.t("All changes on GitHub"); sym: "open_in_new"; icon: ""; variant: "text"
-                onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/shadowww-dev/DarkShadowShell/blob/main/CHANGELOG.md"]) }
+                onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/1Shad0w/DarkShadowShell/blob/" + (page.channel === "dev" ? "dev" : "main") + "/CHANGELOG.md"]) }
         }
         // V5.03: the version you have, in the What's new dialog
         Btn { text: I18n.t("What's new in my version"); sym: "new_releases"; icon: ""; variant: "tonal"

@@ -34,10 +34,10 @@ STATE = CACHE + "/update.json"
 NOTIFIED = CACHE + "/update-notified"
 LIVE_LOG = CACHE + "/update-live.log"
 LIVE = CACHE + "/update-live.json"
-RAW = "https://raw.githubusercontent.com/shadowww-dev/DarkShadowShell/main/VERSION"
+RAW = "https://raw.githubusercontent.com/1Shad0w/DarkShadowShell/main/VERSION"
 FIRST_WAIT = 45            # seconds after login
 UPDATE_CFG = DIR + "/update.json"
-DEFAULTS = {"watch": True, "every_minutes": 1440}   # one ask a day: enough for updates, a smaller trail at GitHub
+DEFAULTS = {"watch": True, "every_minutes": 1440, "channel": "stable"}
 TICK = 30                  # a check from the About tab of the dashboard is noticed within this many seconds
 APP = "DarkShadow's Shell"
 ICON = HOME + "/.local/share/rice/icon.png"
@@ -53,7 +53,20 @@ def cfg():
         c["every_minutes"] = max(60, min(10080, int(c["every_minutes"])))
     except Exception:
         pass
+    c["channel"] = "dev" if c.get("channel") == "dev" else "stable"
     return c
+
+
+def channel():
+    return cfg().get("channel", "stable")
+
+
+def branch():
+    return "dev" if channel() == "dev" else "main"
+
+
+def raw_url():
+    return "https://raw.githubusercontent.com/1Shad0w/DarkShadowShell/%s/VERSION" % branch()
 
 
 def save_cfg(c):
@@ -183,6 +196,7 @@ def latest(offline=False):
     """newest version: GitHub (through your repo's git remote), else the raw file, else your repo.
     Also: how many new commits GitHub has that this computer does not (an update without a new number)."""
     r = repo()
+    br = branch()
     found, err = [], ""
     latest.ahead, latest.sha, latest.log = 0, "", ""
     if r and os.path.isdir(r + "/.git") and shutil.which("git"):
@@ -190,16 +204,14 @@ def latest(offline=False):
             if not offline:
                 fix_remote(r)
             if not offline and origin_ok(r):
-                f = git(r, "fetch", "--quiet")
+                f = git(r, "fetch", "--quiet", "origin")
                 if f.returncode != 0:
                     err = (f.stderr.strip().splitlines() or ["git fetch failed"])[-1]
             elif not offline:
                 err = "the update remote is not this project"
-            refs = []
-            u = git(r, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}", timeout=5)
-            if u.returncode == 0 and u.stdout.strip():
-                refs.append(u.stdout.strip())
-            refs += ["origin/main", "origin/master"]
+            refs = ["origin/" + br]
+            if br == "main":
+                refs.append("origin/master")
             for ref in refs:
                 s = git(r, "show", ref + ":VERSION", timeout=5)
                 if s.returncode == 0 and clean(s.stdout):
@@ -215,7 +227,7 @@ def latest(offline=False):
             err = str(e)
     if not found and not offline and shutil.which("curl"):
         try:
-            c = subprocess.run(["curl", "-fsSL", "--max-time", "15", RAW], capture_output=True, text=True, timeout=20)
+            c = subprocess.run(["curl", "-fsSL", "--max-time", "15", raw_url()], capture_output=True, text=True, timeout=20)
             if c.returncode == 0 and clean(c.stdout):
                 found.append(clean(c.stdout))
                 err = ""
@@ -242,6 +254,7 @@ def check(offline=False):
     ahead = getattr(latest, "ahead", 0)
     out = {"installed": have, "latest": new or have, "update": newer or ahead > 0,
            "changes": ahead, "commit": getattr(latest, "sha", ""),
+           "channel": channel(), "branch": branch(),
            "news": news(getattr(latest, "log", ""), new or have)[:4],
            "checked": int(time.time()), "error": err if not new else ""}
     if is_zip(repo()):
@@ -291,12 +304,25 @@ def installer_changes(r):
             return False
         if subprocess.call(["git", "-c", "credential.helper=", "fetch", "--quiet", "origin"], timeout=60, **q) != 0:
             return False
-        up = subprocess.run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=r,
-                            capture_output=True, text=True).stdout.strip() or "origin/main"
+        up = "origin/" + branch()
         return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install/lib",
                                 "install/patches", "bin"], timeout=30, **q) == 1
     except Exception:
         return False
+
+
+def ensure_branch(r):
+    """Switch the local checkout to the configured update channel branch (main or dev) if needed."""
+    br = branch()
+    if not (r and os.path.isdir(r + "/.git") and origin_ok(r)):
+        return
+    try:
+        cur = git(r, "rev-parse", "--abbrev-ref", "HEAD", timeout=5).stdout.strip()
+        if cur != br:
+            git(r, "fetch", "--quiet", "origin", br, timeout=60)
+            git(r, "checkout", "-B", br, "origin/" + br, timeout=15)
+    except Exception:
+        pass
 
 
 def open_center():
@@ -393,6 +419,7 @@ def gui(args):
         terminal_update()
         os._exit(0)
     put_live(state="running", code=-1, started=t0, ended=0, pid=os.getpid(), was=installed())
+    ensure_branch(r)
     env = dict(os.environ, RICE_GUI="1", RICE_UPDATE_LOCK="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
     env.pop("SUDO_ASKPASS", None)
     want = ["--update", "--yes"] + (args if args else ["--no-packages"])
@@ -550,6 +577,7 @@ def run(args):
             except EOFError:
                 pass
             sys.exit(1)
+    ensure_branch(r)
     os.chdir(r)
     env = dict(os.environ)
     for k in ("RICE_GUI", "NO_COLOR", "GIT_TERMINAL_PROMPT", "GCM_INTERACTIVE"):
@@ -638,6 +666,20 @@ def main(a):
                 print("  - " + n)
         else:
             print("Up to date: V%s%s" % (st["installed"], ("  (could not check: %s)" % st["error"]) if st["error"] else ""))
+    elif cmd == "channel":
+        if len(a) > 2 and a[2] in ("stable", "dev"):
+            c = cfg()
+            c["channel"] = a[2]
+            save_cfg(c)
+            try:
+                os.remove(NOTIFIED)
+            except OSError:
+                pass
+            print(json.dumps({"channel": c["channel"], "branch": branch()}))
+        elif len(a) > 2 and a[2] in ("state", "get"):
+            print(json.dumps({"channel": channel(), "branch": branch()}))
+        else:
+            print(channel())
     elif cmd == "watch":
         if len(a) > 2 and a[2] == "state":
             c = cfg()
