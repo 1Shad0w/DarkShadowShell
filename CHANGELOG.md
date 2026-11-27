@@ -1,5 +1,13 @@
 # Changelog
 
+## V6.83: one Update Center, and packages from every supported distro
+- **Settings > Update Center and the dashboard's About tab do the same thing** (they did not): both show the shell, the system's packages, Flatpak and Snap, and the AUR ones, and both press the same button. One call decides: the shell updates in the background when nothing else waits, or everything runs in a terminal when packages do (they need your password)
+- **AUR packages are only shown.** An update no longer runs `paru -Syu`/`yay -Syu` (one broken build could take the rest with it); the packages the shell itself needs are the only ones `install.sh` upgrades, and it says so
+- **Every supported distro has its packages in the Update Center**: Arch (and CachyOS, Endeavour, Garuda, Artix), Fedora (`dnf`), Gentoo (`emerge`, after `emaint sync -a`), Void (`xbps`), openSUSE (`zypper`) and Debian/Ubuntu (`apt`), next to Flatpak and Snap. NixOS and the atomic Fedoras are shown with their own command (`nixos-rebuild`, `rpm-ostree`) and never run from here
+- **reflector picks the mirrors before every pacman update**: the 20 freshest HTTPS mirrors in Poland, Germany, Czechia and the other countries without a name for tampered mirrors, sorted by speed. reflector is installed first when it is missing, and a failed run leaves the mirrorlist you have. On Artix only Arch's list (`mirrorlist-arch`) is replaced, so the Artix repositories keep their mirrors
+- **Snap is checked and updated too**, next to Flatpak and the system's packages; Care keeps the cleaning and the backup, updates live in one place
+- The package check waits long enough for the slow ones (`dnf` cold metadata, `emerge --pretend`), so an update that has packages no longer starts in the background
+
 ## V6.82: Frame fixed for real
 - **Frame**: the bar sat a whole bar higher than the edge, with the wallpaper under it. Quickshell sets a window back to "keep clear of the others" whenever its reserved room is set, so the bar's "ignore the others" did not hold and it moved above the room the frame keeps for it. The bar now asks for that directly (`exclusiveZone: -1`), so it lies on the edge, corner to corner, and the frame joins it
 
@@ -38,7 +46,11 @@
 - **Equalizer** (Settings > Sound & language > Equalizer): Flat, Bass, Treble, Voice, Loudness, Headphones, Gaming and Night, with a curve that glides from one to the next. It works through EasyEffects (`sudo pacman -S easyeffects`, `rice-eq`)
 - **A card after a screen recording** (like the one after a screenshot): play it, **trim** it (a strip of its frames with two handles: save the part between them, or make a GIF of just that part), a GIF of all of it, copy, the folder, delete
 - The ideas of the bar styles page come from apolloKapa's monolith shell (the code is our own)
+
 ## V6.57: the second audit
+- **An update brings the new login screen.** The theme in `/usr/share` kept the old look until Settings asked: it only got the wallpaper, so the installer now sees the newer files (not only the `.qml` ones) and puts the whole theme in
+- **Widgets stay on the Infinite Desktop.** Auto-hide counted a window on the canvas, even one far off the screen, as a window covering the desktop; that is why they only showed in Edit mode. On the canvas they float, so auto-hide leaves them alone, and a window that is not on the screen no longer counts
+- **The dock's pin button starts off.** Settings > Interface > Show pin button turns it on
 - **An update can no longer run new code without asking.** The "this changes the installer" question covered `install.sh` and `install/lib`; the installer also runs `install/patches` and the `bin` scripts it just pulled, so a change there opens the same question now
 - **An update comes only from `github.com` itself.** An address that merely has `github.com` somewhere in its path (another host, a fork page) is refused, in the installer and in rice-update
 - **A restore keeps what it replaces.** `./install.sh --restore` saves your current files first, so the changes made since the backup are not lost
@@ -53,6 +65,7 @@
 - The wallpaper and the bar and dock still follow the move, live (the config writes the canvas place to a small file in the runtime folder, which the shell reads; before it, rice-canvasd sent it over a socket)
 - **The push at the edge** (SUPER + drag a window against the edge, the others come towards it) still reads the mouse directly, so it still needs the group: it is the one part that needs the movement past the edge of the screen. Its setting is hidden where it cannot work. On Hyprland 0.55 the whole mouse needs the group, as before
 - NixOS: `programs.shadows-shell.inputGroup = true` is only for that push now
+
 ## V6.55: Styles, profiles, a new screenshot tool and screen time
 - **11 new styles** in Settings > Appearance > Themes: the palettes everyone knows (**Catppuccin**, **Rosé Pine**, **Tokyo Night**, **Gruvbox**, **Nord**, **Everforest**, **Kanagawa**) and four of our own: **Luxe** (gold on black), **OLED** (true black), **Brutal** (square, thick borders, no softness) and **Sakura** (blossom pink). A style now also brings its notifications' colors, the lock screen look and the minimal mode, and gives back yours when you move to a style that does not set them. A ring of the new color sweeps over the screen when one goes on. New color schemes: Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa and Dracula
 - **Settings show what you changed**: a small dot next to every setting that is not at its default, and a button to put it back with one click (107 settings in Bar, Desktop, Idle, Interface, Island, Notifications, Recorder, Launcher, Sounds and Vibe)
