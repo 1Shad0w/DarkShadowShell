@@ -33,10 +33,10 @@ INSTALLED = DIR + "/version"
 INSTALLED_REV = DIR + "/version-revision"
 CACHE = HOME + "/.cache/rice"
 STATE = CACHE + "/update.json"
+RELEASES = CACHE + "/published-releases.json"
 NOTIFIED = CACHE + "/update-notified"
 LIVE_LOG = CACHE + "/update-live.log"
 LIVE = CACHE + "/update-live.json"
-RAW = "https://raw.githubusercontent.com/1Shad0w/DarkShadowShell/main/VERSION"
 FIRST_WAIT = 45            # seconds after login
 UPDATE_CFG = DIR + "/update.json"
 DEFAULTS = {"watch": True, "every_minutes": 1440, "channel": "stable"}
@@ -65,10 +65,6 @@ def channel():
 
 def branch():
     return "dev" if channel() == "dev" else "main"
-
-
-def raw_url():
-    return "https://raw.githubusercontent.com/1Shad0w/DarkShadowShell/%s/VERSION" % branch()
 
 
 def save_cfg(c):
@@ -219,21 +215,6 @@ def fix_remote(r):
         pass
 
 
-def news(text, version):
-    """first lines of the CHANGELOG entry for this version"""
-    out, on = [], False
-    for ln in (text or "").splitlines():
-        h = ln.strip()
-        if h.startswith("## "):
-            if on:
-                break
-            on = h[3:].strip().lstrip("vV").startswith(version)
-            continue
-        if on and h.startswith(("- ", "* ")):
-            out.append(h[2:].strip())
-    return out
-
-
 def repo_slug(r):
     """Extract 'owner/repo' from origin remote if it matches REPO_ORIGIN, else default."""
     if r and os.path.exists(r + "/.git"):
@@ -247,115 +228,86 @@ def repo_slug(r):
     return "1Shad0w/DarkShadowShell"
 
 
-def release_notes(r, tag):
-    """Read the notes for the exact tag displayed, including GitHub pre-releases."""
-    url = "https://api.github.com/repos/%s/releases?per_page=20" % repo_slug(r)
+def published_releases(r, offline=False):
+    slug = repo_slug(r)
+    if offline:
+        try:
+            with open(RELEASES) as f:
+                cached = json.load(f)
+            return (cached["items"] if cached["repo"] == slug else []), ""
+        except (OSError, ValueError, KeyError, TypeError):
+            return [], ""
+    items = []
+    page = 1
     try:
-        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "rice-update"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            items = json.load(resp)
-        for rel in items:
-            if not isinstance(rel, dict) or rel.get("draft") or rel.get("tag_name") != tag:
-                continue
-            return [line.strip()[2:].strip() for line in (rel.get("body") or "").splitlines()
-                    if line.strip().startswith(("- ", "* "))]
-    except (OSError, ValueError, TypeError):
+        while True:
+            url = "https://api.github.com/repos/%s/releases?per_page=100&page=%d" % (slug, page)
+            req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "rice-update"})
+            with urllib.request.urlopen(req, timeout=6) as response:
+                releases = json.load(response)
+                if not isinstance(releases, list):
+                    raise ValueError("unexpected GitHub release response")
+                for rel in releases:
+                    if (not isinstance(rel, dict) or rel.get("draft") or not isinstance(rel.get("published_at"), str)
+                            or not isinstance(rel.get("tag_name"), str) or not clean(rel["tag_name"])):
+                        continue
+                    items.append({"tag_name": rel["tag_name"], "published_at": rel["published_at"],
+                                  "prerelease": bool(rel.get("prerelease")), "body": rel.get("body") or ""})
+                if 'rel="next"' not in response.headers.get("Link", ""):
+                    break
+                page += 1
+    except (OSError, ValueError, TypeError) as e:
+        return published_releases(r, offline=True)[0], str(e)
+    os.makedirs(CACHE, exist_ok=True)
+    try:
+        with open(RELEASES, "w") as f:
+            json.dump({"repo": slug, "items": items}, f)
+    except OSError:
         pass
-    return []
+    return items, ""
 
 
-def tag_changes(r, tag, limit=4):
-    ref = "refs/tags/" + tag
-    previous = release_tag(r, ref + "^")
-    revisions = "refs/tags/" + previous + ".." + ref if previous else ref
-    result = git(r, "log", "-%d" % limit, "--format=%s", revisions, timeout=5)
-    return result.stdout.splitlines() if result.returncode == 0 else []
+def published_at(release):
+    return release["published_at"], key(release["tag_name"])
 
 
-def latest(r, revision, offline=False):
-    info = {"version": "", "base": "", "changes": None, "commit": "", "tag": "", "news": [], "error": ""}
-    if r and os.path.exists(r + "/.git") and shutil.which("git"):
-        try:
-            if not offline:
-                fix_remote(r)
-                if origin_ok(r):
-                    f = git(r, "fetch", "--quiet", "--tags", "origin")
-                    if f.returncode != 0:
-                        info["error"] = (f.stderr.strip().splitlines() or ["git fetch failed"])[-1]
-                else:
-                    info["error"] = "the update remote is not this project"
-            br = branch()
-            refs = ["origin/" + br] + (["origin/master"] if br == "main" else [])
-            for ref in refs:
-                v = git(r, "show", ref + ":VERSION", timeout=5)
-                if v.returncode != 0 or not clean(v.stdout):
-                    continue
-                info["base"] = clean(v.stdout)
-                info["tag"] = release_tag(r, ref)
-                info["version"] = clean(info["tag"]) or info["base"]
-                h = git(r, "rev-parse", "--short", ref, timeout=5)
-                info["commit"] = h.stdout.strip() if h.returncode == 0 else ""
-                commit_range = (revision or "HEAD") + ".." + ref
-                a = git(r, "rev-list", "--count", commit_range, timeout=5)
-                if a.returncode == 0:
-                    info["changes"] = int(a.stdout.strip() or 0)
-                tag = info["tag"]
-                target_tag = git(r, "rev-parse", "--short", "refs/tags/" + tag + "^{commit}", timeout=5) if tag else None
-                if not offline and target_tag and target_tag.stdout.strip() == info["commit"]:
-                    info["news"] = release_notes(r, tag)
-                if not info["news"] and info["changes"]:
-                    log = git(r, "log", "-4", "--format=%s", commit_range, timeout=5)
-                    info["news"] = log.stdout.splitlines() if log.returncode == 0 else []
-                if not info["news"] and tag:
-                    info["news"] = tag_changes(r, tag)
-                if not info["news"] and not tag:
-                    log = git(r, "show", ref + ":CHANGELOG.md", timeout=5)
-                    info["news"] = news(log.stdout, info["base"]) if log.returncode == 0 else []
-                return info
-        except (OSError, ValueError, subprocess.SubprocessError) as e:
-            info["error"] = str(e)
-    if not offline and shutil.which("curl"):
-        try:
-            result = subprocess.run(["curl", "-fsSL", "--max-time", "15", raw_url()], capture_output=True, text=True, timeout=20)
-            if result.returncode == 0 and clean(result.stdout):
-                info["version"] = info["base"] = clean(result.stdout)
-                info["error"] = ""
-            elif not info["error"]:
-                info["error"] = result.stderr.strip() or "could not check the update channel"
-        except (OSError, subprocess.SubprocessError) as e:
-            info["error"] = info["error"] or str(e)
-    return info
-
-
-def check(offline=False):
-    r = repo()
-    try:
-        revision = installed_revision(r)
-    except (OSError, subprocess.SubprocessError):
-        revision = ""
-    info = latest(r, revision, offline)
-    # Fetch can discover tags for a version that is already installed.
-    have = installed(r, revision)
-    ahead = info["changes"]
-    newer = bool(info["base"]) and key(info["base"]) > key(installed_base())
-    update = (ahead or 0) > 0 or ((not revision or ahead is None) and newer)
-    target = info["version"] if ahead is not None or newer else have
-    out = {"installed": have, "latest": target or have, "update": update,
-           "changes": ahead or 0, "commit": info["commit"],
-           "channel": channel(), "branch": branch(), "release": clean(info["tag"]),
-           "news": info["news"][:4], "checked": int(time.time()), "error": info["error"]}
-    if is_zip(r):
-        out["update"] = True
+def check(offline=False, r=None):
+    r = r or repo()
+    have = installed(r)
+    selected_channel = channel()
+    releases, error = published_releases(r, offline)
+    eligible = [rel for rel in releases if selected_channel == "dev" or not rel.get("prerelease")]
+    latest = max(eligible, key=published_at, default=None)
+    installed_release = max((rel for rel in releases if clean(rel["tag_name"]) == have), key=published_at, default=None)
+    target = clean(latest["tag_name"]) if latest else have
+    # Compare publications, not branch tips or the upstream VERSION fallback.
+    update = bool(latest and target != have and
+                  (installed_release is None or published_at(latest) > published_at(installed_release)))
+    notes = [line.strip()[2:].strip() for line in ((latest or {}).get("body") or "").splitlines()
+             if line.strip().startswith(("- ", "* "))]
+    out = {"installed": have, "latest": target, "update": update, "changes": 0, "commit": "",
+           "channel": selected_channel, "branch": branch(), "release": target if latest else "",
+           "tag": latest["tag_name"] if latest else "", "news": notes[:4] if update or target == have else [],
+           "checked": int(time.time()), "error": error}
+    if is_zip(r) and update:
         out["error"] = ZIP_MSG
     os.makedirs(CACHE, exist_ok=True)
     try:
-        json.dump(out, open(STATE, "w"))
+        with open(STATE, "w") as state:
+            json.dump(out, state)
     except OSError:
         pass
     return out
 
 
-def terminal_update():
+def release_target(r):
+    st = check(r=r)
+    if st["error"] and st["error"] != ZIP_MSG:
+        raise OSError(st["error"])
+    return st["tag"] if st["update"] else ""
+
+
+def terminal_update(tag=""):
     """ONE terminal with rice-update in it (at most one a minute), without the background update's settings: an old
     installer (before V4.56) that saw RICE_GUI in its terminal opened another terminal instead of asking, endlessly"""
     mark = CACHE + "/update-terminal"
@@ -369,6 +321,9 @@ def terminal_update():
     env = dict(os.environ)
     for k in ("RICE_GUI", "NO_COLOR", "GIT_TERMINAL_PROMPT", "GCM_INTERACTIVE"):
         env.pop(k, None)
+    env.pop("RICE_UPDATE_TAG", None)
+    if tag:
+        env["RICE_UPDATE_TAG"] = tag
     t = os.environ.get("TERMINAL") or "kitty"
     if not shutil.which(t):
         t = next((x for x in ("kitty", "foot", "alacritty", "wezterm", "konsole", "gnome-terminal") if shutil.which(x)), t)
@@ -379,36 +334,15 @@ def terminal_update():
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def installer_changes(r):
-    """does the newest version change the installer (install.sh, install/, bin/)? Then the update must be asked about in a
-    terminal. Checked here, before the installer runs: an installer from before V4.56 got this wrong from Settings and
-    opened terminals without end"""
-    q = dict(cwd=r, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-             env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never"))
-    try:
-        fix_remote(r)
-        if not origin_ok(r):
-            return False
-        if subprocess.call(["git", "-c", "credential.helper=", "fetch", "--quiet", "origin"], timeout=60, **q) != 0:
-            return False
-        up = "origin/" + branch()
-        return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install", "bin"], timeout=30, **q) == 1
-    except Exception:
+def installer_changes(r, tag):
+    if not origin_ok(r):
         return False
-
-
-def ensure_branch(r):
-    """Switch the local checkout to the configured update channel branch (main or dev) if needed."""
-    br = branch()
-    if not (r and os.path.isdir(r + "/.git") and origin_ok(r)):
-        return
-    try:
-        cur = git(r, "rev-parse", "--abbrev-ref", "HEAD", timeout=5).stdout.strip()
-        if cur != br:
-            git(r, "fetch", "--quiet", "origin", br, timeout=60)
-            git(r, "checkout", "-B", br, "origin/" + br, timeout=15)
-    except Exception:
-        pass
+    ref = "refs/tags/" + tag
+    f = git(r, "fetch", "--quiet", "--no-tags", "origin", ref + ":" + ref, timeout=60)
+    if f.returncode != 0:
+        raise OSError(f.stderr.strip() or "could not fetch release tag")
+    result = git(r, "diff", "--quiet", "HEAD", ref + "^{commit}", "--", "install.sh", "install", "bin")
+    return result.returncode == 1
 
 
 def open_center():
@@ -498,15 +432,25 @@ def gui(args):
         os._exit(0)
     log = open(LIVE_LOG, "w", buffering=1)
     t0 = int(time.time())
-    if installer_changes(r):
+    try:
+        tag = release_target(r)
+        needs_terminal = bool(tag and installer_changes(r, tag))
+    except (OSError, subprocess.SubprocessError) as e:
+        log.write("    ✘ %s\n" % e)
+        put_live(state="failed", code=1, started=t0, ended=int(time.time()), pid=0, was=installed())
+        os._exit(1)
+    if not tag:
+        put_live(state="done", code=0, started=t0, ended=int(time.time()), pid=0, now=installed())
+        os._exit(0)
+    if needs_terminal:
         log.write("    \u2139 This update changes the installer, so it is asked about in a terminal: one opened now.\n"
                   "      Answer y there (it may ask for your password). Nothing was changed yet.\n")
         put_live(state="failed", code=1, started=t0, ended=int(time.time()), pid=0, was=installed())
-        terminal_update()
+        fcntl.flock(lk, fcntl.LOCK_UN)
+        terminal_update(tag)
         os._exit(0)
     put_live(state="running", code=-1, started=t0, ended=0, pid=os.getpid(), was=installed())
-    ensure_branch(r)
-    env = dict(os.environ, RICE_GUI="1", RICE_UPDATE_LOCK="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
+    env = dict(os.environ, RICE_UPDATE_TAG=tag, RICE_GUI="1", RICE_UPDATE_LOCK="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
     env.pop("SUDO_ASKPASS", None)
     want = ["--update", "--yes"] + (args if args else ["--no-packages"])
     try:
@@ -544,8 +488,14 @@ def packages_pending():
 def update_all(args):
     """one action for both places that show updates: a terminal when packages wait, else the quiet GUI update"""
     if packages_pending() > 0:
-        terminal_update()
-        return 0
+        try:
+            tag = release_target(repo())
+        except (OSError, subprocess.SubprocessError):
+            tag = ""
+        if tag:
+            terminal_update(tag)
+            return 0
+        return subprocess.call([HOME + "/.local/bin/rice-care", "update"])
     return gui(args)
 
 
@@ -663,7 +613,6 @@ def run(args):
             except EOFError:
                 pass
             sys.exit(1)
-    ensure_branch(r)
     os.chdir(r)
     env = dict(os.environ)
     for k in ("RICE_GUI", "NO_COLOR", "GIT_TERMINAL_PROMPT", "GCM_INTERACTIVE"):
@@ -706,12 +655,10 @@ def whatsnew(ver=None):
     ver = ver or current
     title, items, found = "", [], False
     if r and ver == current and current != clean(inst):
-        try:
-            tag = release_tag(r, installed_revision(r))
-            if tag:
-                items = [md_line(line) for line in tag_changes(r, tag, limit=17)]
-        except (OSError, subprocess.SubprocessError):
-            pass
+        releases, _ = published_releases(r, offline=True)
+        release = next((rel for rel in releases if clean(rel["tag_name"]) == current), {})
+        items = [md_line(line.strip()[2:].strip()) for line in (release.get("body") or "").splitlines()
+                 if line.strip().startswith(("- ", "* "))]
     else:
         for line in text.splitlines():
             m = re.match(r"^##\s+V([\d.]+)\s*:?\s*(.*)$", line)
@@ -741,6 +688,13 @@ def whatsnew(ver=None):
 
 def main(a):
     cmd = a[1] if len(a) > 1 else ""
+    if cmd == "release-target":
+        try:
+            print(release_target(a[2] if len(a) > 2 else repo()))
+        except (OSError, subprocess.SubprocessError) as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
+        return
     if cmd == "whatsnew":
         whatsnew(a[2] if len(a) > 2 else None)
         return

@@ -28,7 +28,7 @@ Usage: ./install.sh [options]
   -n, --dry-run      show what would happen, change nothing
       --no-packages  skip the package step
       --no-upgrade   Arch: do not update the whole system first (faster; new packages may then need an update later)
-      --update       get the newest version and update apps, scripts and packages (keeps your configs)
+      --update       apply the newest published release for your channel (keeps your configs)
       --use-saved-settings  take the settings saved in this copy (settings/) even where you changed yours
       --wm=hyprland|niri|both   the window manager to set up (default: Hyprland; both: pick one at login)
       --helper=yay|paru   Arch: the AUR helper to use (or build yay); default: the one you have, paru first
@@ -1240,46 +1240,33 @@ if [ "$MODE" = update ]; then
   title "Update"
   if [ "$PULLED" = 1 ]; then ok "Got the newest version"
   elif [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
-    old="$(git -C "$ROOT" rev-parse --verify HEAD)" || exit 1
-    export RICE_PREV_REV="${RICE_PREV_REV:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)}"
-    if [ "$DRY_RUN" = 1 ]; then info "would fetch, check, and apply the selected GitHub commit"
-    elif ! { u="$(git -C "$ROOT" remote get-url origin 2>/dev/null)"
-             # the project's old name first (GitHub sends it on), then: only this project or a fork of it
-             case "$u" in *shadowww-dev/shadows-shell*) git -C "$ROOT" remote set-url origin https://github.com/shadowww-dev/DarkShadowShell.git ;; esac
-             update_remote_ok; }; then
-      fail "The update remote is not this project: $(git -C "$ROOT" remote get-url origin 2>/dev/null). Not updating."
+    export RICE_PREV_REV="${RICE_PREV_REV:-$(git -C "$ROOT" rev-parse --verify HEAD)}"
+    if [ "$DRY_RUN" = 1 ]; then info "would fetch and apply the selected published release tag"
+    elif ! update_remote_ok; then
+      fail "The update remote is not this project. Not updating."
       exit 1
-    elif ! update_precheck; then
-      exit 1
-    elif GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" merge --ff-only "$GUARD_CHECKED" >>"$LOG" 2>&1; then
-      new="$(git -C "$ROOT" rev-parse --verify HEAD)" || exit 1
-      if [ "$old" != "$new" ] && [ "$new" != "$GUARD_CHECKED" ]; then
-        fail "The repository moved during the update. Run the update again."
-        exit 1
-      fi
-      if [ "$old" != "$new" ]; then
-        # new files from GitHub, maybe a new installer too (asked about before the pull): start the new one
-        exec "$ROOT/install.sh" --update --pulled "$@"
-      fi
     else
-      # the fast-forward did not go (files changed in the repo, or its history went another way). It used to carry on with
-      # the old files and say it was done, so the version never moved (Settings > Update Center looked like it
-      # updated and nothing changed). Now: what you changed is kept (a stash and a branch), and the repo is set to
-      # GitHub's newest version
-      info "The fast-forward did not go through; keeping your changes aside and taking GitHub's version"
-      gq() { GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" "$@" >>"$LOG" 2>&1; }
-      stamp="$(date +%Y%m%d-%H%M%S)"
-      gq branch "rice-before-update-$stamp" HEAD || true
-      # Only reset after saving local changes, and use the exact commit that passed the guard.
-      if gq stash push -u -m "rice: your changes before the update of $stamp" && gq reset --hard "$GUARD_CHECKED"; then
-        ok "Took the newest version (your old state: branch rice-before-update-$stamp, and git stash list)"
-        exec "$ROOT/install.sh" --update --pulled "$@"
+      tag="${RICE_UPDATE_TAG:-}"
+      unset RICE_UPDATE_TAG
+      if [ -z "$tag" ]; then
+        tag="$(python3 "$ROOT/bin/rice-update" release-target "$ROOT")" || exit 1
       fi
-      if [ -n "${RICE_GUI:-}" ]; then
-        fail "Could not get the newest version from GitHub (offline?). Nothing was changed."
+      if [ -z "$tag" ]; then
+        ok "There is no newer published release for your channel."
+        exit 0
+      fi
+      if ! git -C "$ROOT" diff --quiet HEAD --; then
+        fail "Save your local Git changes before installing a release."
         exit 1
       fi
-      warn "Could not get the newest version from GitHub (offline, or your changes could not be set aside). Continuing with the files you have."
+      update_release_precheck "$tag" || exit 1
+      if [ "$RICE_PREV_REV" != "$RELEASE_REVISION" ]; then
+        git -C "$ROOT" checkout --detach --no-overwrite-ignore "$RELEASE_REVISION" >>"$LOG" 2>&1 || {
+          fail "Could not check out release $tag. See $LOG."
+          exit 1
+        }
+        exec "$ROOT/install.sh" --update --pulled "$@"
+      fi
     fi
   else
     # a ZIP from a GitHub release: no .git, so nothing to pull; it reinstalled the same old version again and again
