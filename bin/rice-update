@@ -30,6 +30,7 @@ import urllib.request
 HOME = os.path.expanduser("~")
 DIR = HOME + "/.config/rice"
 INSTALLED = DIR + "/version"
+INSTALLED_REV = DIR + "/version-revision"
 CACHE = HOME + "/.cache/rice"
 STATE = CACHE + "/update.json"
 NOTIFIED = CACHE + "/update-notified"
@@ -122,27 +123,65 @@ def make_git(r):
     return target
 
 
-def key(v):
-    """'2.02' < '2.1' == '2.10' < '3.0', with optional '-pre' suffix sorting before the final release."""
-    try:
-        s = (v or "").strip().lstrip("vV")
-        base, _, pre = s.partition("-")
-        major, _, minor = base.partition(".")
-        return (int(major), float("0." + (minor or "0")), 1 if not pre else 0, pre)
-    except ValueError:
-        return (0, 0.0, 0, "")
+VERSION_TAG = re.compile(r"(?:dotfiles-)?v?\.?([0-9]+\.[0-9]+(?:-v?[0-9]+(?:\.[0-9]+)*|-[a-z][a-z0-9.-]*)?)", re.I)
+TAG_PATTERNS = ("[vV][0-9]*", "[vV].[0-9]*", "Dotfiles-[vV][0-9]*", "[0-9]*.[0-9]*")
 
 
 def clean(v):
-    v = (v or "").strip().lstrip("vV")
-    return v if v and key(v)[:2] > (0, 0.0) else ""
+    match = VERSION_TAG.fullmatch((v or "").strip())
+    return re.sub(r"-v(?=[0-9])", "-", match.group(1).lower(), count=1) if match else ""
 
 
-def installed():
+def key(v):
+    """Keep the project's decimal base version ordering and compare numeric fork suffixes numerically."""
+    base, _, suffix = clean(v).partition("-")
+    major, _, minor = base.partition(".")
+    suffix_key = tuple((0, int(p)) if p.isdecimal() else (1, p) for p in suffix.split("."))
+    return (int(major or 0), minor.rstrip("0"), not suffix, suffix_key)
+
+
+def installed_base():
     try:
-        return clean(open(INSTALLED).read()) or "2.01"
+        with open(INSTALLED) as f:
+            return clean(f.read()) or "2.01"
     except OSError:
-        return "2.01"   # installs from before versions existed
+        return "2.01"
+
+
+def installed_revision(r):
+    if not r or not os.path.exists(r + "/.git"):
+        return ""
+    try:
+        with open(INSTALLED_REV) as f:
+            revision = f.read().strip()
+        return revision if re.fullmatch(r"[0-9a-f]{40,64}", revision) else ""
+    except OSError:
+        # Older installs recorded only VERSION. Infer the label from the checkout
+        # when its base version still matches the version that was installed.
+        v = git(r, "show", "HEAD:VERSION", timeout=5)
+        return "HEAD" if v.returncode == 0 and clean(v.stdout) == installed_base() else ""
+
+
+def release_tag(r, revision):
+    if not revision:
+        return ""
+    matches = [arg for pattern in TAG_PATTERNS for arg in ("--match", pattern)]
+    result = git(r, "describe", "--tags", "--first-parent", "--abbrev=0", *matches, revision, timeout=5)
+    tag = result.stdout.strip()
+    return tag if result.returncode == 0 and clean(tag) else ""
+
+
+def installed(r=None, revision=None):
+    base = installed_base()
+    try:
+        r = r or repo()
+        if r:
+            tag = release_tag(r, installed_revision(r) if revision is None else revision)
+            if tag:
+                return clean(tag)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return base
 
 
 def git(r, *a, timeout=25):
@@ -197,7 +236,7 @@ def news(text, version):
 
 def repo_slug(r):
     """Extract 'owner/repo' from origin remote if it matches REPO_ORIGIN, else default."""
-    if r and os.path.isdir(r + "/.git"):
+    if r and os.path.exists(r + "/.git"):
         try:
             u = git(r, "remote", "get-url", "origin", timeout=5).stdout.strip()
             m = re.search(r"github\.com[:/]([^/]+/(?:DarkShadowShell|dotfiles))(?:\.git)?/?$", u)
@@ -208,101 +247,104 @@ def repo_slug(r):
     return "1Shad0w/DarkShadowShell"
 
 
-def release_version(r, want_pre):
-    """Fetch the newest non-draft GitHub release matching channel: pre-release for dev, normal release for stable."""
+def release_notes(r, tag):
+    """Read the notes for the exact tag displayed, including GitHub pre-releases."""
     url = "https://api.github.com/repos/%s/releases?per_page=20" % repo_slug(r)
     try:
         req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "rice-update"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            items = json.loads(resp.read().decode("utf-8", "replace"))
-        if not isinstance(items, list):
-            return ""
-        vers = []
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            items = json.load(resp)
         for rel in items:
-            if not isinstance(rel, dict) or rel.get("draft"):
+            if not isinstance(rel, dict) or rel.get("draft") or rel.get("tag_name") != tag:
                 continue
-            if bool(rel.get("prerelease")) != bool(want_pre):
-                continue
-            v = clean(rel.get("tag_name") or "")
-            if v:
-                vers.append(v)
-        return max(vers, key=key) if vers else ""
-    except Exception:
-        return ""
+            return [line.strip()[2:].strip() for line in (rel.get("body") or "").splitlines()
+                    if line.strip().startswith(("- ", "* "))]
+    except (OSError, ValueError, TypeError):
+        pass
+    return []
 
 
-def latest(offline=False):
-    """newest version: GitHub (through your repo's git remote + Releases), else the raw file, else your repo.
-    Also: how many new commits GitHub has that this computer does not (an update without a new number)."""
-    r = repo()
-    br = branch()
-    want_pre = channel() == "dev"
-    found, err = [], ""
-    latest.ahead, latest.sha, latest.log, latest.release = 0, "", "", ""
-    if r and os.path.isdir(r + "/.git") and shutil.which("git"):
+def tag_changes(r, tag, limit=4):
+    ref = "refs/tags/" + tag
+    previous = release_tag(r, ref + "^")
+    revisions = "refs/tags/" + previous + ".." + ref if previous else ref
+    result = git(r, "log", "-%d" % limit, "--format=%s", revisions, timeout=5)
+    return result.stdout.splitlines() if result.returncode == 0 else []
+
+
+def latest(r, revision, offline=False):
+    info = {"version": "", "base": "", "changes": None, "commit": "", "tag": "", "news": [], "error": ""}
+    if r and os.path.exists(r + "/.git") and shutil.which("git"):
         try:
             if not offline:
                 fix_remote(r)
-            if not offline and origin_ok(r):
-                f = git(r, "fetch", "--quiet", "origin")
-                if f.returncode != 0:
-                    err = (f.stderr.strip().splitlines() or ["git fetch failed"])[-1]
-            elif not offline:
-                err = "the update remote is not this project"
-            refs = ["origin/" + br]
-            if br == "main":
-                refs.append("origin/master")
+                if origin_ok(r):
+                    f = git(r, "fetch", "--quiet", "--tags", "origin")
+                    if f.returncode != 0:
+                        info["error"] = (f.stderr.strip().splitlines() or ["git fetch failed"])[-1]
+                else:
+                    info["error"] = "the update remote is not this project"
+            br = branch()
+            refs = ["origin/" + br] + (["origin/master"] if br == "main" else [])
             for ref in refs:
-                s = git(r, "show", ref + ":VERSION", timeout=5)
-                if s.returncode == 0 and clean(s.stdout):
-                    found.append(clean(s.stdout))
-                    a = git(r, "rev-list", "--count", "HEAD.." + ref, timeout=5)
-                    latest.ahead = int(a.stdout.strip() or 0) if a.returncode == 0 else 0
-                    h = git(r, "rev-parse", "--short", ref, timeout=5)
-                    latest.sha = h.stdout.strip() if h.returncode == 0 else ""
-                    cl = git(r, "show", ref + ":CHANGELOG.md", timeout=5)
-                    latest.log = cl.stdout if cl.returncode == 0 else ""
-                    break
-        except Exception as e:
-            err = str(e)
-    if not offline:
-        rel_v = release_version(r, want_pre)
-        if rel_v:
-            latest.release = rel_v
-            found.append(rel_v)
-    if not found and not offline and shutil.which("curl"):
+                v = git(r, "show", ref + ":VERSION", timeout=5)
+                if v.returncode != 0 or not clean(v.stdout):
+                    continue
+                info["base"] = clean(v.stdout)
+                info["tag"] = release_tag(r, ref)
+                info["version"] = clean(info["tag"]) or info["base"]
+                h = git(r, "rev-parse", "--short", ref, timeout=5)
+                info["commit"] = h.stdout.strip() if h.returncode == 0 else ""
+                commit_range = (revision or "HEAD") + ".." + ref
+                a = git(r, "rev-list", "--count", commit_range, timeout=5)
+                if a.returncode == 0:
+                    info["changes"] = int(a.stdout.strip() or 0)
+                tag = info["tag"]
+                target_tag = git(r, "rev-parse", "--short", "refs/tags/" + tag + "^{commit}", timeout=5) if tag else None
+                if not offline and target_tag and target_tag.stdout.strip() == info["commit"]:
+                    info["news"] = release_notes(r, tag)
+                if not info["news"] and info["changes"]:
+                    log = git(r, "log", "-4", "--format=%s", commit_range, timeout=5)
+                    info["news"] = log.stdout.splitlines() if log.returncode == 0 else []
+                if not info["news"] and tag:
+                    info["news"] = tag_changes(r, tag)
+                if not info["news"] and not tag:
+                    log = git(r, "show", ref + ":CHANGELOG.md", timeout=5)
+                    info["news"] = news(log.stdout, info["base"]) if log.returncode == 0 else []
+                return info
+        except (OSError, ValueError, subprocess.SubprocessError) as e:
+            info["error"] = str(e)
+    if not offline and shutil.which("curl"):
         try:
-            c = subprocess.run(["curl", "-fsSL", "--max-time", "15", raw_url()], capture_output=True, text=True, timeout=20)
-            if c.returncode == 0 and clean(c.stdout):
-                found.append(clean(c.stdout))
-                err = ""
-        except Exception as e:
-            err = err or str(e)
-    if r:
-        try:
-            found.append(clean(open(r + "/VERSION").read()))   # pulled but not installed yet
-        except OSError:
-            pass
-        if not latest.log:
-            try:
-                latest.log = open(r + "/CHANGELOG.md").read()
-            except OSError:
-                pass
-    found = [v for v in found if v]
-    return (max(found, key=key) if found else ""), err
+            result = subprocess.run(["curl", "-fsSL", "--max-time", "15", raw_url()], capture_output=True, text=True, timeout=20)
+            if result.returncode == 0 and clean(result.stdout):
+                info["version"] = info["base"] = clean(result.stdout)
+                info["error"] = ""
+            elif not info["error"]:
+                info["error"] = result.stderr.strip() or "could not check the update channel"
+        except (OSError, subprocess.SubprocessError) as e:
+            info["error"] = info["error"] or str(e)
+    return info
 
 
 def check(offline=False):
-    have = installed()
-    new, err = latest(offline)
-    newer = bool(new) and key(new) > key(have)
-    ahead = getattr(latest, "ahead", 0)
-    out = {"installed": have, "latest": new or have, "update": newer or ahead > 0,
-           "changes": ahead, "commit": getattr(latest, "sha", ""),
-           "channel": channel(), "branch": branch(), "release": getattr(latest, "release", ""),
-           "news": news(getattr(latest, "log", ""), new or have)[:4],
-           "checked": int(time.time()), "error": err if not new else ""}
-    if is_zip(repo()):
+    r = repo()
+    try:
+        revision = installed_revision(r)
+    except (OSError, subprocess.SubprocessError):
+        revision = ""
+    info = latest(r, revision, offline)
+    # Fetch can discover tags for a version that is already installed.
+    have = installed(r, revision)
+    ahead = info["changes"]
+    newer = bool(info["base"]) and key(info["base"]) > key(installed_base())
+    update = (ahead or 0) > 0 or ((not revision or ahead is None) and newer)
+    target = info["version"] if ahead is not None or newer else have
+    out = {"installed": have, "latest": target or have, "update": update,
+           "changes": ahead or 0, "commit": info["commit"],
+           "channel": channel(), "branch": branch(), "release": clean(info["tag"]),
+           "news": info["news"][:4], "checked": int(time.time()), "error": info["error"]}
+    if is_zip(r):
         out["update"] = True
         out["error"] = ZIP_MSG
     os.makedirs(CACHE, exist_ok=True)
@@ -660,19 +702,28 @@ def whatsnew(ver=None):
         inst = open(INSTALLED).read().strip()
     except OSError:
         pass
-    ver = ver or inst
+    current = installed()
+    ver = ver or current
     title, items, found = "", [], False
-    for line in text.splitlines():
-        m = re.match(r"^##\s+V([\d.]+)\s*:?\s*(.*)$", line)
-        if m:
-            if found:
-                break
-            found = m.group(1) == ver
-            title = m.group(2).strip() if found else ""
-            title = title[:1].upper() + title[1:]
-            continue
-        if found and line.startswith("- "):
-            items.append(md_line(line[2:].strip()))
+    if r and ver == current and current != clean(inst):
+        try:
+            tag = release_tag(r, installed_revision(r))
+            if tag:
+                items = [md_line(line) for line in tag_changes(r, tag, limit=17)]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        for line in text.splitlines():
+            m = re.match(r"^##\s+V([\d.]+)\s*:?\s*(.*)$", line)
+            if m:
+                if found:
+                    break
+                found = m.group(1) == ver
+                title = m.group(2).strip() if found else ""
+                title = title[:1].upper() + title[1:]
+                continue
+            if found and line.startswith("- "):
+                items.append(md_line(line[2:].strip()))
     try:
         seen = open(SEEN).read().strip()
     except OSError:
@@ -681,11 +732,11 @@ def whatsnew(ver=None):
     first = not os.path.exists(DIR + "/welcome-seen") and not seen
     if first and inst:
         try:
-            open(SEEN, "w").write(inst + "\n")
+            open(SEEN, "w").write(ver + "\n")
         except OSError:
             pass
     print(json.dumps({"version": ver, "title": title, "items": items[:16], "more": max(0, len(items) - 16),
-                      "show": bool(items) and not first and seen != ver and ver == inst}))
+                      "show": bool(items) and not first and seen != ver and ver == current}))
 
 
 def main(a):
@@ -695,7 +746,7 @@ def main(a):
         return
     if cmd == "whatsnew-seen":
         try:
-            open(SEEN, "w").write(open(INSTALLED).read().strip() + "\n")
+            open(SEEN, "w").write(installed() + "\n")
         except OSError:
             pass
         return

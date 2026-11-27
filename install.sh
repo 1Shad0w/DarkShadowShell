@@ -1028,7 +1028,15 @@ fixup() { [ "$DRY_RUN" = 1 ] && return 0; RICE_BK="$BK" python3 "$ROOT/install/l
 # extra cursor themes from GitHub into ~/.local/share/icons (skips the ones you have; offline is fine)
 cursor_packs() { t "$BIN/rice-cursor" get all --missing >"$1" 2>&1; }
 remember_repo() { mkdir -p "$HOME/.config/rice"; echo "$ROOT" >"$HOME/.config/rice/repo"; }
-remember_version() { mkdir -p "$HOME/.config/rice"; echo "$RICE_VERSION" >"$HOME/.config/rice/version"; }
+remember_version() {
+  local dir="$HOME/.config/rice" revision
+  mkdir -p "$dir" || return 1
+  revision="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null)" || revision=""
+  printf '%s\n' "$revision" >"$dir/version-revision.tmp" &&
+    mv -f "$dir/version-revision.tmp" "$dir/version-revision" &&
+    printf '%s\n' "$RICE_VERSION" >"$dir/version.tmp" &&
+    mv -f "$dir/version.tmp" "$dir/version"
+}
 first_backup() { mkdir -p "$HOME/.config/rice" "$HOME/.cache/rice"; [ -f "$HOME/.config/rice/.first-backup" ] || echo "$BK" >"$HOME/.config/rice/.first-backup"; }
 
 # old backups pile up with every update (a slow, big ~/.config): keep the first one and the newest two

@@ -98,7 +98,10 @@ Item {
                 page.checking = false
                 try { page.st = JSON.parse(text.trim().split("\n").pop()) } catch (e) {}
                 if (page.st.channel === "dev" || page.st.channel === "stable") page.channel = page.st.channel
-                page.ctl.status = page.st.update ? I18n.t("Update V%1 is available", page.st.latest) : I18n.t("Up to date")
+                page.ctl.status = page.st.update
+                    ? ((page.st.installed === page.st.latest && page.st.changes > 0) ? I18n.t("%1 new changes on GitHub.", page.st.changes)
+                       : I18n.t("Update V%1 is available", page.st.latest))
+                    : page.st.error ? I18n.t("Could not reach GitHub: %1", page.st.error) : I18n.t("Up to date")
             }
         }
         onExited: page.checking = false
@@ -251,9 +254,11 @@ Item {
                     text: page.running ? I18n.t("Updating...")
                         : page.failed ? I18n.t("The update did not finish")
                         : page.finished && !page.hasUpdate && page.lv.ended && page.now - page.lv.ended < 3600 ? I18n.t("Updated to V%1", page.st.installed || page.lv.now || "?")
-                        : page.hasUpdate ? I18n.t("V%1 is available", page.st.latest)
+                        : page.hasUpdate ? (page.st.installed === page.st.latest ? I18n.t("Updates are ready")
+                                            : I18n.t("V%1 is available", page.st.latest))
                         : page.pkgTotal > 0 ? I18n.t("Updates are ready")
                         : page.checking ? I18n.t("Looking for updates...")
+                        : page.st.error ? I18n.t("DarkShadow's Shell V%1", page.st.installed || "?")
                         : I18n.t("You are up to date") }
                 T { kind: "reading"; font.pixelSize: 13; color: M3.inkPrimaryC; opacity: 0.85; width: parent.width; wrapMode: Text.WordWrap
                     text: page.running ? (page.current ? page.current.t : I18n.t("Getting the newest version from GitHub..."))
