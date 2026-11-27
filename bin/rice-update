@@ -375,8 +375,16 @@ def terminal_update():
     cmd = [t, "-e", HOME + "/.local/bin/rice-update"]
     if os.access(HOME + "/.local/bin/rice-term", os.X_OK):        # your terminal (Settings > Look & Feel)
         cmd = [HOME + "/.local/bin/rice-term", "-e", HOME + "/.local/bin/rice-update"]
-    subprocess.Popen(cmd, start_new_session=True, env=env,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    started = int(time.time())
+    was = installed()
+    put_live(state="terminal", started=started, pid=0, was=was, terminal=True)
+    try:
+        subprocess.Popen(cmd, start_new_session=True, env=env,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as e:
+        with open(LIVE_LOG, "w") as log:
+            log.write("    ✘ Could not open the update terminal: %s\n" % e)
+        put_live(state="failed", code=1, started=started, ended=int(time.time()), pid=0, was=was, terminal=True)
 
 
 def installer_changes(r):
@@ -488,7 +496,7 @@ def gui(args):
         return 1
     if is_zip(r):
         open(LIVE_LOG, "w").write("    \u2718 " + ZIP_MSG + "\n")
-        put_live(state="failed", code=1, started=int(time.time()), ended=int(time.time()), pid=0)
+        fcntl.flock(lk, fcntl.LOCK_UN)
         terminal_update()
         return 1
     if os.fork() != 0:
@@ -501,7 +509,7 @@ def gui(args):
     if installer_changes(r):
         log.write("    \u2139 This update changes the installer, so it is asked about in a terminal: one opened now.\n"
                   "      Answer y there (it may ask for your password). Nothing was changed yet.\n")
-        put_live(state="failed", code=1, started=t0, ended=int(time.time()), pid=0, was=installed())
+        fcntl.flock(lk, fcntl.LOCK_UN)
         terminal_update()
         os._exit(0)
     put_live(state="running", code=-1, started=t0, ended=0, pid=os.getpid(), was=installed())
@@ -643,32 +651,46 @@ def watch():
         time.sleep(TICK)
 
 
-def run(args):
+def run_installer(args):
     r = repo()
     if not r:
         print("Could not find your copy of the repo. Clone it again:")
         print("  git clone https://github.com/shadowww-dev/DarkShadowShell ~/shadows-shell")
-        input("Press Enter to close")
-        sys.exit(1)
+        return 1
     if is_zip(r):
         print(ZIP_MSG.replace(" Run rice-update in a terminal: it turns", " This turns"))
         try:
-            a = input("Make it a git copy now? [Y/n] ").strip().lower()
+            answer = input("Make it a git copy now? [Y/n] ").strip().lower()
         except EOFError:
-            a = "y"
-        r = make_git(r) if a in ("", "y", "yes") else None
+            answer = "n"
+        r = make_git(r) if answer in ("", "y", "yes") else None
         if not r:
-            try:
-                input("Press Enter to close")
-            except EOFError:
-                pass
-            sys.exit(1)
+            return 1
     ensure_branch(r)
-    os.chdir(r)
     env = dict(os.environ)
     for k in ("RICE_GUI", "NO_COLOR", "GIT_TERMINAL_PROMPT", "GCM_INTERACTIVE"):
-        env.pop(k, None)   # a terminal the Update Center opened must ask, not act like the background update
-    code = subprocess.call(["./install.sh", "--update"] + args, env=env)
+        env.pop(k, None)
+    return subprocess.call(["./install.sh", "--update"] + args, cwd=r, env=env)
+
+
+def run(args):
+    started = int(time.time())
+    was = installed()
+    put_live(state="running", started=started, pid=os.getpid(), was=was, terminal=True)
+    try:
+        code = run_installer(args)
+    except KeyboardInterrupt:
+        code = 130
+    except OSError as e:
+        print(e, file=sys.stderr)
+        code = 1
+    if code == 0:
+        try:
+            check(offline=True)
+        except Exception:
+            pass
+    put_live(state="done" if code == 0 else "failed", code=code, started=started,
+             ended=int(time.time()), pid=0, was=was, now=installed(), terminal=True)
     print()
     try:
         input("Press Enter to close")
