@@ -101,6 +101,16 @@ W[#W + 1] = fresh
 RiceInfinite.opened(fresh)
 check(fresh.at.x >= 1920 and fresh.at.x + fresh.size.x <= 3840, "the new window stays on its own screen")
 
+-- a passive floating overlay (not active) is left alone without moving or focusing
+local toast = win("0xe", 11, M2, 10, 10, 300, 80)
+toast.floating = true
+toast.active = false
+local moves_before, focuses_before = #moves, #focuses
+W[#W + 1] = toast
+RiceInfinite.opened(toast)
+check(#moves == moves_before and #focuses == focuses_before and toast.at.x == 10 and toast.at.y == 10, "passive floating overlay is left alone")
+table.remove(W)
+
 -- off: every screen is put back and tiled again
 RiceInfinite.set(false)
 check(floatarr[#floatarr] == "unset", "off tiles it again")

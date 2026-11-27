@@ -505,6 +505,9 @@ function RI.opened(w)
     if not RI.on then return end
     if not (w and w.workspace and (shared() or w.workspace.id == RI.ws)) then return end
     if overlay(w) then return end
+    -- Hyprland gives Lua window.open after deciding focus. Passive floating windows are app overlays (Steam toasts,
+    -- notification pop-ups); moving, resizing or focusing them would move the canvas instead of leaving the overlay put.
+    if w.floating and not w.active then return end
     if not w.floating then
         -- it would have been tiled: it tiles again when Infinite Desktop is turned off
         RI.tiled[w.address] = true
