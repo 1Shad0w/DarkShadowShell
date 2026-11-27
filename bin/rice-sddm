@@ -94,8 +94,31 @@ root_install() {   # root-install SRC USER [use-sddm]
   find "$src" -maxdepth 1 -type f \( -name '*.qml' -o -name '*.desktop' -o -name 'theme.conf' -o -name '*.png' \) -exec install -m 644 {} "$THEME/" \;
   mkdir -p "$U"
   chown "$user:$grp" "$U"; chmod 755 "$U"
-  [ -e "$U/theme.conf.user" ] || { printf '[General]\n' >"$U/theme.conf.user"; chown "$user:$grp" "$U/theme.conf.user"; }
-  chmod 644 "$U/theme.conf.user"
+  # The user owns this directory. Initialize a new file through its descriptor
+  # and leave existing entries untouched, including their permissions.
+  python3 - "$U" "$user" "$grp" <<'PYCODE' || return 1
+import grp
+import os
+import pwd
+import sys
+
+directory, user, group = sys.argv[1:]
+directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    try:
+        fd = os.open("theme.conf.user", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=directory_fd)
+    except FileExistsError:
+        pass
+    else:
+        with os.fdopen(fd, "w") as config:
+            config.write("[General]\n")
+            config.flush()
+            os.fchown(config.fileno(), pwd.getpwnam(user).pw_uid, grp.getgrnam(group).gr_gid)
+            os.fchmod(config.fileno(), 0o644)
+finally:
+    os.close(directory_fd)
+PYCODE
   ln -sfn user/theme.conf.user "$THEME/theme.conf.user"
   mkdir -p "$CONFD"
   rm -f "$OLDCONF"
