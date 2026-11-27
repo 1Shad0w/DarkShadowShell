@@ -8,16 +8,16 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Nombre del tag / versión (ej. v6.84)"
+        description: "Version tag name (e.g. v6.84)"
         required: true
         type: string
       create_release:
-        description: "Crear GitHub Release además del tag"
+        description: "Create a GitHub Release in addition to the tag"
         required: true
         default: true
         type: boolean
       prerelease:
-        description: "Marcar la release como pre-release"
+        description: "Mark the release as a pre-release"
         required: true
         default: false
         type: boolean
@@ -59,7 +59,7 @@ jobs:
               prerelease = os.environ.get("INPUT_PRERELEASE", "false").lower() == "true"
           else:
               body = os.environ.get("PR_BODY", "")
-              m = re.search(r"(?im)^[ \t>*-]*(?:Version\s*tag|Tag|Versi[oó]n)\s*:\s*(.+?)\s*$", body)
+              m = re.search(r"(?im)^[ \t>*-]*(?:Version\s*tag|Tag|Version)\s*:\s*(.+?)\s*$", body)
               if m:
                   cand = m.group(1).strip().strip("`\"'")
                   if cand and not cand.startswith("<!--"):
@@ -69,8 +69,8 @@ jobs:
                   if ver:
                       tag = ver if ver.startswith("v") else "v" + ver
 
-              if re.search(r"(?im)-\s*\[x\]\s*Crear\s+GitHub\s+Release", body) or \
-                 re.search(r"(?im)^[ \t>*-]*Create\s+GitHub\s+Release\s*:\s*(yes|true|si|s[ií])\s*$", body):
+              if re.search(r"(?im)-\s*\[x\]\s*Create\s+GitHub\s+Release", body) or \
+                 re.search(r"(?im)^[ \t>*-]*Create\s+GitHub\s+Release\s*:\s*(yes|true)\s*$", body):
                   create_release = True
 
           if not tag:

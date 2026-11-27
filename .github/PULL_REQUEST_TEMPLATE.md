@@ -1,19 +1,19 @@
-## Resumen
+## Summary
 
-<!-- Describe brevemente qué cambia esta PR y por qué. -->
+<!-- Briefly describe what this PR changes and why. -->
 
-## Rama destino
+## Target Branch
 
-- [ ] Cambio normal hacia `dev` (features, fixes, docs, refactors)
-- [ ] Release de `dev` hacia `main`
+- [ ] Regular change targeting `dev` (features, fixes, docs, refactors)
+- [ ] Release PR from `dev` into `main`
 
-## Datos de release (solo para PR de `dev` → `main`)
+## Release Metadata (only for `dev` → `main` PRs)
 
-<!-- Si dejas Version tag vacío, el workflow usará v<VERSION>. -->
+<!-- If Version tag is left blank, the workflow falls back to v<VERSION>. -->
 Version tag:
-- [ ] Crear GitHub Release
+- [ ] Create GitHub Release
 
-## Checklist de verificación
+## Verification Checklist
 
 - [ ] `bash tests/security.sh`
 - [ ] `bash tests/qml-shared.sh`
@@ -23,12 +23,12 @@ Version tag:
 - [ ] `bash tests/infinite.sh`
 - [ ] `bash tests/sddm.sh`
 - [ ] `python3 tests/hotcorner.py`
-- [ ] `python3 -m py_compile` en scripts Python modificados
-- [ ] `bash -n` en scripts shell modificados (y `luac -p` si se tocó Lua)
+- [ ] `python3 -m py_compile` on modified Python scripts
+- [ ] `bash -n` on modified shell scripts (and `luac -p` if Lua files were changed)
 
-## Seguridad y compatibilidad
+## Security & Compatibility
 
-- [ ] Si añade descargas externas, están fijadas a tag/commit y con su SHA-256 en `install/checksums.txt`
-- [ ] Las escrituras de configuración son atómicas (`.tmp` + `os.replace`)
-- [ ] No se han eliminado ni debilitado checks de seguridad o CI
-- [ ] No contiene secretos ni credenciales
+- [ ] Any new external downloads are pinned to a tag/commit and SHA-256 verified in `install/checksums.txt`
+- [ ] Config/state writes are atomic (`.tmp` + `os.replace`)
+- [ ] No security or CI checks were removed or weakened
+- [ ] No secrets or private credentials included
