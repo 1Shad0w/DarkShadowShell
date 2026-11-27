@@ -24,10 +24,12 @@ PanelWindow {
     property var scr: null
     readonly property bool extra: scr !== null
     screen: scr ? scr : Mon.screen
-    // one rice-services and one rice-weather for every bar (BarSvc.qml): a copy for another screen only reads them
-    onOnChanged: if (!bar.extra) BarSvc.shown = bar.on || bar.ghostOnly
-    onGhostOnlyChanged: if (!bar.extra) BarSvc.shown = bar.on || bar.ghostOnly
-    Component.onCompleted: if (!bar.extra) BarSvc.shown = bar.on || bar.ghostOnly
+    Binding {
+        when: !bar.extra
+        target: BarSvc
+        property: "shown"
+        value: bar.on && (bar.hasMod("network") || bar.hasMod("bluetooth") || bar.hasMod("notifications"))
+    }
 
     // ---------- settings (~/.config/rice/bar.json) ----------
     readonly property var bc: BarConfig.values
