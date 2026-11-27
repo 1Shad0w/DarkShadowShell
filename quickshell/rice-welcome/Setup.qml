@@ -2,38 +2,66 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Guided onboarding over the night backdrop, mandatory on first login:
-//   0 Language & Region -> 1 Look -> 2 Bar & Dock -> 3 Font & Cursor -> 4 Profile & Lock / SDDM -> 5 All set
-// Every selection runs the same commands Settings uses, updating the live desktop immediately.
+// Guided onboarding over the night backdrop, mandatory on first login. One step per area of the shell:
+//   0 Language & region   1 Keyboard     2 Look          3 Colors        4 Bar & dock     5 Widgets
+//   6 Font & cursor       7 Sounds       8 Power & lock  9 Performance  10 Profile & login  11 All set
+// Every selection runs the same commands Settings uses, so the live desktop changes immediately.
 Item {
     id: su
     property bool shown: false
     property bool mandatory: false
-    property int page: 0                 // 0..5
+    property int page: 0
+    readonly property int last: 11       // the summary page
 
-    // Step 0: Language & Region
+    readonly property bool niri: !!Quickshell.env("NIRI_SOCKET")
+
+    // 0: Language & region
     property string lang: ""
     property string langName: "System default"
     property string clock: "24"
     property string units: "c"
 
-    // Step 1: Look
+    // 1: Keyboard
+    property string kbdLayout: "us"
+
+    // 2: Look
     property var presets: []
     property string look: ""             // "" = keep my desktop
     property string lookName: ""
     property var backup: null
 
-    // Step 2: Bar & Dock
+    // 3: Colors
+    property var schemes: []
+    property string colorKey: "auto"
+
+    // 4: Bar & dock
     property string bar: ""
     property string dock: ""
 
-    // Step 3: Font & Cursor
+    // 5: Widgets
+    property var widgetOn: ({})
+
+    // 6: Font & cursor
     property string uiFont: "Google Sans Flex"
     property var cursors: []
     property string cursorTheme: ""
     property int cursorSize: 24
 
-    // Step 4: Profile & Lock / SDDM
+    // 7: Sounds
+    property bool sfxOn: true
+    property int sfxVolume: 45
+    property string sfxPack: "pebble"
+    property var sfxPacks: ["pebble", "tap", "soft", "pluck", "keys", "crystal", "bubble", "retro"]
+
+    // 8: Power & lock
+    property int lockAfter: 5
+    property int screenOffAfter: 0
+    property int suspendAfter: 15
+
+    // 9: Performance
+    property bool lite: false
+
+    // 10: Profile & login
     property string accountUser: Quickshell.env("USER")
     property string accountName: ""
     property string sddmClock: "classic"
@@ -45,42 +73,46 @@ Item {
 
     readonly property string bin: Quickshell.env("HOME") + "/.local/bin/"
     readonly property var pageNames: [
-        "Language & region",
-        "Pick a look",
-        "Bar & dock",
-        "Font & cursor",
-        "Profile & lock screen",
-        "All set"
+        "Language & region", "Keyboard", "Pick a look", "Colors", "Bar & dock", "Desktop widgets",
+        "Font & cursor", "Sounds", "Power & lock", "Performance", "Profile & login", "All set"
     ]
     readonly property var pageText: [
         "Set your shell language, clock format, and temperature units.",
+        "Choose the layout you type with.",
         "A whole desktop look in one click. You can change it any time in Settings.",
+        "The accent color the whole desktop is tinted with.",
         "Choose your top bar style and whether a bottom dock appears.",
-        "Pick the system font family and your pointer cursor theme and size.",
-        "Confirm your user profile and style your lock & SDDM login clock.",
-        "Every section is configured. Everything else lives in Settings."
+        "Pick the widgets that live on your desktop. Move them later with SUPER + ALT + W.",
+        "Pick the interface font and your pointer cursor theme and size.",
+        "Interface sounds when you click, switch and open things.",
+        "When the screen locks, turns off and the computer sleeps.",
+        "Full effects look best; Light mode is kinder to slower computers.",
+        "Confirm your profile and style the lock screen and login clock.",
+        "Every area is configured. Everything else lives in Settings."
     ]
     readonly property var langs: [
-        { k: "", n: "System", s: "System default" },
-        { k: "en", n: "English", s: "EN" },
-        { k: "es", n: "Español", s: "ES" },
-        { k: "pt", n: "Português", s: "PT" },
-        { k: "de", n: "Deutsch", s: "DE" },
-        { k: "fr", n: "Français", s: "FR" },
-        { k: "pl", n: "Polski", s: "PL" }
+        { k: "", n: "System", s: "System default" }, { k: "en", n: "English", s: "EN" },
+        { k: "es", n: "Español", s: "ES" }, { k: "pt", n: "Português", s: "PT" },
+        { k: "de", n: "Deutsch", s: "DE" }, { k: "fr", n: "Français", s: "FR" }, { k: "pl", n: "Polski", s: "PL" }
     ]
     readonly property var clocks: [{ k: "24", n: "24-hour" }, { k: "12", n: "12-hour" }]
     readonly property var unitChoices: [{ k: "c", n: "°C Celsius" }, { k: "f", n: "°F Fahrenheit" }]
+    readonly property var kbdChoices: [
+        { k: "us", n: "English (US)" }, { k: "gb", n: "English (UK)" }, { k: "es", n: "Español" },
+        { k: "latam", n: "Latinoamérica" }, { k: "pt", n: "Português (PT)" }, { k: "br", n: "Português (BR)" },
+        { k: "de", n: "Deutsch" }, { k: "fr", n: "Français" }, { k: "it", n: "Italiano" }, { k: "pl", n: "Polski" }
+    ]
+    readonly property var colorKeys: ["auto", "grey", "ocean", "teal", "mint", "sunset", "rose", "orchid", "violet", "lavender", "gold", "mono"]
     readonly property var bars: [
-        { k: "dynamic", n: "Dynamic island" },
-        { k: "edge", n: "Edge" },
-        { k: "notch", n: "Notch" },
-        { k: "pills", n: "Pills" }
+        { k: "dynamic", n: "Dynamic island" }, { k: "edge", n: "Edge" }, { k: "notch", n: "Notch" }, { k: "pills", n: "Pills" }
     ]
     readonly property var docks: [
-        { k: "off", n: "No dock", d: "Launcher only" },
-        { k: "floating", n: "Floating", d: "Rounded panel" },
-        { k: "pills", n: "Pills", d: "Individual tiles" }
+        { k: "off", n: "No dock", d: "Launcher only" }, { k: "floating", n: "Floating", d: "Rounded panel" }, { k: "pills", n: "Pills", d: "Individual tiles" }
+    ]
+    readonly property var widgetChoices: [
+        { k: "weather", n: "Weather" }, { k: "media", n: "Music" }, { k: "resources", n: "Resources" },
+        { k: "calendar", n: "Calendar" }, { k: "todo", n: "To-do" }, { k: "notes", n: "Notes" },
+        { k: "visualizer", n: "Visualizer" }, { k: "lyrics", n: "Lyrics" }
     ]
     readonly property var fonts: [
         { k: "Google Sans Flex", n: "Google Sans Flex", s: "Default Material 3 UI" },
@@ -88,17 +120,18 @@ Item {
         { k: "Rubik", n: "Rubik", s: "Soft rounded UI" }
     ]
     readonly property var cursorSizes: [24, 28, 32]
+    readonly property var volumes: [{ k: 25, n: "Quiet" }, { k: 45, n: "Normal" }, { k: 70, n: "Loud" }]
+    readonly property var lockChoices: [0, 5, 10, 15, 30]
+    readonly property var offChoices: [0, 10, 15, 30]
+    readonly property var sleepChoices: [0, 15, 30, 60]
     readonly property var sddmClocks: [
-        { k: "classic", n: "Classic" },
-        { k: "stacked", n: "Stacked" },
-        { k: "center", n: "Center" },
-        { k: "pill", n: "Pill" },
-        { k: "shapes", n: "Shapes" }
+        { k: "classic", n: "Classic" }, { k: "stacked", n: "Stacked" }, { k: "center", n: "Center" },
+        { k: "pill", n: "Pill" }, { k: "shapes", n: "Shapes" }
     ]
 
-    function shQuote(s) {
-        return "'" + String(s).replace(/'/g, "'\\''") + "'"
-    }
+    function shQuote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
+    function mins(n) { return n === 0 ? "Never" : n + " min" }
+    function bin_(name) { return shQuote(bin + name) }
 
     function run(cmd) {
         if (runner.running) queue.push(cmd)
@@ -113,7 +146,7 @@ Item {
         }
     }
 
-    // State loaders triggered when setup opens
+    // ---------- current state, read once when the wizard opens ----------
     Process {
         command: [su.bin + "rice-region", "state"]
         running: su.shown
@@ -126,6 +159,15 @@ Item {
                     su.units = j.units || "c"
                     for (let i = 0; i < su.langs.length; i++) if (su.langs[i].k === su.lang) su.langName = su.langs[i].n
                 } catch (e) {}
+            }
+        }
+    }
+    Process {
+        command: [su.bin + "hypr-set", "kbd-state"]
+        running: su.shown && !su.niri
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { const j = JSON.parse(text); if (j.layouts && j.layouts.length > 0) su.kbdLayout = j.layouts[0] } catch (e) {}
             }
         }
     }
@@ -155,6 +197,37 @@ Item {
         }
     }
     Process {
+        command: [su.bin + "rice-colors", "list"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const all = JSON.parse(text)
+                    su.schemes = su.colorKeys.map(function(k) { return all.find(function(s) { return s.key === k }) }).filter(function(s) { return !!s })
+                } catch (e) { su.schemes = [] }
+            }
+        }
+    }
+    Process {
+        command: [su.bin + "rice-colors", "get"]
+        running: su.shown
+        stdout: StdioCollector { onStreamFinished: { const k = text.trim(); if (k !== "") su.colorKey = k } }
+    }
+    Process {
+        command: [su.bin + "desktop-set", "state"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const w = JSON.parse(text).widgets || {}
+                    const m = {}
+                    for (let i = 0; i < su.widgetChoices.length; i++) { const id = su.widgetChoices[i].k; m[id] = !!(w[id] && w[id].enabled) }
+                    su.widgetOn = m
+                } catch (e) {}
+            }
+        }
+    }
+    Process {
         command: [su.bin + "rice-cursor", "state"]
         running: su.shown
         stdout: StdioCollector {
@@ -166,6 +239,42 @@ Item {
                     su.cursors = (j.themes || []).slice(0, 6)
                 } catch (e) { su.cursors = [] }
             }
+        }
+    }
+    Process {
+        command: [su.bin + "rice-sfx", "state"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const j = JSON.parse(text)
+                    su.sfxOn = j.enabled !== false
+                    su.sfxVolume = j.volume !== undefined ? j.volume : 45
+                    su.sfxPack = j.pack || "pebble"
+                    if (j.packs && j.packs.length > 0) su.sfxPacks = j.packs
+                } catch (e) {}
+            }
+        }
+    }
+    Process {
+        command: [su.bin + "rice-lock", "state"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const j = JSON.parse(text)
+                    su.lockAfter = j.lock_after !== undefined ? j.lock_after : 5
+                    su.screenOffAfter = j.screen_off_after !== undefined ? j.screen_off_after : 0
+                    su.suspendAfter = j.suspend_after !== undefined ? j.suspend_after : 15
+                } catch (e) {}
+            }
+        }
+    }
+    Process {
+        command: [su.bin + "rice-effects", "state"]
+        running: su.shown
+        stdout: StdioCollector {
+            onStreamFinished: { try { su.lite = !!JSON.parse(text).lite } catch (e) {} }
         }
     }
     Process {
@@ -182,70 +291,58 @@ Item {
         }
     }
 
-    // Mutators
+    // ---------- choices (each one runs the command Settings runs) ----------
     function pickLang(k, n) {
-        lang = k; langName = n
-        Sfx.play("select")
-        run(shQuote(bin + "rice-region") + " set lang " + shQuote(k) + " >/dev/null 2>&1")
+        lang = k; langName = n; Sfx.play("select")
+        run(bin_("rice-region") + " set lang " + shQuote(k) + " >/dev/null 2>&1")
     }
-    function pickClock(k) {
-        clock = k
-        Sfx.play("select")
-        run(shQuote(bin + "rice-region") + " set clock " + shQuote(k) + " >/dev/null 2>&1")
-    }
-    function pickUnits(k) {
-        units = k
-        Sfx.play("select")
-        run(shQuote(bin + "rice-region") + " set units " + shQuote(k) + " >/dev/null 2>&1")
-    }
+    function pickClock(k) { clock = k; Sfx.play("select"); run(bin_("rice-region") + " set clock " + shQuote(k) + " >/dev/null 2>&1") }
+    function pickUnits(k) { units = k; Sfx.play("select"); run(bin_("rice-region") + " set units " + shQuote(k) + " >/dev/null 2>&1") }
+    function pickKbd(k) { kbdLayout = k; Sfx.play("select"); run(bin_("hypr-set") + " kbd-set " + shQuote(k) + " >/dev/null 2>&1 || true") }
     function pickLook(k, n) {
         if (look === k) return
-        look = k
-        lookName = n || ""
-        Sfx.play("select")
-        if (k === "backup" && backup) run(shQuote(bin + "rice-backup") + " restore " + shQuote(backup.path) + " >/dev/null 2>&1")
-        else if (k !== "") run(shQuote(bin + "rice-preset") + " apply " + shQuote(k) + " >/dev/null 2>&1")
-        else run(shQuote(bin + "rice-preset") + " apply before >/dev/null 2>&1 || true")
+        look = k; lookName = n || ""; Sfx.play("select")
+        if (k === "backup" && backup) run(bin_("rice-backup") + " restore " + shQuote(backup.path) + " >/dev/null 2>&1")
+        else if (k !== "") run(bin_("rice-preset") + " apply " + shQuote(k) + " >/dev/null 2>&1")
+        else run(bin_("rice-preset") + " apply before >/dev/null 2>&1 || true")
     }
-    function pickBar(k) {
-        bar = k
-        Sfx.play("select")
-        run(shQuote(bin + "rice-bar") + " set style " + shQuote(k) + " >/dev/null 2>&1")
-    }
+    function pickColor(k) { colorKey = k; Sfx.play("select"); run(bin_("rice-colors") + " mode " + shQuote(k) + " >/dev/null 2>&1") }
+    function pickBar(k) { bar = k; Sfx.play("select"); run(bin_("rice-bar") + " set style " + shQuote(k) + " >/dev/null 2>&1") }
     function pickDock(k) {
         dock = k
         Sfx.play(k === "off" ? "switch-off" : "switch-on")
-        if (k === "off") run(shQuote(bin + "desktop-set") + " dock enabled off >/dev/null 2>&1")
-        else run(shQuote(bin + "desktop-set") + " dock enabled on >/dev/null 2>&1; " + shQuote(bin + "desktop-set") + " dock style " + shQuote(k) + " >/dev/null 2>&1")
+        if (k === "off") run(bin_("desktop-set") + " dock enabled off >/dev/null 2>&1")
+        else run(bin_("desktop-set") + " dock enabled on >/dev/null 2>&1; " + bin_("desktop-set") + " dock style " + shQuote(k) + " >/dev/null 2>&1")
     }
-    function pickFont(fam) {
-        uiFont = fam
-        Sfx.play("select")
-        run(shQuote(bin + "font-set") + " use " + shQuote(fam) + " all >/dev/null 2>&1")
+    function toggleWidget(id) {
+        const m = Object.assign({}, widgetOn)
+        m[id] = !m[id]
+        widgetOn = m
+        Sfx.play(m[id] ? "switch-on" : "switch-off")
+        run(bin_("desktop-set") + " widget " + shQuote(id) + " " + (m[id] ? "on" : "off") + " >/dev/null 2>&1")
     }
-    function pickCursorTheme(id) {
-        cursorTheme = id
-        Sfx.play("select")
-        run(shQuote(bin + "rice-cursor") + " set " + shQuote(id) + " " + cursorSize + " >/dev/null 2>&1")
-    }
-    function pickCursorSize(sz) {
-        cursorSize = sz
-        Sfx.play("select")
-        run(shQuote(bin + "rice-cursor") + " size " + sz + " >/dev/null 2>&1")
-    }
+    function pickFont(fam) { uiFont = fam; Sfx.play("select"); run(bin_("font-set") + " use " + shQuote(fam) + " all >/dev/null 2>&1") }
+    function pickCursorTheme(id) { cursorTheme = id; Sfx.play("select"); run(bin_("rice-cursor") + " set " + shQuote(id) + " " + cursorSize + " >/dev/null 2>&1") }
+    function pickCursorSize(sz) { cursorSize = sz; Sfx.play("select"); run(bin_("rice-cursor") + " size " + sz + " >/dev/null 2>&1") }
+    function setSfxOn(v) { sfxOn = v; run(bin_("rice-sfx") + " set enabled " + (v ? "on" : "off") + " >/dev/null 2>&1") }
+    function pickVolume(v) { sfxVolume = v; run(bin_("rice-sfx") + " set volume " + v + " >/dev/null 2>&1; " + bin_("rice-sfx") + " play click >/dev/null 2>&1") }
+    function pickPack(p) { sfxPack = p; run(bin_("rice-sfx") + " set pack " + shQuote(p) + " >/dev/null 2>&1; " + bin_("rice-sfx") + " play click >/dev/null 2>&1") }
+    function pickLock(n) { lockAfter = n; Sfx.play("select"); run(bin_("rice-lock") + " set lock_after " + n + " >/dev/null 2>&1") }
+    function pickScreenOff(n) { screenOffAfter = n; Sfx.play("select"); run(bin_("rice-lock") + " set screen_off_after " + n + " >/dev/null 2>&1") }
+    function pickSleep(n) { suspendAfter = n; Sfx.play("select"); run(bin_("rice-lock") + " set suspend_after " + n + " >/dev/null 2>&1") }
+    function pickLite(v) { lite = v; Sfx.play("select"); run(bin_("rice-effects") + " lite " + (v ? "on" : "off") + " >/dev/null 2>&1") }
     function pickSddmClock(k) {
-        sddmClock = k
-        Sfx.play("select")
-        run(shQuote(bin + "rice-sddm") + " clock " + shQuote(k) + " >/dev/null 2>&1; " + shQuote(bin + "rice-sddm") + " sync >/dev/null 2>&1")
+        sddmClock = k; Sfx.play("select")
+        run(bin_("rice-sddm") + " clock " + shQuote(k) + " >/dev/null 2>&1; " + bin_("rice-sddm") + " sync >/dev/null 2>&1")
     }
-    function syncSddmNow() {
-        sddmSynced = true
-        Sfx.play("switch-on")
-        run(shQuote(bin + "rice-sddm") + " sync >/dev/null 2>&1")
-    }
+    function syncSddmNow() { sddmSynced = true; Sfx.play("switch-on"); run(bin_("rice-sddm") + " sync >/dev/null 2>&1") }
 
     function barName() { for (let i = 0; i < bars.length; i++) if (bars[i].k === bar) return bars[i].n; return bar }
-    function next() { if (page < 5) { page++; Sfx.play("slide") } }
+    function widgetsSummary() {
+        const on = widgetChoices.filter(function(w) { return widgetOn[w.k] }).map(function(w) { return w.n })
+        return on.length === 0 ? "None" : on.join(", ")
+    }
+    function next() { if (page < last) { page++; Sfx.play("slide") } }
     function back() { if (page > 0) { page--; Sfx.play("slide") } }
 
     visible: opacity > 0.01
@@ -254,9 +351,9 @@ Item {
     focus: shown
     Keys.onLeftPressed: back()
     Keys.onRightPressed: next()
-    Keys.onReturnPressed: { if (page < 5) next(); else su.tour() }
-    Keys.onEnterPressed: { if (page < 5) next(); else su.tour() }
-    Keys.onEscapePressed: { if (!su.mandatory || su.page === 5) su.close() }
+    Keys.onReturnPressed: { if (page < last) next(); else su.tour() }
+    Keys.onEnterPressed: { if (page < last) next(); else su.tour() }
+    Keys.onEscapePressed: { if (!su.mandatory || su.page === su.last) su.close() }
 
     // central sheet
     Rectangle {
@@ -271,15 +368,15 @@ Item {
         scale: su.shown ? 1 : 0.94
         Behavior on scale { NumberAnimation { duration: 600; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
 
-        // step progress dots (6 steps)
+        // step progress dots
         Row {
             x: 40; y: 34
-            spacing: 8
+            spacing: 6
             Repeater {
-                model: 6
+                model: su.last + 1
                 delegate: Rectangle {
                     required property int index
-                    width: index === su.page ? 34 : 10; height: 10; radius: 5
+                    width: index === su.page ? 30 : 9; height: 9; radius: 5
                     color: index <= su.page ? "#E9EAF1" : Qt.rgba(1, 1, 1, 0.18)
                     Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
                     Behavior on color { ColorAnimation { duration: 300 } }
@@ -289,18 +386,18 @@ Item {
         T {
             anchors.right: parent.right; anchors.rightMargin: 40; y: 30
             kind: "mono"
-            text: su.busy ? "applying…" : ("step " + (su.page + 1) + "/6")
+            text: su.busy ? "applying…" : ("step " + (su.page + 1) + "/" + (su.last + 1))
             font.pixelSize: 12; font.letterSpacing: 1; color: "#7d8092"
         }
 
-        // pages container
+        // pages
         Item {
             id: pages
             x: 40; y: 68
             width: sheet.width - 80; height: sheet.height - 68 - 96
             clip: true
             Repeater {
-                model: 6
+                model: su.last + 1
                 delegate: Item {
                     id: pg
                     required property int index
@@ -319,30 +416,31 @@ Item {
                     }
                     Loader {
                         y: 88; width: parent.width; height: parent.height - 88
-                        sourceComponent: [regionPage, lookPage, barDockPage, fontCursorPage, profileSddmPage, donePage][pg.index]
+                        sourceComponent: [regionPage, keyboardPage, lookPage, colorsPage, barDockPage, widgetsPage,
+                                          fontCursorPage, soundsPage, powerPage, performancePage, profilePage, donePage][pg.index]
                     }
                 }
             }
         }
 
-        // back / next navigation
+        // back / next
         Row {
             anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 32
             spacing: 10
-            Btn { text: "Back"; tonal: true; visible: su.page > 0 && su.page < 5; onClicked: su.back() }
-            Btn { text: su.page === 4 ? "Finish" : "Next"; visible: su.page < 5; onClicked: su.next() }
-            Btn { text: "Start using it"; tonal: true; visible: su.page === 5; onClicked: su.close() }
-            Btn { text: "Take a look"; visible: su.page === 5; onClicked: su.tour() }
+            Btn { text: "Back"; tonal: true; visible: su.page > 0 && su.page < su.last; onClicked: su.back() }
+            Btn { text: su.page === su.last - 1 ? "Finish" : "Next"; visible: su.page < su.last; onClicked: su.next() }
+            Btn { text: "Start using it"; tonal: true; visible: su.page === su.last; onClicked: su.close() }
+            Btn { text: "Take a look"; visible: su.page === su.last; onClicked: su.tour() }
         }
         T {
             anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 40; anchors.bottomMargin: 46
             kind: "mono"
-            text: (su.mandatory && su.page < 5) ? "←  →  move      Enter  next" : "←  →  move      Esc  skip"
+            text: (su.mandatory && su.page < su.last) ? "←  →  move      Enter  next" : "←  →  move      Esc  skip"
             font.pixelSize: 11; font.letterSpacing: 1; color: "#5c5f6e"
         }
     }
 
-    // ---------- Page 0: Language & Region ----------
+    // ---------- 0: Language & region ----------
     Component {
         id: regionPage
         Column {
@@ -358,8 +456,7 @@ Item {
                         model: su.langs
                         delegate: PillChoice {
                             required property var modelData
-                            text: modelData.n
-                            sub: modelData.s
+                            text: modelData.n; sub: modelData.s
                             on: su.lang === modelData.k
                             onClicked: su.pickLang(modelData.k, modelData.n)
                         }
@@ -404,7 +501,41 @@ Item {
         }
     }
 
-    // ---------- Page 1: Look ----------
+    // ---------- 1: Keyboard ----------
+    Component {
+        id: keyboardPage
+        Column {
+            spacing: 14
+            T { kind: "mono"; text: "KEYBOARD LAYOUT"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+            Flow {
+                width: parent.width
+                spacing: 10
+                visible: !su.niri
+                Repeater {
+                    model: su.kbdChoices
+                    delegate: PillChoice {
+                        required property var modelData
+                        text: modelData.n; sub: modelData.k
+                        on: su.kbdLayout === modelData.k
+                        onClicked: su.pickKbd(modelData.k)
+                    }
+                }
+            }
+            T {
+                visible: su.niri
+                width: parent.width; wrapMode: Text.WordWrap
+                text: "On niri the layout is set in Settings > System > Keyboard. You can skip this step."
+                font.pixelSize: 14; color: "#9a9db0"
+            }
+            T {
+                visible: !su.niri
+                text: "Add more layouts (up to 4) later in Settings > System > Keyboard."
+                font.pixelSize: 13; color: "#7d8092"
+            }
+        }
+    }
+
+    // ---------- 2: Look ----------
     Component {
         id: lookPage
         Flow {
@@ -435,7 +566,45 @@ Item {
         }
     }
 
-    // ---------- Page 2: Bar & Dock ----------
+    // ---------- 3: Colors ----------
+    Component {
+        id: colorsPage
+        Flow {
+            spacing: 16
+            Repeater {
+                model: su.schemes
+                delegate: Item {
+                    id: sw
+                    required property var modelData
+                    width: 118; height: 98
+                    readonly property bool on: su.colorKey === modelData.key
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: 0; width: 64; height: 64; radius: 32
+                        color: modelData.preview[0]
+                        border.width: sw.on ? 3 : 1
+                        border.color: sw.on ? "#E9EAF1" : Qt.rgba(1, 1, 1, 0.12)
+                        Rectangle { // the accent, as a half moon over the surface color
+                            anchors.centerIn: parent; width: 36; height: 36; radius: 18; color: modelData.preview[1]
+                        }
+                    }
+                    T {
+                        anchors.horizontalCenter: parent.horizontalCenter; y: 72
+                        text: modelData.name; font.pixelSize: 13; font.bold: sw.on
+                        color: sw.on ? "#ffffff" : "#9a9db0"
+                    }
+                    MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: su.pickColor(modelData.key) }
+                }
+            }
+            T {
+                visible: su.schemes.length === 0
+                text: "Colors follow your wallpaper (more schemes in Settings > Home > Colors)."
+                font.pixelSize: 13; color: "#7d8092"
+            }
+        }
+    }
+
+    // ---------- 4: Bar & dock ----------
     Component {
         id: barDockPage
         Column {
@@ -483,8 +652,7 @@ Item {
                             required property var modelData
                             width: 300; height: 155
                             on: su.dock === modelData.k
-                            label: modelData.n
-                            sub: modelData.d
+                            label: modelData.n; sub: modelData.d
                             onClicked: su.pickDock(modelData.k)
                             Rectangle {
                                 anchors.fill: parent; radius: 16
@@ -511,7 +679,30 @@ Item {
         }
     }
 
-    // ---------- Page 3: Font & Cursor ----------
+    // ---------- 5: Desktop widgets ----------
+    Component {
+        id: widgetsPage
+        Column {
+            spacing: 16
+            T { kind: "mono"; text: "TAP TO SHOW OR HIDE"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+            Flow {
+                width: parent.width
+                spacing: 10
+                Repeater {
+                    model: su.widgetChoices
+                    delegate: PillChoice {
+                        required property var modelData
+                        text: modelData.n
+                        on: !!su.widgetOn[modelData.k]
+                        onClicked: su.toggleWidget(modelData.k)
+                    }
+                }
+            }
+            T { text: "More widgets, styles and sizes in Settings > Desktop."; font.pixelSize: 13; color: "#7d8092" }
+        }
+    }
+
+    // ---------- 6: Font & cursor ----------
     Component {
         id: fontCursorPage
         Column {
@@ -526,8 +717,7 @@ Item {
                         model: su.fonts
                         delegate: PillChoice {
                             required property var modelData
-                            text: modelData.n
-                            sub: modelData.s
+                            text: modelData.n; sub: modelData.s
                             on: su.uiFont === modelData.k
                             onClicked: su.pickFont(modelData.k)
                         }
@@ -553,7 +743,7 @@ Item {
                     }
                     T {
                         visible: su.cursors.length === 0
-                        text: "Default system cursor active (more themes available in Settings > Cursors)"
+                        text: "Default system cursor active (more themes in Settings > Cursors)"
                         font.pixelSize: 13; color: "#7d8092"
                     }
                 }
@@ -577,9 +767,146 @@ Item {
         }
     }
 
-    // ---------- Page 4: Profile & Lock / SDDM ----------
+    // ---------- 7: Sounds ----------
     Component {
-        id: profileSddmPage
+        id: soundsPage
+        Column {
+            spacing: 22
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "INTERFACE SOUNDS"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    PillChoice { text: "On"; on: su.sfxOn; onClicked: su.setSfxOn(true) }
+                    PillChoice { text: "Off"; on: !su.sfxOn; onClicked: su.setSfxOn(false) }
+                }
+            }
+            Column {
+                spacing: 10
+                visible: su.sfxOn
+                T { kind: "mono"; text: "VOLUME"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    Repeater {
+                        model: su.volumes
+                        delegate: PillChoice {
+                            required property var modelData
+                            text: modelData.n
+                            on: su.sfxVolume === modelData.k
+                            onClicked: su.pickVolume(modelData.k)
+                        }
+                    }
+                }
+            }
+            Column {
+                spacing: 10
+                width: parent.width
+                visible: su.sfxOn
+                T { kind: "mono"; text: "SOUND PACK"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Flow {
+                    width: parent.width
+                    spacing: 10
+                    Repeater {
+                        model: su.sfxPacks
+                        delegate: PillChoice {
+                            required property string modelData
+                            text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                            on: su.sfxPack === modelData
+                            onClicked: su.pickPack(modelData)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- 8: Power & lock ----------
+    Component {
+        id: powerPage
+        Column {
+            spacing: 22
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "LOCK THE SCREEN AFTER"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    Repeater {
+                        model: su.lockChoices
+                        delegate: PillChoice {
+                            required property int modelData
+                            text: su.mins(modelData)
+                            on: su.lockAfter === modelData
+                            onClicked: su.pickLock(modelData)
+                        }
+                    }
+                }
+            }
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "TURN THE SCREEN OFF AFTER"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    Repeater {
+                        model: su.offChoices
+                        delegate: PillChoice {
+                            required property int modelData
+                            text: su.mins(modelData)
+                            on: su.screenOffAfter === modelData
+                            onClicked: su.pickScreenOff(modelData)
+                        }
+                    }
+                }
+            }
+            Column {
+                spacing: 10
+                T { kind: "mono"; text: "SLEEP AFTER"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                Row {
+                    spacing: 10
+                    Repeater {
+                        model: su.sleepChoices
+                        delegate: PillChoice {
+                            required property int modelData
+                            text: su.mins(modelData)
+                            on: su.suspendAfter === modelData
+                            onClicked: su.pickSleep(modelData)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- 9: Performance ----------
+    Component {
+        id: performancePage
+        Row {
+            spacing: 16
+            Repeater {
+                model: [{ v: false, n: "Full effects", d: "Blur, transparency and shadows" },
+                        { v: true, n: "Light mode", d: "No blur or transparency, for slower computers" }]
+                delegate: Choice {
+                    required property var modelData
+                    width: 420; height: 170
+                    on: su.lite === modelData.v
+                    label: modelData.n; sub: modelData.d
+                    onClicked: su.pickLite(modelData.v)
+                    Rectangle {
+                        anchors.fill: parent; radius: 18
+                        gradient: Gradient { GradientStop { position: 0; color: "#2a2f45" } GradientStop { position: 1; color: "#141724" } }
+                        Rectangle {
+                            anchors.centerIn: parent; width: 190; height: 76; radius: 16
+                            color: modelData.v ? "#3a3e52" : Qt.rgba(1, 1, 1, 0.14)
+                            border.width: 1; border.color: Qt.rgba(1, 1, 1, modelData.v ? 0.05 : 0.2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- 10: Profile & login ----------
+    Component {
+        id: profilePage
         Column {
             spacing: 22
             Rectangle {
@@ -600,14 +927,14 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
                         T { text: su.accountName !== "" ? su.accountName : su.accountUser; font.pixelSize: 16; font.bold: true }
-                        T { kind: "mono"; text: "@" + su.accountUser + "  ·  Manage password & accounts later in Settings"; font.pixelSize: 12; color: "#7d8092" }
+                        T { kind: "mono"; text: "@" + su.accountUser + "  ·  Password and accounts: Settings > System > Account"; font.pixelSize: 12; color: "#7d8092" }
                     }
                 }
             }
             Column {
                 spacing: 10
                 width: parent.width
-                T { kind: "mono"; text: "LOCK & SDDM CLOCK STYLE"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
+                T { kind: "mono"; text: "LOCK AND LOGIN CLOCK STYLE"; font.pixelSize: 11; font.letterSpacing: 1.5; color: "#7d8092" }
                 Flow {
                     width: parent.width
                     spacing: 10
@@ -623,50 +950,57 @@ Item {
                 }
             }
             Btn {
-                text: su.sddmSynced ? "SDDM synced with theme" : "Sync SDDM login with wallpaper & colors"
+                text: su.sddmSynced ? "Login screen synced" : "Sync login screen with wallpaper & colors"
                 tonal: !su.sddmSynced
                 onClicked: su.syncSddmNow()
             }
         }
     }
 
-    // ---------- Page 5: Done summary ----------
+    // ---------- 11: Summary ----------
     Component {
         id: donePage
         Grid {
             columns: 2
-            columnSpacing: 48
-            rowSpacing: 18
+            columnSpacing: 40
+            rowSpacing: 10
             Repeater {
                 model: [
                     { t: "Language & region", v: su.langName + " · " + su.clock + "h · " + (su.units === "f" ? "°F" : "°C") },
+                    { t: "Keyboard", v: su.niri ? "Set in Settings" : su.kbdLayout },
                     { t: "Look", v: su.look === "" ? "Kept yours" : (su.look === "backup" ? "Your backup" : su.lookName) },
+                    { t: "Colors", v: su.colorKey },
                     { t: "Bar & dock", v: (su.bar === "" ? "Default bar" : su.barName()) + " · " + (su.dock === "" ? "Default dock" : su.dock) },
+                    { t: "Widgets", v: su.widgetsSummary() },
                     { t: "Font & cursor", v: su.uiFont + " · " + (su.cursorTheme === "" ? "Default" : su.cursorTheme) + " (" + su.cursorSize + "px)" },
-                    { t: "Profile & lock", v: "@" + su.accountUser + " · " + su.sddmClock + (su.sddmSynced ? " (synced)" : "") }
+                    { t: "Sounds", v: su.sfxOn ? (su.sfxPack + " · " + su.sfxVolume + "%") : "Off" },
+                    { t: "Power & lock", v: "lock " + su.mins(su.lockAfter) + " · sleep " + su.mins(su.suspendAfter) },
+                    { t: "Performance", v: su.lite ? "Light mode" : "Full effects" },
+                    { t: "Profile & login", v: "@" + su.accountUser + " · " + su.sddmClock + (su.sddmSynced ? " (synced)" : "") }
                 ]
                 delegate: Row {
                     required property var modelData
                     required property int index
-                    width: 420
-                    spacing: 14
-                    opacity: su.page === 5 ? 1 : 0
-                    Behavior on opacity { SequentialAnimation { PauseAnimation { duration: 90 + index * 90 } NumberAnimation { duration: 360 } } }
+                    width: 450
+                    spacing: 12
+                    opacity: su.page === su.last ? 1 : 0
+                    Behavior on opacity { SequentialAnimation { PauseAnimation { duration: 60 + index * 55 } NumberAnimation { duration: 320 } } }
                     Rectangle {
-                        width: 40; height: 40; radius: 20; color: "#E9EAF1"
-                        T { anchors.centerIn: parent; kind: "icon"; text: String.fromCodePoint(0xF00C); font.pixelSize: 16; color: "#0b0c12" }
+                        width: 32; height: 32; radius: 16; color: "#E9EAF1"
+                        T { anchors.centerIn: parent; kind: "icon"; text: String.fromCodePoint(0xF00C); font.pixelSize: 13; color: "#0b0c12" }
                     }
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
-                        T { text: modelData.t; font.pixelSize: 12; color: "#9a9db0" }
-                        T { text: modelData.v; font.pixelSize: 16; font.bold: true }
+                        width: parent.width - 44
+                        T { text: modelData.t; font.pixelSize: 11; color: "#9a9db0" }
+                        T { text: modelData.v; font.pixelSize: 14; font.bold: true; width: parent.width; elide: Text.ElideRight }
                     }
                 }
             }
         }
     }
 
-    // ---------- Components ----------
+    // ---------- components ----------
     component PillChoice: Rectangle {
         id: pc
         property string text: ""
