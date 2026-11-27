@@ -554,5 +554,20 @@ assert m["key"]("V.6.82-0.2.10") > m["key"]("V.6.82-0.2.9")
 assert m["clean"]("Dotfiles-V6.82-V0.1.0") == "6.82-0.1.0"
 PYV
 
+# A second installer is refused while the first runs, and a detached child cannot keep its lock.
+(
+  export HOME="$tmp/update-lock-home"
+  child=""
+  trap 'if [ -n "$child" ]; then kill "$child" 2>/dev/null || true; fi' EXIT
+  run_with_update_lock bash -c '
+    test "$RICE_UPDATE_LOCK" = 1 || exit 1
+    if flock -n "$HOME/.cache/rice/update.lock" true; then exit 2; fi
+    sleep 30 >/dev/null 2>&1 &
+    printf "%s\n" "$!" >"$HOME/child"
+  ' || exit 1
+  read -r child <"$HOME/child"
+  kill -0 "$child" && run_with_update_lock true
+) && ok "installer lock is released even with a background child" || bad "installer lock lifecycle"
+
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"
