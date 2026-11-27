@@ -82,7 +82,27 @@ Scope {
     // while a slider in Edit mode moves: the dock follows at once, desktop.json only when it is let go (setKey)
     function preview(k, v) { const n = JSON.parse(JSON.stringify(dc)); n[k] = v; dc = n }
     // a pinned icon is known by the name it was pinned under (its entry may have been found another way)
-    function idOf(it) { return it.pin ? it.key : (it.entry ? (it.entry.id || "").replace(/\.desktop$/, "") : it.key) }
+    function idOf(it) { return it.pin ? it.key : (it.entryId !== "" ? it.entryId.replace(/\.desktop$/, "") : it.key) }
+    function findEntry(it) {
+        if (!it) return null
+        if (it.entryId !== "") { const e = DesktopEntries.heuristicLookup(it.entryId); if (e) return e }
+        return DesktopEntries.heuristicLookup(it.key)
+    }
+    function findToplevel(it) {
+        if (!it || !it.running) return null
+        const tl = ToplevelManager.toplevels.values
+        for (let i = 0; i < tl.length; i++)
+            if ((it.appId !== "" && (tl[i].appId || "") === it.appId) || (it.tlId !== "" && tid(tl[i]) === it.tlId))
+                return tl[i]
+        return null
+    }
+    function press(it) {
+        const t = findToplevel(it)
+        if (t) { t.activate(); return }
+        const e = findEntry(it)
+        if (e) e.execute()
+        else runKey(it.key)
+    }
     function isPinned(it) { return (dc.apps || []).indexOf(idOf(it)) >= 0 }
     function setApps(l) {
         const n = JSON.parse(JSON.stringify(dc)); n.apps = l; dc = n
@@ -177,13 +197,19 @@ Scope {
                 if (id !== "" && ids.indexOf(id) >= 0) { t = tl[j]; break }
             }
             if (t) used[tid(t)] = true
-            out.push({ entry: e, tl: t, key: apps[i], pin: true })
+            out.push({ key: apps[i], pin: true, icon: e ? (e.icon || "") : "",
+                       entryId: e ? (e.id || "") : "", entryName: e ? (e.name || "") : "", hasEntry: e !== null,
+                       tlId: t ? tid(t) : "", appId: t ? (t.appId || "") : "",
+                       running: t !== null, act: t !== null && t.activated === true })
         }
         for (let j = 0; j < tl.length; j++) {
             const id = tid(tl[j])
             if (id === "" || used[id]) continue
             used[id] = true
-            out.push({ entry: DesktopEntries.heuristicLookup(id.indexOf("darkshadow-") === 0 ? id : tl[j].appId), tl: tl[j], key: id })
+            const e = DesktopEntries.heuristicLookup(id.indexOf("darkshadow-") === 0 ? id : tl[j].appId)
+            out.push({ key: id, icon: e ? (e.icon || "") : "",
+                       entryId: e ? (e.id || "") : "", entryName: e ? (e.name || "") : "", hasEntry: e !== null,
+                       tlId: id, appId: tl[j].appId || "", running: true, act: tl[j].activated === true })
         }
         return out
     }
@@ -209,7 +235,7 @@ Scope {
         Quickshell.execDetached(["bash", "-c", "command -v \"$1\" >/dev/null 2>&1 && exec setsid -f \"$1\"", "_", k])
     }
     function iconFor(it) {
-        const n = it.entry ? it.entry.icon : (it.tl ? tid(it.tl) : (it.key || ""))
+        const n = it.icon || it.tlId || it.key || ""
         const p = n !== "" ? Icons.get(n, true) : ""
         return p !== "" ? p : Icons.get("application-x-executable", true)
     }
@@ -452,16 +478,16 @@ Scope {
                         width: dock.vert ? dock.thick - 12 : len
                         height: dock.vert ? len : dock.thick - 12
                         z: k > 0.01 ? 2 : 1
-                        readonly property bool running: modelData.tl !== null
-                        readonly property bool act: !!modelData.tl && modelData.tl.activated
+                        readonly property bool running: modelData.running
+                        readonly property bool act: modelData.act
                         AppIcon {
                             id: ico
                             readonly property real s: dock.tile * (1 + app.k)
                             x: dock.edge === "left" ? (app.width - dock.tile) / 2 + 2 : (dock.edge === "right" ? (app.width + dock.tile) / 2 - s - 2 : (app.width - s) / 2)
                             y: dock.vert ? (app.height - s) / 2 : (app.height + dock.tile) / 2 - s - 2
                             size: s
-                            name: modelData.entry ? (modelData.entry.icon || "") : (modelData.tl ? dock.tid(modelData.tl) : (modelData.key || ""))
-                            keys: [modelData.key, modelData.entry ? modelData.entry.id : "", modelData.entry ? modelData.entry.name : "", modelData.tl ? dock.tid(modelData.tl) : ""]
+                            name: modelData.icon || modelData.tlId || modelData.key || ""
+                            keys: [modelData.key, modelData.entryId, modelData.entryName, modelData.tlId]
                             look: dock.look
                             shape: dock.shape
                             colors: pal
@@ -490,9 +516,7 @@ Scope {
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                             onClicked: function(m) {
                                 if (m.button === Qt.RightButton) { const p = mapToItem(null, m.x, m.y); edit.menuAt(modelData, p.x, p.y, dockWin); return }
-                                if (modelData.tl) modelData.tl.activate()
-                                else if (modelData.entry) modelData.entry.execute()
-                                else dock.runKey(modelData.key)
+                                dock.press(modelData)
                             }
                         }
                     }

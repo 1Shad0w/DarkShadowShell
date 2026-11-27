@@ -58,10 +58,12 @@ PanelWindow {
         onLoaded: { try { const l = JSON.parse(text()); if (Array.isArray(l)) ln.favs = l.filter(x => typeof x === "string") } catch (e) { } }
     }
     property int cur: 0
-    readonly property var apps: DesktopEntries.applications.values.filter(function(e) { return !e.noDisplay })
-    // the app list was read again (an app was installed or removed, rice-app wrote its entries): Quickshell deletes
-    // the old entries, so the results are made again at once. Kept, they pointed at deleted entries and the whole
-    // shell crashed the next time the launcher showed them (V4.85)
+    // plain rows: a DesktopEntry kept in the list goes dead when the desktop files reload, and a binding that
+    // reads it later segfaults (Quickshell #21). The entry is looked up again when the app is started.
+    readonly property var apps: DesktopEntries.applications.values.filter(function(e) { return !e.noDisplay }).map(function(e) {
+        return { id: e.id, name: e.name || "", g: e.genericName || "", k: (e.keywords || []).join(" "),
+                 c: e.comment || "", icon: e.icon || "", cats: e.categories || [] }
+    })
     onAppsChanged: Qt.callLater(recompute)
     property var results: []
     function sub(s, q) {            // letters of q appear in s in order
@@ -76,9 +78,9 @@ PanelWindow {
         if (n.indexOf(" " + q) >= 0) return 800
         const at = n.indexOf(q)
         if (at >= 0) return 700 - at
-        const g = ((e.genericName || "") + " " + (e.keywords ? e.keywords.join(" ") : "")).toLowerCase()
+        const g = (e.g + " " + e.k).toLowerCase()
         if (g.indexOf(q) >= 0) return 400
-        if ((e.comment || "").toLowerCase().indexOf(q) >= 0) return 250
+        if (e.c.toLowerCase().indexOf(q) >= 0) return 250
         if (q.length >= 2 && sub(n, q)) return 150
         return -1
     }
@@ -147,7 +149,7 @@ PanelWindow {
         // the drawer and the side sheet before you type: the grid goes A to Z (the most used are the big icons above it)
         const az = lay !== "spotlight" && q === ""
         if (az) { freqList = list.slice().sort(function(a, b) { return b.s - a.s }).filter(function(x) { return x.s > 0 }).slice(0, 8).map(function(x) {
-                      return { kind: "app", name: x.e.name, sub: "", entry: x.e, id: x.e.id } }) }
+                      return { kind: "app", name: x.e.name, sub: "", id: x.e.id, icon: x.e.icon } }) }
         list.sort(function(a, b) { return !az && b.s !== a.s ? b.s - a.s : (a.e.name || "").localeCompare(b.e.name || "") })
         const c = q !== "" ? calc(query) : null
         if (c !== null) out.push({ kind: "calc", name: "= " + c, sub: Tr.t("Press Enter to copy the result"), val: c })
@@ -158,7 +160,7 @@ PanelWindow {
             if (cvr) out.push({ kind: "calc", name: "= " + cvr.text, sub: cvr.from + "  ·  " + Tr.t("Press Enter to copy the result"), val: cvr.val })
         }
         for (let i = 0; i < list.length && i < 80; i++)
-            out.push({ kind: "app", name: list[i].e.name, sub: list[i].e.genericName || list[i].e.comment || "", entry: list[i].e, id: list[i].e.id })
+            out.push({ kind: "app", name: list[i].e.name, sub: list[i].e.g || list[i].e.c || "", id: list[i].e.id, icon: list[i].e.icon })
         // files in your home (rice-find files), after a few letters; "/" in front: only files
         const fq = query.trim().replace(/^\//, "").trim()
         if (fq === filesFor) for (let i = 0; i < files.length; i++)
@@ -191,7 +193,7 @@ PanelWindow {
         let d = null
         for (let i = 0; i < catDefs.length; i++) if (catDefs[i].id === id) d = catDefs[i]
         if (!d) return true
-        const c = e.categories || []
+        const c = e.cats || []
         for (let i = 0; i < c.length; i++) if (d.c.indexOf(c[i]) >= 0) return true
         return false
     }
@@ -300,7 +302,7 @@ PanelWindow {
         hide()
         try { Sfx.play("select") } catch (e) { }
         try {
-            if (r.kind === "app") { r.entry.execute(); bump(r.id) }
+            if (r.kind === "app") { const e = DesktopEntries.heuristicLookup(r.id); if (e) { e.execute(); bump(r.id) } }
             else if (r.kind === "calc") Quickshell.execDetached(["bash", "-c", "printf %s \"$1\" | wl-copy", "_", r.val])
             // an emoji: on the clipboard, then typed into the window you were in (wtype, when it is here)
             else if (r.kind === "emoji") Quickshell.execDetached(["bash", "-c", "printf %s \"$1\" | wl-copy; command -v wtype >/dev/null 2>&1 && { sleep 0.25; wtype -- \"$1\"; }", "_", r.val])
@@ -329,7 +331,7 @@ PanelWindow {
         onFileChanged: reload()
         onLoaded: { try { const j = JSON.parse(text()); ln.dockApps = j.dock && j.dock.apps ? j.dock.apps : []; ln.iconCfg = j.icons || ({}) } catch (e) { } }
     }
-    function appId(r) { return r && r.entry ? (r.entry.id || "").replace(/\.desktop$/, "") : "" }
+    function appId(r) { return r && r.id ? String(r.id).replace(/\.desktop$/, "") : "" }
     function onDock(r) { return dockApps.indexOf(appId(r)) >= 0 }
     function togglePin(r) {
         const id = appId(r), on = onDock(r)

@@ -62,5 +62,5 @@ Singleton {
         onLoadFailed: f.apply("")
     }
     // font-set writes a new file in its place: the slow re-read catches that too
-    Timer { interval: 5000; running: true; repeat: true; onTriggered: fv.reload() }
+    Timer { interval: 30000; running: true; repeat: true; onTriggered: fv.reload() }
 }

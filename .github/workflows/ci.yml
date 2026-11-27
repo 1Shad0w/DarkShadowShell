@@ -11,7 +11,7 @@ jobs:
       - name: ShellCheck
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
-          shellcheck -x install.sh sync.sh install/lib/*.sh
+          shellcheck -x install.sh sync.sh install/lib/*.sh bin/rice-fonts
       - name: Python scripts compile
         run: |
           for f in bin/*; do
@@ -20,6 +20,9 @@ jobs:
       - name: Security checks
         run: |
           bash tests/security.sh
+      - name: Shared QML copies match
+        run: |
+          bash tests/qml-shared.sh
       - name: Infinite Desktop screens
         run: |
           sudo apt-get install -y lua5.4
