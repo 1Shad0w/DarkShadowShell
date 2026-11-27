@@ -581,8 +581,7 @@ PanelWindow {
 
     // ---------- Weather, System, Date: small modules that open a card under them (BarPop.qml) ----------
     readonly property var wx: BarSvc.wx
-    // every 30 minutes, as before; the process itself is shared (BarSvc.qml) and refuses to run twice
-    Timer { interval: 1800000; running: (bar.on || bar.ghostOnly) && (bar.hasMod("weather") || barPop.open); repeat: true; triggeredOnStart: true; onTriggered: BarSvc.refreshWx() }
+    WeatherHold { on: (bar.on && bar.hasMod("weather")) || (barPop.open && barPop.kind === "weather") }
     // one rice-stats for the whole shell (Stats.qml)
     readonly property var st: Stats.st
     StatsHold { on: (bar.on || bar.ghostOnly) && (bar.hasMod("sysmon") || (barPop.open && barPop.kind === "system")) }
