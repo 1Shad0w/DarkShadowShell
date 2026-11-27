@@ -17,6 +17,7 @@
                             ("show": true the first time Settings opens after an update)
   rice-update whatsnew-seen        Settings showed it: not again for this version
 """
+from collections import deque
 import fcntl
 import json
 import os
@@ -382,14 +383,19 @@ def open_center():
 
 def live():
     try:
-        return json.load(open(LIVE))
+        with open(LIVE) as f:
+            state = json.load(f)
+        return state if isinstance(state, dict) else {}
     except (OSError, ValueError):
         return {}
 
 
 def alive(pid):
     try:
-        os.kill(int(pid), 0)
+        pid = int(pid)
+        if pid <= 0:
+            return False
+        os.kill(pid, 0)
         return True
     except (OSError, ValueError, TypeError):
         return False
@@ -404,7 +410,7 @@ def ours(pid, started):
         age = time.time() - float(started)
     except (TypeError, ValueError):
         age = 1e9
-    if age < 0 or age > 3600:          # an update takes minutes; an hour is long dead
+    if age < 0:
         return False
     try:
         with open("/proc/%d/stat" % int(pid)) as f:
@@ -415,6 +421,23 @@ def ours(pid, started):
         return abs(boot + born - float(started)) < 120        # not a reused number: the same second we started it
     except Exception:
         return True                   # no /proc (another OS): trust the age alone
+
+
+def live_status(with_log=False):
+    state = live()
+    interrupted = state.get("state") == "running" and not ours(state.get("pid"), state.get("started"))
+    if interrupted:
+        state.update(state="failed", pid=0, code=1, ended=int(time.time()))
+    print(json.dumps(state))
+    if with_log:
+        print("\x1e")
+        try:
+            with open(LIVE_LOG, errors="replace") as f:
+                sys.stdout.writelines(deque(f, maxlen=400))
+        except OSError:
+            pass
+        if interrupted:
+            print("\n    ✘ Update process ended before reporting its result")
 
 
 def put_live(**kw):
@@ -727,6 +750,9 @@ def whatsnew(ver=None):
 
 def main(a):
     cmd = a[1] if len(a) > 1 else ""
+    if cmd == "live-status":
+        live_status("--log" in a)
+        return
     if cmd == "release-target":
         try:
             print(release_target(a[2] if len(a) > 2 else repo()))
