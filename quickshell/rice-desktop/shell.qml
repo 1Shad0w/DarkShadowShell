@@ -352,7 +352,8 @@ ShellRoot {
 
     // ---- auto-hide (Settings > Desktop): widgets fade out while windows are open on this screen
     readonly property bool autoHide: cfg.autoHide === true || Look.lite
-    property bool busy: false
+    property bool hyprBusy: false
+    readonly property bool busy: Wm.niri ? Wm.niriBusy(scr ? scr.name : "") : hyprBusy
     // on the Infinite Desktop's canvas the windows float, so they leave the widgets alone (the tiled-window rule
     // the setting describes); otherwise one window a screen away hid every widget there
     readonly property bool hideWidgets: autoHide && busy && !editing && !locked && !Infinite.here
@@ -361,9 +362,9 @@ ShellRoot {
         id: busyProc
         command: ["bash", "-c", "exec \"$HOME/.local/bin/rice-busy\" \"$1\"", "_", root.scr ? root.scr.name : ""]
         // always on (it only listens to the window manager's events): auto-hide and the widgets' motion use it
-        running: true
-        stdout: SplitParser { onRead: function(line) { root.busy = line.trim() === "1" } }
-        onRunningChanged: if (!running) root.busy = false
+        running: !Wm.niri
+        stdout: SplitParser { onRead: function(line) { root.hyprBusy = line.trim() === "1" } }
+        onRunningChanged: if (!running) root.hyprBusy = false
     }
 
     // ---- the desktop menu (right-click the desktop). Made before the widgets, so they stay on top of its catcher

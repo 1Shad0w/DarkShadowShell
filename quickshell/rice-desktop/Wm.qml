@@ -39,7 +39,12 @@ Singleton {
             }
         }
         // niri restarted or the stream stopped: start it again
-        onExited: restart.restart()
+        onExited: {
+            wm.nWs = []
+            wm.nWin = ({})
+            wm.nFocusWin = null
+            restart.restart()
+        }
     }
     Timer { id: restart; interval: 1500; onTriggered: if (wm.niri) stream.running = true }
 
@@ -102,6 +107,17 @@ Singleton {
         const f = nWs.find(w => w.is_focused)
         return f ? (f.output || "") : ""
     }
+    function niriBusy(output) {
+        const screen = output || focusedOutput
+        const ws = nWs.find(w => w.is_active && (!screen || w.output === screen))
+        if (!ws) return false
+        for (const id in nWin) {
+            const w = nWin[id]
+            if (w.workspace_id === ws.id && !w.is_floating) return true
+        }
+        return false
+    }
+
     function wsOn(out) {
         const o = out || focusedOutput
         return nWs.filter(w => w.output === o).sort((a, b) => a.idx - b.idx)
