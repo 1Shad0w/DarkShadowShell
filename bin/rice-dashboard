@@ -182,53 +182,12 @@ def accent():
     return m.group(1) if m else "#9ec9bd"
 
 
-def bar():
-    """where Waybar is and how tall, so the dashboard opens just under (or over) it"""
-    pos, h = "top", 34
-    try:
-        s = read(WAYBAR + "/config.jsonc")
-        s = re.sub(r"^\s*//.*$", "", s, flags=re.M)
-        c = json.loads(s)
-        pos = c.get("position", "top")
-        h = int(c.get("height", 34) or 34)
-    except Exception:
-        pass
-    pad, extra, auto = 4, 0, False
-    try:
-        u = json.load(open(WAYBAR + "/ui.json"))
-        if u.get("height") is not None:
-            pad = int(u["height"])
-        extra = {"floating": 12, "islands": 8, "island": 12}.get(u.get("style"), 0)
-        auto = u.get("autohide") is True
-    except Exception:
-        pass
-    # its color, so a dashboard that grows out of it can match
-    rgb, alpha = [13, 13, 13], 0.9
-    m = re.search(r"window#waybar\s*\{[^}]*?background:\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", read(WAYBAR + "/style.css"), re.S)
-    if m:
-        rgb = [int(x) for x in m.groups()]
-    try:
-        alpha = float(json.load(open(WAYBAR + "/ui.json")).get("alpha", 0.9))
-    except Exception:
-        pass
-    return {"position": pos if pos in ("top", "bottom") else "top", "height": h + 2 * pad + extra, "autohide": auto,
-            "rgb": rgb, "alpha": round(alpha, 2)}
-
-
 def ensure_shell():
     try:
         subprocess.Popen([BIN + "/rice-desktop", "ensure"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          start_new_session=True)
     except Exception:
         pass
-
-
-def bar_on():
-    """the DarkShadow bar (the island lives in it) is on"""
-    try:
-        return json.load(open(DIR + "/bar.json")).get("enabled", True) is not False
-    except Exception:
-        return True
 
 
 def classic(c=None):
@@ -541,15 +500,8 @@ def main(a):
     cmd = a[1] if len(a) > 1 else ""
     if cmd == "config":
         c = load()
-        c["bar"] = bar()
-        # until you pick your own, the dashboard is as see-through as the bar
-        try:
-            if "opacity" not in json.load(open(CFG)):
-                c["opacity"] = round(clamp(c["bar"]["alpha"], 0.55, 1.0), 2)
-        except Exception:
-            c["opacity"] = round(clamp(c["bar"]["alpha"], 0.55, 1.0), 2)
         c["accent"] = accent()
-        # the classic dashboard only runs when it is chosen (or the bar is Waybar)
+        # the island supersedes the classic dashboard
         if not classic(c):
             c["enabled"] = False
         # rice-effects: no blur and no transparency (Lite or gaming mode); gaming mode also keeps the

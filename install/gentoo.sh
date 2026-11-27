@@ -54,7 +54,7 @@ GENTOO_DESKTOP=(gui-apps/hyprlock gui-apps/hypridle gui-apps/hyprsunset "sys-aut
                 sys-apps/xdg-desktop-portal sys-apps/xdg-desktop-portal-gtk dev-qt/qtwayland)
 GENTOO_HYPR=(gui-wm/hyprland gui-libs/xdg-desktop-portal-hyprland)
 GENTOO_NIRI=(gui-wm/niri gui-apps/xwayland-satellite sys-apps/xdg-desktop-portal-gnome x11-misc/gammastep)
-GENTOO_SHELL=(gui-apps/quickshell dev-qt/qtmultimedia dev-qt/qtsvg dev-qt/qtdeclarative gui-apps/waybar
+GENTOO_SHELL=(gui-apps/quickshell dev-qt/qtmultimedia dev-qt/qtsvg dev-qt/qtdeclarative
               "gui-apps/swaync|gui-apps/swaynotificationcenter" "gui-apps/awww|gui-apps/swww" media-sound/cava
               x11-terms/kitty app-shells/fish app-misc/fastfetch gnome-base/nautilus x11-misc/matugen)
 GENTOO_TOOLS=(gui-apps/wf-recorder gui-apps/grim gui-apps/slurp gui-apps/wl-clipboard app-misc/cliphist gui-apps/wtype
@@ -78,7 +78,6 @@ GENTOO_REPOS=(guru hyproverlay)
 GENTOO_USE='# DarkShadow'"'"'s Shell (install/gentoo.sh): the features the shell uses. Remove a line to drop it.
 # the crash handler needs dev-cpp/cpptrace[unwind], which Gentoo does not build that way: off (the shell does not use it)
 gui-apps/quickshell wayland layer-shell session-lock screencopy toplevel-management hyprland i3 sockets jemalloc tray pipewire mpris pam policykit upower notifications bluetooth networkmanager -crash-handler
-gui-apps/waybar network tray mpris pipewire pulseaudio wifi upower
 media-video/ffmpeg x264 encode gpl lame opus vorbis vpx webp
 media-video/mpv libmpv wayland
 media-gfx/imagemagick jpeg png webp svg
@@ -87,7 +86,7 @@ media-sound/cava pipewire
 net-wireless/bluez obex
 gnome-base/nautilus previewer
 dev-qt/qtmultimedia ffmpeg
-# what their dependencies need (swaync, the tray in waybar, Qt Multimedia)
+# what their dependencies need (swaync, Qt Multimedia)
 gui-libs/gtk4-layer-shell introspection vala
 dev-libs/libdbusmenu gtk3
 sys-libs/zlib minizip'

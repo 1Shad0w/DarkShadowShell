@@ -164,6 +164,6 @@ Singleton {
             if (now - lastGo < 220) return
             lastGo = now
         }
-        Quickshell.execDetached(["bash", "-c", "\"$HOME/.local/bin/ws-go\" \"$1\"", "_", s])
+        Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/rice-wm", "workspace", s])
     }
 }

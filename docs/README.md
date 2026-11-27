@@ -11,7 +11,7 @@ Welcome to the **DarkShadow's Shell** documentation hub (`1Shad0w/DarkShadowShel
 | **[Installation](INSTALL.md)** | Supported distros (Arch, CachyOS, Artix, Fedora, Gentoo, NixOS), Hyprland vs. niri setup, installer options, backups, and updating |
 | **[Features](FEATURES.md)** | Full breakdown of the bar, Dynamic Island, desktop widgets, Vibe, themes, dock, launcher, Infinite Desktop, SDDM, Care, and more |
 | **[Keybinds](KEYBINDS.md)** | All keyboard, mouse, and touchpad shortcuts for Hyprland and niri |
-| **[Customize](CUSTOMIZE.md)** | CLI alternatives (`waybar-set`, `rice-rofi`, `rice-colors`, `rice-notify`, `rice-lock`, `rice-hotcorner`) for every Settings slider |
+| **[Customize](CUSTOMIZE.md)** | CLI alternatives (`rice-bar`, `rice-rofi`, `rice-colors`, `rice-notify`, `rice-lock`, `rice-hotcorner`) for every Settings slider |
 | **[Repository Layout](LAYOUT.md)** | Folder-by-folder map of the codebase and how `sync.sh` works |
 
 ## Project & Security

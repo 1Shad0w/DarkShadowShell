@@ -96,7 +96,7 @@ Os pacotes são declarados na configuração do sistema:
 Execute `sudo nixos-rebuild switch && ./install.sh` (use `programs.niri.enable = false;` se não quiser o niri).
 
 ### Outras distros
-O instalador lista as dependências ausentes (`Hyprland`, `Waybar`, `Quickshell qs`, `swaync`, `cava`, `rofi`, `jq`, `python3`, `awww`, `hyprlock`). Instale-as com seu gerenciador de pacotes e rode `./install.sh`.
+O instalador lista as dependências ausentes (`Hyprland`, `Quickshell qs`, `swaync`, `cava`, `rofi`, `jq`, `python3`, `awww`, `hyprlock`). Instale-as com seu gerenciador de pacotes e rode `./install.sh`.
 
 ---
 

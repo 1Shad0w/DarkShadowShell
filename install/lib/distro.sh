@@ -45,7 +45,7 @@ if [ "$FAMILY" = fedora ] && [ -e "${OSTREE_BOOTED:-/run/ostree-booted}" ]; then
 
 # Arch packages, grouped so the installer can explain what it is doing.
 PKG_DESKTOP=(hyprland hyprlock hypridle xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpolkitagent qt5-wayland qt6-wayland)
-PKG_SHELL=(quickshell qt6-multimedia waybar swaync awww cava kitty fish fastfetch nautilus matugen)
+PKG_SHELL=(quickshell qt6-multimedia swaync awww cava kitty fish fastfetch nautilus matugen)
 PKG_TOOLS=(wf-recorder grim slurp wl-clipboard cliphist wtype libnotify xdg-user-dirs jq curl python playerctl brightnessctl pamixer
            imagemagick ffmpeg mpvpaper zenity networkmanager bluez bluez-utils pipewire pipewire-pulse pipewire-audio wireplumber
            btop cmatrix peaclock pavucontrol gnome-calendar hyprsunset upower power-profiles-daemon)
@@ -60,7 +60,7 @@ ARCH_PKGS=("${PKG_DESKTOP[@]}" "${PKG_SHELL[@]}" "${PKG_TOOLS[@]}" "${PKG_FONTS[
 AUR_NEEDED=(quickshell awww matugen niri xwayland-satellite mpvpaper)
 
 # programs the desktop needs at runtime (shown at the end if something is missing)
-NEED_CMDS=(Hyprland hyprlock hypridle waybar qs swaync-client awww matugen cava jq python3 grim slurp wl-copy wf-recorder notify-send)
+NEED_CMDS=(Hyprland hyprlock hypridle qs swaync-client awww matugen cava jq python3 grim slurp wl-copy wf-recorder notify-send)
 
 # niri: the scrollable-tiling window manager. The shell runs on it as on Hyprland (install.sh asks which one:
 # Hyprland, niri or both). xwayland-satellite runs X11 apps there; the GNOME portal gives screen sharing.
@@ -80,7 +80,7 @@ FEDORA_NIRI_COPR=yalter/niri
 FEDORA_COPRS=(nett00n/hyprland errornointernet/quickshell scottames/awww)
 FPKG_DESKTOP=(hyprland hyprlock hypridle hyprsunset hyprpolkitagent xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
               qt5-qtwayland qt6-qtwayland)
-FPKG_SHELL=(quickshell qt6-qtmultimedia waybar SwayNotificationCenter awww cava kitty fish fastfetch nautilus matugen)
+FPKG_SHELL=(quickshell qt6-qtmultimedia SwayNotificationCenter awww cava kitty fish fastfetch nautilus matugen)
 FPKG_TOOLS=(wf-recorder grim slurp wl-clipboard cliphist wtype libnotify xdg-user-dirs jq curl python3 playerctl brightnessctl pamixer
             ImageMagick "ffmpeg-free|ffmpeg" mpvpaper zenity NetworkManager bluez pipewire pipewire-pulseaudio wireplumber
             btop cmatrix pavucontrol gnome-calendar upower power-profiles-daemon tar xz unzip)

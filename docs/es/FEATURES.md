@@ -10,7 +10,7 @@ Todo en **DarkShadow's Shell** se configura desde la app de **Ajustes** en Mater
 
 | Función | Detalles |
 | --- | --- |
-| **Barra DarkShadow** | Barra en Quickshell con posición arriba/abajo/izquierda/derecha, ocultación automática, sombra suave, transparencia, reloj con segundos y opción de volver a Waybar |
+| **Barra DarkShadow** | Barra en Quickshell con posición arriba/abajo/izquierda/derecha, ocultación automática, sombra suave, transparencia, reloj con segundos |
 | **Estilos de barra y espacios** | 9 estilos de barra (Dynamic, Flat, Floating, Islands, One island, Frame, Pills, Notch, etc.) y 9 estilos de workspaces (puntos, Pac-Man, letras) |
 | **Isla Dinámica** | Reloj central que crece para mostrar reproductor multimedia, volumen, workspaces, notificaciones, batería/cargador y grabación |
 | **Tarjeta Hoy y Sistema** | Pulsa el reloj (o `SUPER + ALT + D`) para ver calendario, clima, onda del día y anillos de CPU/GPU/RAM/disco |
@@ -33,7 +33,7 @@ Todo en **DarkShadow's Shell** se configura desde la app de **Ajustes** en Mater
 | Función | Detalles |
 | --- | --- |
 | **Esquemas y temas** | 21 esquemas de color (Auto, Gris, monocromos y 13 acentos) más 17 temas en un clic (Catppuccin, Rosé Pine, Tokyo Night, Gruvbox, Nord, Everforest, Kanagawa, OLED, Brutal, Sakura, etc.) |
-| **Integración con apps** | Aplica tu paleta a Waybar, bordes, notificaciones, bloqueo, VS Code / VSCodium y Discord (Vesktop, Vencord, Equicord, BetterDiscord) |
+| **Integración con apps** | Aplica tu paleta a la barra, bordes, notificaciones, bloqueo, VS Code / VSCodium y Discord (Vesktop, Vencord, Equicord, BetterDiscord) |
 | **Explorar temas** | Descarga setups `.dstheme` verificados de la comunidad y comparte el tuyo ([guía](../../community/README.md)) |
 | **Tipografía y componentes** | **Google Sans Flex** (interfaz), **Google Sans Code** (código), JetBrainsMono Nerd Font (terminal) y controles de formas/esquinas/deslizadores |
 | **Movimiento** | Estilos de animación (calm, lively, bouncy, snappy, minimal), velocidad y curvas de resorte |
