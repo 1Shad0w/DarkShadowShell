@@ -142,28 +142,41 @@ user_edited() { # user_edited SRC DST: true when you changed DST after the insta
   [ -n "$old" ] && [ "$cur" != "$old" ]
 }
 keep_edit() { # keep_edit SRC DST: your file stays, the new one goes next to it
-  put "$1" "$2.rice-update"
+  put "$1" "$2.rice-update" || return 1
   mkdir -p "$(dirname "$KEPTF")"; printf '%s\n' "${2#"$HOME"/}" >>"$KEPTF"
 }
 
 # put SRC DST: copy one file, fill in @HOME@/@USER@, back up what it replaces
 put() {
-  local src="$1" dst="$2" rel
+  local src="$1" dst="$2" rel tmp mode_source
   [ "$DRY_RUN" = 1 ] && return 0
+  if [ -d "$dst" ] && [ ! -L "$dst" ]; then
+    fail "Cannot replace a directory with a file: $dst"
+    return 1
+  fi
+  mkdir -p "$(dirname "$dst")" || return 1
+  mode_source="$src"
   if [ -e "$dst" ] || [ -L "$dst" ]; then
     rel="${dst#"$HOME"/}"
-    mkdir -p "$BK/$(dirname "$rel")"
-    cp -aL "$dst" "$BK/$rel" 2>/dev/null || warn "could not back up ~/$rel (it is replaced anyway)"
-    [ -L "$dst" ] && rm -f "$dst"
+    mkdir -p "$BK/$(dirname "$rel")" || return 1
+    cp -aL "$dst" "$BK/$rel" || { fail "Could not back up ~/$rel"; return 1; }
+    if [ ! -L "$dst" ]; then mode_source="$dst"; fi
   fi
-  mkdir -p "$(dirname "$dst")"
-  if grep -qI . "$src" 2>/dev/null; then
-    sed -e "s|@HOME@|$HOME|g" -e "s|@USER@|$USER|g" "$src" >"$dst"
-  else
-    cp -f "$src" "$dst"
+  tmp="$(mktemp "$dst.rice-tmp.XXXXXX")" || return 1
+  if {
+    if grep -qI . "$src" 2>/dev/null; then
+      sed -e "s|@HOME@|$HOME|g" -e "s|@USER@|$USER|g" "$src" >"$tmp"
+    else
+      cp -f "$src" "$tmp"
+    fi
+  } && chmod --reference="$mode_source" "$tmp" &&
+    { [ ! -x "$src" ] || chmod +x "$tmp"; } &&
+    mv -fT "$tmp" "$dst"; then
+    return 0
   fi
-  [ -x "$src" ] && chmod +x "$dst"
-  return 0
+  rm -f "$tmp"
+  fail "Could not install $dst"
+  return 1
 }
 # V6.80: a file the installer changes in place (not replaced with a new one: the GTK settings, btop's config, lines
 # added to hyprland.lua, the fixes of fixup.py) gets a copy in this run's backup first, like every replaced file.
@@ -188,39 +201,35 @@ copy_tree() { # copy_tree SRC_DIR DST_DIR
     rel="${f#"$src"/}"
     if [ -e "$dst/$rel" ] || [ -L "$dst/$rel" ]; then kept_files+=("$f"); else new_files+=("$f"); fi
   done < <(find -L "$src" -type f ! -name '*.bak*' ! -name '.gitkeep' ! -name shell.qml -print0)
-  for f in "${new_files[@]}"; do put "$f" "$dst/${f#"$src"/}"; rec_sum "$dst/${f#"$src"/}"; done
-  # the changed ones are written next to their old selves first and then swapped in all at once, so a running
-  # Quickshell never reloads with half of the new files (a new Bar.qml with an old DynIsland.qml); files that
-  # did not change are not touched at all
+  for f in "${new_files[@]}"; do put "$f" "$dst/${f#"$src"/}" || return 1; rec_sum "$dst/${f#"$src"/}" || return 1; done
+  # Stage changed files before replacing them. Each replacement is atomic; unchanged files stay in place.
   local d rel2
   local -a staged=()
   for f in "${kept_files[@]}"; do
     d="$dst/${f#"$src"/}"
     if [ "$DRY_RUN" = 1 ]; then continue; fi
-    put "$f" "$d.rice-new"
-    if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new" "$d.rice-update"; rec_sum "$d"; continue; fi
-    if user_edited "$f" "$d"; then rm -f "$d.rice-new"; keep_edit "$f" "$d"; continue; fi
+    put "$f" "$d.rice-new" || return 1
+    if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new" "$d.rice-update"; rec_sum "$d" || return 1; continue; fi
+    if user_edited "$f" "$d"; then rm -f "$d.rice-new"; keep_edit "$f" "$d" || return 1; continue; fi
     rel2="${d#"$HOME"/}"
-    mkdir -p "$BK/$(dirname "$rel2")"
-    cp -aL "$d" "$BK/$rel2" 2>/dev/null || warn "could not back up ~/$rel2 (it is replaced anyway)"
-    [ -L "$d" ] && rm -f "$d"
+    mkdir -p "$BK/$(dirname "$rel2")" || return 1
+    cp -aL "$d" "$BK/$rel2" || { fail "Could not back up ~/$rel2"; return 1; }
     staged+=("$d")
   done
-  for d in "${staged[@]}"; do mv -f "$d.rice-new" "$d"; rm -f "$d.rice-update"; rec_sum "$d"; done
+  for d in "${staged[@]}"; do mv -fT "$d.rice-new" "$d" || return 1; rm -f "$d.rice-update"; rec_sum "$d" || return 1; done
   # shell.qml last, swapped in whole as well (Quickshell must never read it half written)
   if [ -f "$src/shell.qml" ] && [ "$DRY_RUN" != 1 ]; then
     d="$dst/shell.qml"
     if [ -e "$d" ]; then
-      put "$src/shell.qml" "$d.rice-new"
-      if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new"; rec_sum "$d"
-      elif user_edited "$src/shell.qml" "$d"; then rm -f "$d.rice-new"; keep_edit "$src/shell.qml" "$d"
+      put "$src/shell.qml" "$d.rice-new" || return 1
+      if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new"; rec_sum "$d" || return 1
+      elif user_edited "$src/shell.qml" "$d"; then rm -f "$d.rice-new"; keep_edit "$src/shell.qml" "$d" || return 1
       else
-        rel2="${d#"$HOME"/}"; mkdir -p "$BK/$(dirname "$rel2")"; cp -aL "$d" "$BK/$rel2" 2>/dev/null || warn "could not back up ~/$rel2 (it is replaced anyway)"
-        [ -L "$d" ] && rm -f "$d"
-        mv -f "$d.rice-new" "$d"; rec_sum "$d"
+        rel2="${d#"$HOME"/}"; mkdir -p "$BK/$(dirname "$rel2")" || return 1; cp -aL "$d" "$BK/$rel2" || { fail "Could not back up ~/$rel2"; return 1; }
+        mv -fT "$d.rice-new" "$d" || return 1; rec_sum "$d" || return 1
       fi
     else
-      put "$src/shell.qml" "$d"; rec_sum "$d"
+      put "$src/shell.qml" "$d" || return 1; rec_sum "$d" || return 1
     fi
   fi
   return 0
@@ -803,7 +812,7 @@ step_configs() {
     fi
   fi
 }
-copy_lua() { local f; for f in "$ROOT"/lua/*.lua; do [ -f "$f" ] && put "$f" "$HOME/.config/hypr/$(basename "$f")"; done; return 0; }
+copy_lua() { local f; for f in "$ROOT"/lua/*.lua; do [ -f "$f" ] || continue; put "$f" "$HOME/.config/hypr/$(basename "$f")" || return 1; done; return 0; }
 
 # ------------------------------------------------------------------ your saved settings
 # settings/ holds what you chose in Settings on the computer that ran ./sync.sh: the bar layout
@@ -836,8 +845,8 @@ apply_settings() { # apply_settings RES: puts the saved settings in place, write
       if [ "$have" = "$new" ]; then echo "$new" >"$key"; continue; fi
       if [ "$have" != "$last" ] && [ "$TAKE_SETTINGS" != 1 ]; then echo "kept $rel" >>"$res"; continue; fi
     fi
-    put "$f" "$dst"
-    echo "$new" >"$key"
+    put "$f" "$dst" || return 1
+    echo "$new" >"$key" || return 1
     echo "set $rel" >>"$res"
   done < <(find "$ROOT/settings" -type f ! -name '.gitkeep' -print0 2>/dev/null)
   # the widget editor never comes back open
@@ -853,7 +862,7 @@ PY
 }
 step_settings() {
   local sf; sf="$(mktemp)"
-  task "Your saved settings: bar, widgets, lock screen..." apply_settings "$sf"
+  task "Your saved settings: bar, widgets, lock screen..." apply_settings "$sf" || { rm -f "$sf"; return 1; }
   local n_set n_kept
   n_set="$(grep -c '^set ' "$sf" 2>/dev/null || true)"; n_kept="$(grep -c '^kept ' "$sf" 2>/dev/null || true)"
   [ "${n_set:-0}" -gt 0 ] && note "$n_set settings files updated"
@@ -899,7 +908,7 @@ step_apps() {
     warn "\$HOME/.local/bin is not in your PATH. Add it in your shell config (fish: fish_add_path \$HOME/.local/bin)"
   fi
 }
-copy_bins() { local f; for f in "$ROOT"/bin/*; do [ -f "$f" ] && put "$f" "$BIN/$(basename "$f")"; done; return 0; }
+copy_bins() { local f; for f in "$ROOT"/bin/*; do [ -f "$f" ] || continue; put "$f" "$BIN/$(basename "$f")" || return 1; done; return 0; }
 
 # NVIDIA alone: Hyprland draws the cursor itself (a hardware cursor is often invisible there). Nothing else is set:
 # V3.43 also set LIBVA_DRIVER_NAME=nvidia, __GLX_VENDOR_LIBRARY_NAME=nvidia and NVD_BACKEND=direct, and those broke
@@ -1085,7 +1094,6 @@ step_finish() {
   task "Remembering your backup folder" first_backup
   task "Removing old backups (keeps the first and the newest two)" prune_backups
   task "Remembering where this copy lives (for updates)" remember_repo
-  task "Version V$RICE_VERSION" remember_version
   { [ "$FAMILY" = arch ] || [ "$FAMILY" = fedora ] || [ "$FAMILY" = gentoo ]; } && task "Power modes (power-profiles-daemon)" ensure_power_modes
   task "Window manager: $(wm_name)" remember_wm
   task "Graphics card (NVIDIA cursor)" write_gpu
@@ -1185,6 +1193,7 @@ step_finish() {
     note "No systemd ($INIT_SYS): on the login screen pick \"Hyprland (DarkShadow)\" or \"niri (DarkShadow)\" (they bring D-Bus)."
     note "From a text console:  rice-session Hyprland   (or: rice-session niri --session)"
   fi
+  task "Version V$RICE_VERSION" remember_version
 }
 restart_shell() {
   [ -x "$BIN/rice-desktop" ] && T=10 t "$BIN/rice-desktop" restart
