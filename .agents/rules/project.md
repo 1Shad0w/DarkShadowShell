@@ -2,9 +2,10 @@
 trigger: always_on
 ---
 
-# Reglas del proyecto (Fork DarkShadowShell / dotfiles)
+# Project Rules (DarkShadowShell / dotfiles fork)
 
-- Nunca hagas `push` ni abras PRs hacia `upstream` (`shadowww-dev/DarkShadowShell`); opera solo sobre `origin` (cuyo nombre puede ser `DarkShadowShell` o `dotfiles`).
-- Todos los cambios deben ir en ramas creadas desde `dev` y mediante PR hacia `dev`. Nunca subas cambios directos a `main` ni decidas el nombre de versión o creación de tags/releases por tu cuenta (el usuario lanza las PR de `dev` → `main` usando `.github/workflows/release.yml`).
-- Antes de hacer commit o abrir PR, ejecuta y verifica todos los tests (`tests/security.sh`, `tests/qml-shared.sh`, `tests/qml-syntax.sh`, `tests/dock.sh`, `tests/gentoo.sh`, `tests/infinite.sh`, `tests/sddm.sh`, `python3 tests/hotcorner.py`) más `py_compile`, `bash -n` y `luac -p` según corresponda.
-- Respeta los invariantes técnicos: descargas fijadas a tag/commit con SHA-256 en `install/checksums.txt`, escrituras atómicas de configuración, copias QML compartidas sincronizadas (`tests/qml-shared.sh`), no cachear objetos vivos `Toplevel`/`DesktopEntry` en modelos QML y usar el siguiente índice libre si se añade página en `quickshell/rice-settings/shell.qml`.
+- Never push to or open PRs against `upstream` (`shadowww-dev/DarkShadowShell`); operate only on `origin` (which may be named `DarkShadowShell` or `dotfiles`).
+- All changes must go into branches created from `dev` and via PRs targeting `dev`. Never push directly to `main` or decide version numbers / create tags or releases on your own (the user triggers `dev` → `main` PRs using `.github/workflows/release.yml`).
+- Keep all repository code, comments, documentation, PR templates, and workflows in English by default (except i18n/translation files).
+- Before committing or opening a PR, run and verify the full test suite (`tests/security.sh`, `tests/qml-shared.sh`, `tests/qml-syntax.sh`, `tests/dock.sh`, `tests/gentoo.sh`, `tests/infinite.sh`, `tests/sddm.sh`, `python3 tests/hotcorner.py`) plus `py_compile`, `bash -n`, and `luac -p` as applicable.
+- Respect all technical invariants: hash-pinned downloads with SHA-256 in `install/checksums.txt`, atomic config writes, synced shared QML copies (`tests/qml-shared.sh`), never cache live `Toplevel`/`DesktopEntry` objects in QML models, and use the next free page index when adding a page in `quickshell/rice-settings/shell.qml`.

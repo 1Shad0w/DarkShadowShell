@@ -1,26 +1,27 @@
-# Normas de contribución (Fork)
+# Contributing Guidelines
 
-Este repositorio mantiene un flujo basado en `dev` → `main` para mantener `main` siempre estable y probada.
+This repository follows a `dev` → `main` workflow to keep `main` stable and tested at all times.
 
-## Flujo de ramas y releases
+## Branching & Release Workflow
 
-1. **Rama base para cambios**: crea siempre tu rama desde `dev` (`feat/...`, `fix/...`, `docs/...`, `refactor/...`) y abre la Pull Request contra **`dev`**.
-2. **Promoción a `main` y releases**: solo el mantenedor decide cuándo lanzar una versión abriendo y mergeando una PR de **`dev` → `main`**.
-   - En la descripción de esa PR de release indica:
-     - `Version tag: vX.YY` (si se deja vacío, toma `v` + el contenido de `VERSION`).
-     - Marca `- [x] Crear GitHub Release` si quieres publicar también la GitHub Release.
-   - El workflow [release.yml](.github/workflows/release.yml) creará automáticamente el tag (y la Release si se marcó), y también puede lanzarse manualmente desde GitHub Actions (`workflow_dispatch`).
-3. **Nombre del repositorio**: el fork puede llamarse tanto `DarkShadowShell` como `dotfiles` en GitHub (`github.com/<owner>/(DarkShadowShell|dotfiles)`).
+1. **Base branch for changes**: always create your branch from `dev` (`feat/...`, `fix/...`, `docs/...`, `refactor/...`) and open Pull Requests against **`dev`**.
+2. **Promoting to `main` & releases**: only the maintainer decides when to ship a release by opening and merging a PR from **`dev` → `main`**.
+   - In that release PR description, specify:
+     - `Version tag: vX.YY` (if left blank, the workflow uses `v` + the contents of `VERSION`).
+     - Check `- [x] Create GitHub Release` if you also want a GitHub Release published.
+   - The [release.yml](.github/workflows/release.yml) workflow automatically creates the git tag (and the GitHub Release if checked), and can also be triggered manually via GitHub Actions (`workflow_dispatch`).
+3. **Repository name**: this fork may be named either `DarkShadowShell` or `dotfiles` on GitHub (`github.com/<owner>/(DarkShadowShell|dotfiles)`).
 
-## Commits y Pull Requests
+## Language, Commits & Pull Requests
 
-- Usa mensajes de commit claros en formato convencional (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
-- Rellena la [plantilla de Pull Request](.github/PULL_REQUEST_TEMPLATE.md).
-- No mezcles cambios no relacionados en la misma PR.
+- Keep all repository code, comments, documentation, templates, and workflows in **English** by default (unless translating UI/i18n files).
+- Use clear Conventional Commit messages (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
+- Fill out the [Pull Request template](.github/PULL_REQUEST_TEMPLATE.md).
+- Do not mix unrelated changes in the same PR.
 
-## Tests obligatorios
+## Mandatory Local Checks
 
-Antes de abrir o actualizar una PR, ejecuta y verifica localmente:
+Before opening or updating a PR, run and verify the full test suite locally:
 
 ```bash
 bash tests/security.sh
@@ -33,14 +34,15 @@ bash tests/sddm.sh
 python3 tests/hotcorner.py
 ```
 
-Además:
-- Comprueba sintaxis Python (`python3 -m py_compile`) en scripts modificados de `bin/`.
-- Comprueba sintaxis Bash (`bash -n`) en scripts shell modificados y Lua (`luac -p`) si tocas archivos `.lua`.
+Also validate syntax for any modified files:
+- Python: `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile <file>`
+- Bash: `bash -n <file>`
+- Lua: `luac -p <file>`
 
-## Seguridad y reglas técnicas
+## Security & Technical Rules
 
-- **Descargas externas**: toda descarga debe estar fijada a un tag o commit y verificada por SHA-256 en `install/checksums.txt`. No uses ramas móviles (`main`/`master`) ni `releases/latest`.
-- **Privacidad**: cualquier nueva petición de red que envíe datos del usuario debe ser opt-in.
-- **Escrituras atómicas**: escribe configuraciones y estados mediante archivo temporal + `os.replace` (y usando `~/.config/rice/.hypr.lock` cuando compartas ficheros con `hypr-set` / `fixup.py`).
-- **QML compartido**: mantén idénticos los componentes validados por `tests/qml-shared.sh` (`Sfx`, `SfxBank`, `SfxTap`, `Fonts`).
-- **Plantillas y seguridad**: nunca desactives o debilites checks de `tests/security.sh` o de CI para hacer pasar una PR.
+- **Pinned external downloads**: every external download must target a fixed tag or commit and be SHA-256 verified against `install/checksums.txt`. Never use moving branches (`main`/`master`) or `releases/latest`.
+- **Privacy**: any new network feature that sends user data must be opt-in.
+- **Atomic writes**: write configuration and state files via a `.tmp` file + `os.replace` (holding `~/.config/rice/.hypr.lock` when sharing files with `hypr-set` / `fixup.py`).
+- **Shared QML components**: keep the shared QML copies checked by `tests/qml-shared.sh` (`Sfx`, `SfxBank`, `SfxTap`, `Fonts`) byte-identical across apps.
+- **No weakened checks**: never delete, relax, or bypass checks in `tests/security.sh` or CI to make a PR pass.

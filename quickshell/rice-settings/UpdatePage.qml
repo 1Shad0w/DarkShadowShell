@@ -11,6 +11,7 @@ Item {
 
     readonly property string bin: Quickshell.env("HOME") + "/.local/bin/rice-update"
     property var st: ({})            // rice-update check: installed, latest, update, news, error
+    property string channel: "stable"
     property var pk: ({})            // rice-care updates: what the system's packages (any distro), Flatpak and Snap have waiting
     readonly property var pkgNotes: ((page.pk && page.pk.managers) || []).filter(function(m) { return m.manual && !m.count && m.note })
     property bool inTerminal: false  // the packages need the password, so the update moved to a terminal
@@ -20,7 +21,8 @@ Item {
     property bool starting: false
     property int now: Math.floor(Date.now() / 1000)
 
-    readonly property bool running: lv.state === "running" || starting
+    readonly property bool waitingForTerminal: lv.state === "terminal" && now - (lv.started || 0) < 60
+    readonly property bool running: lv.state === "running" || waitingForTerminal || starting
     readonly property bool finished: !running && (lv.state === "done" || lv.state === "failed")
     readonly property bool failed: !running && lv.state === "failed"
     readonly property bool hasUpdate: !!st.update
@@ -83,6 +85,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 try { page.st = JSON.parse(text) } catch (e) { page.st = {} }
+                if (page.st.channel === "dev" || page.st.channel === "stable") page.channel = page.st.channel
                 // nothing checked yet, or long ago: ask GitHub now
                 if (!page.st.checked || page.now - page.st.checked > 600) page.check()
             }
@@ -95,10 +98,27 @@ Item {
             onStreamFinished: {
                 page.checking = false
                 try { page.st = JSON.parse(text.trim().split("\n").pop()) } catch (e) {}
-                page.ctl.status = page.st.update ? I18n.t("Update V%1 is available", page.st.latest) : I18n.t("Up to date")
+                if (page.st.channel === "dev" || page.st.channel === "stable") page.channel = page.st.channel
+                page.ctl.status = page.st.update
+                    ? ((page.st.installed === page.st.latest && page.st.changes > 0) ? I18n.t("%1 new changes on GitHub.", page.st.changes)
+                       : I18n.t("Update V%1 is available", page.st.latest))
+                    : page.st.error ? I18n.t("Could not reach GitHub: %1", page.st.error) : I18n.t("Up to date")
             }
         }
         onExited: page.checking = false
+    }
+    Process {
+        id: chanP
+        command: ["true"]
+        onExited: page.check()
+    }
+    function setChannel(ch) {
+        const next = ch === "dev" ? "dev" : "stable"
+        if (page.channel === next || page.running) return
+        page.channel = next
+        page.checking = true
+        chanP.command = [page.bin, "channel", next]
+        chanP.running = true
     }
     function check() { if (checkP.running || page.running) return; page.checking = true; page.inTerminal = false; checkP.running = true
         page.loadPackages(true) }
@@ -120,7 +140,7 @@ Item {
 
     Process {
         id: liveP
-        command: ["bash", "-c", "cat \"$HOME/.cache/rice/update-live.json\" 2>/dev/null; printf '\\n\\x1e\\n'; tail -n 400 \"$HOME/.cache/rice/update-live.log\" 2>/dev/null"]
+        command: [page.bin, "live-status", "--log"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
@@ -131,7 +151,7 @@ Item {
                 page.lv = o
                 if (page.starting && (o.state === "running" || (o.started && o.started >= page.startedAt))) page.starting = false
                 page.steps = page.parse(cut >= 0 ? text.substring(cut + 1) : "")
-                if (was === "running" && o.state !== "running") { stateP.running = true; page.loadPackages(true)
+                if ((was === "running" || was === "terminal") && (o.state === "done" || o.state === "failed")) { stateP.running = true; page.loadPackages(true)
                     page.ctl.status = o.state === "done" ? I18n.t("Updated") : I18n.t("The update did not finish") }
             }
         }
@@ -232,15 +252,19 @@ Item {
                 width: parent.width - 124 - 24
                 spacing: 6
                 T { kind: "title"; font.pixelSize: 26; font.weight: Font.Medium; color: M3.inkPrimaryC; width: parent.width; wrapMode: Text.WordWrap
-                    text: page.running ? I18n.t("Updating...")
+                    text: page.running && page.lv.terminal ? I18n.t("The update goes on in the terminal")
+                        : page.running ? I18n.t("Updating...")
                         : page.failed ? I18n.t("The update did not finish")
                         : page.finished && !page.hasUpdate && page.lv.ended && page.now - page.lv.ended < 3600 ? I18n.t("Updated to V%1", page.st.installed || page.lv.now || "?")
-                        : page.hasUpdate ? I18n.t("V%1 is available", page.st.latest)
+                        : page.hasUpdate ? (page.st.installed === page.st.latest ? I18n.t("Updates are ready")
+                                            : I18n.t("V%1 is available", page.st.latest))
                         : page.pkgTotal > 0 ? I18n.t("Updates are ready")
                         : page.checking ? I18n.t("Looking for updates...")
+                        : page.st.error ? I18n.t("DarkShadow's Shell V%1", page.st.installed || "?")
                         : I18n.t("You are up to date") }
                 T { kind: "reading"; font.pixelSize: 13; color: M3.inkPrimaryC; opacity: 0.85; width: parent.width; wrapMode: Text.WordWrap
-                    text: page.running ? (page.current ? page.current.t : I18n.t("Getting the newest version from GitHub..."))
+                    text: page.running && page.lv.terminal ? I18n.t("Finish it in the terminal; this list updates after")
+                        : page.running ? (page.current ? page.current.t : I18n.t("Getting the newest version from GitHub..."))
                         : page.failed ? I18n.t("Nothing is broken: what was done stays, the rest keeps your old files. Try again, or look at the steps below.")
                         : page.hasUpdate ? (page.st.installed !== page.st.latest ? I18n.t("You have V%1.", page.st.installed) : I18n.t("%1 new changes on GitHub.", page.st.changes))
                         : I18n.t("DarkShadow's Shell V%1", page.st.installed || "?") + (page.st.checked ? "  ·  " + I18n.t("checked %1", page.ago(page.st.checked)) : "") }
@@ -264,8 +288,8 @@ Item {
                     text: page.pkgNotes.map(function(m) { return I18n.t(m.note) }).join("\n") }
                 // the progress line while it runs
                 Item {
-                    width: parent.width; height: page.running ? 22 : 0
-                    visible: page.running
+                    width: parent.width; height: visible ? 22 : 0
+                    visible: page.running && !page.lv.terminal
                     Rectangle {
                         y: 8; width: parent.width; height: 6; radius: M3.sq ? 0 : (3); color: M3.alpha(M3.primary, 0.2)
                         Rectangle { width: Math.max(12, parent.width * page.progress); height: parent.height; radius: M3.sq ? 0 : (3); color: M3.primary
@@ -288,6 +312,20 @@ Item {
         }
         T { visible: !!page.st.error && !page.running; text: I18n.t("Could not reach GitHub: %1", page.st.error || ""); font.pixelSize: 12; color: M3.inkDim
             leftPadding: 6; width: parent.width; wrapMode: Text.WordWrap }
+
+        SegRow {
+            label: I18n.t("Update channel")
+            desc: page.channel === "dev"
+                ? I18n.t("Checks releases and pre-releases")
+                : I18n.t("Checks stable releases")
+            options: [
+                { label: I18n.t("Stable (main)"), value: "stable" },
+                { label: I18n.t("Dev (dev)"), value: "dev" }
+            ]
+            dflt: "stable"
+            current: page.channel
+            onChosen: function(v) { page.setChannel(v) }
+        }
 
         // ---------- what the update is doing, live ----------
         SectionTitle {
@@ -391,7 +429,7 @@ Item {
                 }
             }
             Btn { text: I18n.t("All changes on GitHub"); sym: "open_in_new"; icon: ""; variant: "text"
-                onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/shadowww-dev/DarkShadowShell/blob/main/CHANGELOG.md"]) }
+                onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/1Shad0w/DarkShadowShell/blob/" + (page.channel === "dev" ? "dev" : "main") + "/CHANGELOG.md"]) }
         }
         // V5.03: the version you have, in the What's new dialog
         Btn { text: I18n.t("What's new in my version"); sym: "new_releases"; icon: ""; variant: "tonal"

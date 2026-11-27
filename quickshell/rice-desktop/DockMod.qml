@@ -42,7 +42,7 @@ Item {
     Timer { interval: 15000; running: dm.kind === "clock" && dm.visible; repeat: true; triggeredOnStart: true; onTriggered: dm.now = new Date() }
     function two(n) { return n < 10 ? "0" + n : "" + n }
     // the weather: asked when the module comes, then every half hour
-    Timer { interval: 1800000; running: dm.kind === "weather"; repeat: true; triggeredOnStart: true; onTriggered: BarSvc.refreshWx() }
+    WeatherHold { on: dm.kind === "weather" }
     // CPU and memory from /proc, every 2 s
     property real cpu: 0
     property real ram: 0

@@ -1,47 +1,119 @@
+**English** · [Español](es/INSTALL.md) · [Português](pt/INSTALL.md) · [← Docs Home](README.md)
+
 # Installation
 
-## Arch Linux (and CachyOS, EndeavourOS, Garuda)
+Install directly from `1Shad0w/DarkShadowShell` with a single command (clones/updates via `git` so `rice-update` works cleanly):
+
 ```bash
-git clone https://github.com/shadowww-dev/DarkShadowShell && cd DarkShadowShell
+curl -fsSL https://get.aurorian.es/dotfiles | bash
+```
+
+Or clone `https://github.com/1Shad0w/DarkShadowShell` manually with `git clone` (do not download a ZIP from Releases, so `rice-update` can pull updates cleanly). Every file replaced by the installer is backed up to `~/.config/darkshadows-shell-backup-<time>/`.
+
+---
+
+## Supported systems
+
+The bar, welcome screen, and Settings automatically display **your distro's logo**.
+
+| System | Status | Notes |
+| --- | --- | --- |
+| **Arch Linux** | Supported | `./install.sh` |
+| **CachyOS** | Supported | Uses CachyOS repos and `paru` |
+| **EndeavourOS / Garuda** | Supported | Arch route via `./install.sh` |
+| **Artix Linux** | Supported | OpenRC, runit, s6, or dinit (`artix-archlinux-support` + D-Bus session) |
+| **Fedora / Nobara** | Supported | Uses COPR for Hyprland, Quickshell, and `awww` |
+| **Fedora Atomic (Bazzite, Silverblue)** | Commands only | Installer prints the `rpm-ostree` commands |
+| **Gentoo** | Supported | OpenRC or systemd via `install/gentoo.sh` |
+| **NixOS** | Supported | Declarative module in `nix/module.nix` or flake |
+| **Manjaro** | May not work | Held-back packages may ship Hyprland older than 0.55 |
+
+**The Update Center works across all of them**: it shows shell updates and system packages (`pacman`, `dnf`, `emerge`, `xbps`, `zypper`, `apt`, `flatpak`, `snap`) and runs them in a terminal where your password prompt belongs. NixOS and atomic Fedoras display their own commands (`nixos-rebuild`, `rpm-ostree`) instead of running them automatically.
+
+---
+
+## Hyprland or niri
+
+The shell supports both **Hyprland (0.55+)** and **niri (25.05+)** across every distro above:
+
+- Default: Hyprland
+- `./install.sh --wm=niri`: sets up niri
+- `./install.sh --wm=both`: sets up both (choose on the login screen)
+
+On **niri**, the bar, island, workspaces, widgets, dock, launcher, lockscreen, and Settings sliders work identically. The shell generates `~/.config/niri/config.kdl` (`rice-niri`) and validates it with `niri validate`; your custom overrides live in `~/.config/niri/user.kdl` and always win. Blur requires niri 26.04+.
+
+---
+
+## Distro instructions
+
+### Arch Linux, CachyOS, EndeavourOS, Garuda
+```bash
+sudo pacman -S --needed git base-devel
+git clone https://github.com/1Shad0w/DarkShadowShell shadows-shell && cd shadows-shell
 ./install.sh
 ```
-The installer runs `sudo pacman -S --needed` for packages found in the repos and uses `paru` or `yay` for the rest (for example `quickshell`, `awww`). Without an AUR helper it prints the list for you to install.
+No AUR helper is required beforehand: `paru` or `yay` is used if already present; otherwise `yay` is set up only if needed. Bibata cursors are downloaded from GitHub (SHA-256 verified) when no AUR helper is used.
 
-CachyOS works the same way: its repositories are used and `paru`, which CachyOS ships, installs the AUR packages. Manjaro holds packages back, so its Hyprland can be older than 0.55 (the config needs 0.55); the installer tells you at the end.
+### Artix Linux (OpenRC, runit, s6, dinit)
+Use the same commands as Arch. Without systemd, the installer also:
+- Enables Arch's `[extra]` repository (`artix-archlinux-support`) if Hyprland is missing from Artix repos.
+- Installs service scripts for your init (`networkmanager-openrc`, `bluez-openrc`, etc.) and enables D-Bus, elogind, NetworkManager, Bluetooth, and power profiles.
+- Adds **Hyprland (DarkShadow)** and **niri (DarkShadow)** login sessions with D-Bus (`dbus-run-session Hyprland` from TTY).
 
-## Artix Linux (OpenRC, runit, s6, dinit)
-Same commands as Arch. Without systemd the installer also:
-- turns on Arch's `[extra]` repository (`artix-archlinux-support`) when Hyprland is not in Artix's own repositories
-- installs Artix's service scripts for your init (`networkmanager-openrc`, `bluez-openrc` ...) and turns on D-Bus, elogind, NetworkManager, Bluetooth and power modes
-- adds the login sessions **Hyprland (DarkShadow)** and **niri (DarkShadow)**, which start with their own D-Bus. Pick one of them on the login screen; from a text console run `dbus-run-session Hyprland`
+PipeWire and the polkit agent are started automatically at login (`rice-sys session`). On NVIDIA, add `nvidia-drm.modeset=1` to your kernel parameters first.
 
-PipeWire and the password prompt agent are started by the shell itself at login (`rice-sys session`). With an NVIDIA card add `nvidia-drm.modeset=1` to the kernel command line first.
-
-## Fedora (and Nobara)
+### Fedora / Nobara
 ```bash
 sudo dnf install -y git
-git clone https://github.com/shadowww-dev/DarkShadowShell && cd DarkShadowShell
+git clone https://github.com/1Shad0w/DarkShadowShell shadows-shell && cd shadows-shell
 ./install.sh
 ```
-Hyprland, its tools and Quickshell come from the `nett00n/hyprland` COPR, `awww` from `scottames/awww`. Packages Fedora does not have are listed and skipped. Fedora Atomic (Bazzite, Silverblue): the installer prints the `rpm-ostree` commands.
+Hyprland, its tools, and Quickshell are installed from the `nett00n/hyprland` COPR, and `awww` from `scottames/awww`. On Atomic Fedora (Bazzite, Silverblue), the installer prints the required `rpm-ostree` commands.
 
-## NixOS
-Packages are declared in your system configuration, so the installer only prints the snippet.
-
-Without flakes, in `configuration.nix`:
-```nix
-imports = [ /path/to/DarkShadowShell/nix/module.nix ];
+### Gentoo
+```bash
+sudo emerge --noreplace dev-vcs/git
+git clone https://github.com/1Shad0w/DarkShadowShell shadows-shell && cd shadows-shell
+./install.sh            # or packages only first: bash install/gentoo.sh (--pretend previews)
 ```
-With flakes:
-```nix
-inputs.DarkShadowShell.url = "github:shadowww-dev/DarkShadowShell";
-# in your nixosSystem modules list:
-DarkShadowShell.nixosModules.default
-```
-Run `sudo nixos-rebuild switch`, then `./install.sh` and choose Tools, Apps and Dotfiles.
+`install/gentoo.sh` enables the `guru` and `hyproverlay` repositories, writes keywords and USE flags into `/etc/portage/package.accept_keywords/darkshadow-shell` and `/etc/portage/package.use/darkshadow-shell`, uses `--autounmask` only on `package.*` files, and emerges everything (using your binhost if configured) with OpenRC or systemd services.
 
-## Backups and undo
-Every file the installer replaces is copied to `~/.config/darkshadows-shell-backup-<time>/`. Undo with `./install.sh --restore`.
+### NixOS
+Packages are declared in your system configuration:
 
-## Other distros
-The installer lists missing programs (Hyprland, Waybar, Quickshell `qs`, swaync, cava, rofi, jq, python3, awww, hyprlock). Install them with your package manager, then run `./install.sh`.
+- **Without flakes** (`configuration.nix`):
+  ```nix
+  imports = [ /path/to/shadows-shell/nix/module.nix ];
+  programs.shadows-shell.user = "yourname";
+  programs.shadows-shell.inputGroup = true;   # optional: only for Infinite Desktop edge push
+  ```
+- **With flakes**:
+  ```nix
+  inputs.DarkShadowShell.url = "github:1Shad0w/DarkShadowShell";
+  # in nixosSystem modules:
+  DarkShadowShell.nixosModules.default
+  ```
+Run `sudo nixos-rebuild switch && ./install.sh` (set `programs.niri.enable = false;` if you do not want niri).
+
+### Other distros
+The installer lists missing dependencies (`Hyprland`, `Quickshell qs`, `swaync`, `cava`, `rofi`, `jq`, `python3`, `awww`, `hyprlock`). Install them with your package manager, then run `./install.sh`.
+
+---
+
+## Installer options
+
+| Option | What it does |
+| --- | --- |
+| `--wm=hyprland` / `--wm=niri` / `--wm=both` | Select the window manager non-interactively |
+| `--yes` | Run non-interactively without prompts |
+| `--aur` / `--no-aur` | Arch: always build `yay` & AUR packages / never build `yay` |
+| `--no-packages` | Skip package installation |
+| `--dry-run` | Show what would happen without changing files |
+| `--restore` | Restore files from the latest backup |
+
+---
+
+## Backups & Updating
+
+- **Backups**: Saved automatically in `~/.config/darkshadows-shell-backup-<time>/`. Undo anytime with `./install.sh --restore`.
+- **Updating**: Open **Settings → Update Center → Update now** (live progress without a terminal), click the update notification, or run `rice-update` in a terminal.

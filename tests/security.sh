@@ -17,6 +17,23 @@ n=0
 ok() { n=$((n + 1)); printf 'ok %d - %s\n' "$n" "$1"; }
 bad() { printf 'not ok %d - %s\n' "$n" "$1"; exit 1; }
 
+# put() runs inside task's conditional, so its return value must expose write failures.
+(
+  HOME="$tmp/copy-home"
+  BK="$HOME/backups"
+  DRY_RUN=0
+  # shellcheck disable=SC1090
+  source <(sed -n '/^put() {/,/^}/p' "$root/install.sh")
+  mkdir -p "$HOME/collision"
+  printf 'original\n' >"$HOME/config"
+  printf 'new @HOME@\n' >"$tmp/copy-source"
+  put "$tmp/copy-source" "$HOME/collision" && exit 1
+  put "$tmp/does-not-exist" "$HOME/config" && exit 1
+  grep -qx 'original' "$HOME/config" || exit 1
+  put "$tmp/copy-source" "$HOME/config" || exit 1
+  grep -Fxq "new $HOME" "$HOME/config" && grep -qx 'original' "$BK/config"
+) && ok "file-copy errors propagate and leave the previous file in place" || bad "installer file copy"
+
 # ---- the checksum list: "<64 hex>  <name>", unique names
 awk 'NF && $1 !~ /^#/ { print NF, $1, $2 }' "$CHECKSUMS" >"$tmp/list"
 [ -s "$tmp/list" ] && ok "checksums.txt has entries" || bad "checksums.txt is empty"
@@ -111,14 +128,35 @@ scripts="$(git -C "$ROOT" rev-parse HEAD)"
 WAYLAND_DISPLAY= RICE_GUI=1 update_guard "$new" "$scripts" </dev/null && bad "started a changed bin script from Settings"
 ok "refuses a changed bin script without a terminal"
 
-# ---- the question comes before the pull: a refused update leaves the files as they were
+mkdir -p "$ROOT/install"
+printf 'echo Gentoo installer\n' >"$ROOT/install/gentoo.sh"
+git -C "$ROOT" add install/gentoo.sh
+git -C "$ROOT" -c user.name=t -c user.email=t@t commit -qm gentoo
+gentoo="$(git -C "$ROOT" rev-parse HEAD)"
+WAYLAND_DISPLAY= RICE_GUI=1 update_guard "$scripts" "$gentoo" </dev/null && bad "started a changed Gentoo installer from Settings"
+ok "refuses a changed Gentoo installer without a terminal"
+
+# ---- the installer guard reviews the exact release tag before changing the checkout
 git clone -q "$ROOT" "$tmp/clone"
 git -C "$tmp/clone" reset -q --hard "$old"
 printf 'echo newer\n' >"$ROOT/install.sh"
 git -C "$ROOT" -c user.name=t -c user.email=t@t commit -qam newer
-( ROOT="$tmp/clone"; LOG=/dev/null; update_precheck </dev/null ) && bad "update_precheck let a changed installer through"
-[ "$(git -C "$tmp/clone" rev-parse HEAD)" = "$old" ] && ok "a refused update moves nothing (asked before the pull)" \
+git -C "$ROOT" tag v6.82-0.2.1
+target="$(git -C "$ROOT" rev-parse HEAD)"
+git -C "$ROOT" -c user.name=t -c user.email=t@t commit --allow-empty -qm later
+( ROOT="$tmp/clone"; LOG=/dev/null; update_release_precheck v6.82-0.2.1 </dev/null ) && bad "release guard let a changed installer through"
+[ "$(git -C "$tmp/clone" rev-parse HEAD)" = "$old" ] && ok "a refused release update leaves the checkout unchanged" \
   || bad "the files moved before the question"
+( ROOT="$tmp/clone"; LOG=/dev/null; RICE_TRUST_UPDATE=1; update_release_precheck v6.82-0.2.1 && [ "$RELEASE_REVISION" = "$target" ] ) \
+  && ok "the release guard selects the tag even when the branch has moved" || bad "release guard followed a branch tip"
+
+mkdir -p "$tmp/release-home/.config/rice"
+git -C "$tmp/clone" fetch -q origin
+git -C "$ROOT" rev-parse HEAD >"$tmp/release-home/.config/rice/version-revision"
+( export HOME="$tmp/release-home"; ROOT="$tmp/clone"; LOG=/dev/null; RICE_TRUST_UPDATE=1
+  update_release_precheck v6.82-0.2.1 </dev/null
+) && bad "guard accepted a release older than the installed revision"
+ok "an older release is rejected even with installer changes approved"
 
 # ---- rice-cursor reads the same list (installed copy) and refuses unpinned files
 mkdir -p "$tmp/home/.local/bin" "$tmp/home/.local/share/rice"
@@ -475,6 +513,91 @@ HOME="$tmp/hs/home" PATH="$tmp/hs/bin:$PATH" NIRI_SOCKET= HYPRLAND_INSTANCE_SIGN
 hs="$tmp/hs/home/.config/hypr/rice-settings.lua"
 grep -q 'café' "$hs" && ok "a bind command keeps its accent" || bad "the accent was escaped or lost"
 grep -q '\\u00e9' "$hs" && bad "the Lua file has a \u escape" || ok "no \u escape in the Lua file"
+
+# Release selection uses publication dates and the selected channel, even when the checkout has newer untagged commits.
+mkdir -p "$tmp/version/home/.config/rice"
+HOME="$tmp/version/home" python3 - "$root/bin/rice-update" <<'PYV' && ok "update channels select published tags" || bad "update release selection"
+import json
+import os
+from pathlib import Path
+import runpy
+import subprocess
+import sys
+from unittest.mock import patch
+
+m = runpy.run_path(sys.argv[1])
+repo = Path(os.environ["HOME"]) / "shadows-shell"
+repo.mkdir()
+
+def git(*args):
+    return subprocess.check_output(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=t@example.com",
+                                    *args], text=True).strip()
+
+def commit(subject):
+    git("commit", "-qam", subject, "--allow-empty")
+    return git("rev-parse", "HEAD")
+
+git("init", "-q")
+(repo / "install.sh").touch()
+(repo / "VERSION").write_text("6.83\n")
+git("add", ".")
+old = commit("First release")
+git("tag", "V.6.82-0.2.0")
+stable = commit("Stable release")
+git("tag", "V.6.82-0.2.1")
+latest = commit("Preview release")
+git("tag", "-a", "V.6.82-0.2.2", "-m", "Release")
+ahead = commit("Unpublished branch change")
+Path(m["INSTALLED"]).write_text("6.83\n")
+Path(m["INSTALLED_REV"]).write_text(old + "\n")
+releases = [
+    {"tag_name": tag, "published_at": date, "prerelease": pre, "body": "- " + tag}
+    for tag, date, pre in [
+        ("V.6.82-0.2.2", "2026-11-27T00:00:00Z", True),
+        ("V.6.82-0.2.1", "2026-11-26T00:00:00Z", False),
+        ("V.6.82-0.2.0", "2026-11-25T00:00:00Z", False),
+    ]
+]
+state = m["check"].__globals__
+with patch.dict(state, {"published_releases": lambda r, offline: (releases, "")}):
+    st = m["check"](offline=True)
+    assert st["update"] and st["tag"] == "V.6.82-0.2.1", st
+    Path(m["UPDATE_CFG"]).write_text(json.dumps({"channel": "dev"}))
+    st = m["check"](offline=True)
+    assert st["update"] and st["tag"] == "V.6.82-0.2.2", st
+    assert st["news"] == ["V.6.82-0.2.2"], st
+    Path(m["INSTALLED_REV"]).write_text(latest + "\n")
+    st = m["check"](offline=True)
+    assert not st["update"] and st["installed"] == "6.82-0.2.2" and st["changes"] == 0, st
+    git("tag", "V.6.83", ahead)
+    Path(m["INSTALLED_REV"]).write_text(ahead + "\n")
+    st = m["check"](offline=True)
+    assert not st["update"], st
+    Path(m["INSTALLED_REV"]).write_text(latest + "\n")
+    releases.append({"tag_name": "V.6.82-0.2.3", "published_at": "2026-11-28T00:00:00Z", "prerelease": False})
+    assert m["check"](offline=True)["tag"] == "V.6.82-0.2.3"
+    Path(m["UPDATE_CFG"]).write_text(json.dumps({"channel": "stable"}))
+    releases[:] = [release for release in releases if release["prerelease"]]
+    st = m["check"](offline=True)
+    assert not st["update"] and not st["tag"], st
+assert m["key"]("V.6.82-0.2.10") > m["key"]("V.6.82-0.2.9")
+assert m["clean"]("Dotfiles-V6.82-V0.1.0") == "6.82-0.1.0"
+PYV
+
+# A second installer is refused while the first runs, and a detached child cannot keep its lock.
+(
+  export HOME="$tmp/update-lock-home"
+  child=""
+  trap 'if [ -n "$child" ]; then kill "$child" 2>/dev/null || true; fi' EXIT
+  run_with_update_lock bash -c '
+    test "$RICE_UPDATE_LOCK" = 1 || exit 1
+    if flock -n "$HOME/.cache/rice/update.lock" true; then exit 2; fi
+    sleep 30 >/dev/null 2>&1 &
+    printf "%s\n" "$!" >"$HOME/child"
+  ' || exit 1
+  read -r child <"$HOME/child"
+  kill -0 "$child" && run_with_update_lock true
+) && ok "installer lock is released even with a background child" || bad "installer lock lifecycle"
 
 bash -n "$root/install.sh" && ok "install.sh parses" || bad "install.sh syntax"
 echo "# $n checks passed"

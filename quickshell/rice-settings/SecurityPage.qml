@@ -179,10 +179,16 @@ Item {
             onClicked: page.sh(["quarantine"])
         }
         Row3 {
-            visible: !page.scanning && !!(page.sec.last && page.sec.last.when) && page.found.length === 0 && !!(page.sec.progress && page.sec.progress.done === true)
+            visible: !page.scanning && page.prog.done === true && page.prog.coverage === "complete" && page.found.length === 0 && !page.prog.error
             sym: "verified_user"; glyph: ""
             label: I18n.t("No threats found")
             desc: (page.prog.files || 0) + " " + I18n.t("files") + " · " + page.ago(page.prog.end)
+        }
+        Row3 {
+            visible: !page.scanning && page.prog.coverage === "partial"
+            warn: true; sym: "warning"; glyph: ""
+            label: I18n.t("Scan incomplete")
+            desc: I18n.t("%1 files could not be fully scanned.", page.prog.skipped || 0)
         }
         T { visible: !!page.prog.error; text: page.prog.error || ""; color: M3.error; width: parent.width; wrapMode: Text.WordWrap }
 

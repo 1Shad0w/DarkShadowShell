@@ -28,7 +28,7 @@ Usage: ./install.sh [options]
   -n, --dry-run      show what would happen, change nothing
       --no-packages  skip the package step
       --no-upgrade   Arch: do not update the whole system first (faster; new packages may then need an update later)
-      --update       get the newest version and update apps, scripts and packages (keeps your configs)
+      --update       apply the newest published release for your channel (keeps your configs)
       --use-saved-settings  take the settings saved in this copy (settings/) even where you changed yours
       --wm=hyprland|niri|both   the window manager to set up (default: Hyprland; both: pick one at login)
       --helper=yay|paru   Arch: the AUR helper to use (or build yay); default: the one you have, paru first
@@ -81,6 +81,14 @@ for c in find sort tar; do
   break
 done
 
+# The flock supervisor owns the lock. The installer and session services do not inherit its descriptor.
+update_lock_held="${RICE_UPDATE_LOCK:-0}"
+unset RICE_UPDATE_LOCK
+if [ "$DRY_RUN" != 1 ] && [ "$update_lock_held" != 1 ]; then
+  run_with_update_lock bash "$ROOT/install.sh" "$@"
+  exit $?
+fi
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BK="$HOME/.config/darkshadows-shell-backup-$STAMP"
 LOG="$(mktemp "${TMPDIR:-/tmp}/darkshadows-shell-install-XXXXXX.log")"
@@ -90,14 +98,6 @@ BIN="$HOME/.local/bin"
 SUDO_PID=""
 cleanup() { [ -n "$SUDO_PID" ] && kill "$SUDO_PID" 2>/dev/null; rm -f "${PKG_SPLIT:-}"; show_cursor; }
 trap cleanup EXIT
-# one installer at a time: two of them write the same staging files, checksums and backups.
-# A GUI update holds rice-update's lock and passes RICE_UPDATE_LOCK=1, so its child is not stopped by this one.
-if [ "$DRY_RUN" != 1 ] && [ "${RICE_UPDATE_LOCK:-0}" != 1 ]; then
-  mkdir -p "$HOME/.cache/rice"
-  exec 9>"$HOME/.cache/rice/update.lock"
-  flock -n 9 || { fail "Another update is already running. Wait for it to finish."; exit 1; }
-fi
-
 # ------------------------------------------------------------------ helpers
 # ver_newer A B: true when version A is newer than B ("2.1" == "2.10" > "2.02")
 ver_newer() {
@@ -142,28 +142,41 @@ user_edited() { # user_edited SRC DST: true when you changed DST after the insta
   [ -n "$old" ] && [ "$cur" != "$old" ]
 }
 keep_edit() { # keep_edit SRC DST: your file stays, the new one goes next to it
-  put "$1" "$2.rice-update"
+  put "$1" "$2.rice-update" || return 1
   mkdir -p "$(dirname "$KEPTF")"; printf '%s\n' "${2#"$HOME"/}" >>"$KEPTF"
 }
 
 # put SRC DST: copy one file, fill in @HOME@/@USER@, back up what it replaces
 put() {
-  local src="$1" dst="$2" rel
+  local src="$1" dst="$2" rel tmp mode_source
   [ "$DRY_RUN" = 1 ] && return 0
+  if [ -d "$dst" ] && [ ! -L "$dst" ]; then
+    fail "Cannot replace a directory with a file: $dst"
+    return 1
+  fi
+  mkdir -p "$(dirname "$dst")" || return 1
+  mode_source="$src"
   if [ -e "$dst" ] || [ -L "$dst" ]; then
     rel="${dst#"$HOME"/}"
-    mkdir -p "$BK/$(dirname "$rel")"
-    cp -aL "$dst" "$BK/$rel" 2>/dev/null || warn "could not back up ~/$rel (it is replaced anyway)"
-    [ -L "$dst" ] && rm -f "$dst"
+    mkdir -p "$BK/$(dirname "$rel")" || return 1
+    cp -aL "$dst" "$BK/$rel" || { fail "Could not back up ~/$rel"; return 1; }
+    if [ ! -L "$dst" ]; then mode_source="$dst"; fi
   fi
-  mkdir -p "$(dirname "$dst")"
-  if grep -qI . "$src" 2>/dev/null; then
-    sed -e "s|@HOME@|$HOME|g" -e "s|@USER@|$USER|g" "$src" >"$dst"
-  else
-    cp -f "$src" "$dst"
+  tmp="$(mktemp "$dst.rice-tmp.XXXXXX")" || return 1
+  if {
+    if grep -qI . "$src" 2>/dev/null; then
+      sed -e "s|@HOME@|$HOME|g" -e "s|@USER@|$USER|g" "$src" >"$tmp"
+    else
+      cp -f "$src" "$tmp"
+    fi
+  } && chmod --reference="$mode_source" "$tmp" &&
+    { [ ! -x "$src" ] || chmod +x "$tmp"; } &&
+    mv -fT "$tmp" "$dst"; then
+    return 0
   fi
-  [ -x "$src" ] && chmod +x "$dst"
-  return 0
+  rm -f "$tmp"
+  fail "Could not install $dst"
+  return 1
 }
 # V6.80: a file the installer changes in place (not replaced with a new one: the GTK settings, btop's config, lines
 # added to hyprland.lua, the fixes of fixup.py) gets a copy in this run's backup first, like every replaced file.
@@ -188,39 +201,35 @@ copy_tree() { # copy_tree SRC_DIR DST_DIR
     rel="${f#"$src"/}"
     if [ -e "$dst/$rel" ] || [ -L "$dst/$rel" ]; then kept_files+=("$f"); else new_files+=("$f"); fi
   done < <(find -L "$src" -type f ! -name '*.bak*' ! -name '.gitkeep' ! -name shell.qml -print0)
-  for f in "${new_files[@]}"; do put "$f" "$dst/${f#"$src"/}"; rec_sum "$dst/${f#"$src"/}"; done
-  # the changed ones are written next to their old selves first and then swapped in all at once, so a running
-  # Quickshell never reloads with half of the new files (a new Bar.qml with an old DynIsland.qml); files that
-  # did not change are not touched at all
+  for f in "${new_files[@]}"; do put "$f" "$dst/${f#"$src"/}" || return 1; rec_sum "$dst/${f#"$src"/}" || return 1; done
+  # Stage changed files before replacing them. Each replacement is atomic; unchanged files stay in place.
   local d rel2
   local -a staged=()
   for f in "${kept_files[@]}"; do
     d="$dst/${f#"$src"/}"
     if [ "$DRY_RUN" = 1 ]; then continue; fi
-    put "$f" "$d.rice-new"
-    if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new" "$d.rice-update"; rec_sum "$d"; continue; fi
-    if user_edited "$f" "$d"; then rm -f "$d.rice-new"; keep_edit "$f" "$d"; continue; fi
+    put "$f" "$d.rice-new" || return 1
+    if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new" "$d.rice-update"; rec_sum "$d" || return 1; continue; fi
+    if user_edited "$f" "$d"; then rm -f "$d.rice-new"; keep_edit "$f" "$d" || return 1; continue; fi
     rel2="${d#"$HOME"/}"
-    mkdir -p "$BK/$(dirname "$rel2")"
-    cp -aL "$d" "$BK/$rel2" 2>/dev/null || warn "could not back up ~/$rel2 (it is replaced anyway)"
-    [ -L "$d" ] && rm -f "$d"
+    mkdir -p "$BK/$(dirname "$rel2")" || return 1
+    cp -aL "$d" "$BK/$rel2" || { fail "Could not back up ~/$rel2"; return 1; }
     staged+=("$d")
   done
-  for d in "${staged[@]}"; do mv -f "$d.rice-new" "$d"; rm -f "$d.rice-update"; rec_sum "$d"; done
+  for d in "${staged[@]}"; do mv -fT "$d.rice-new" "$d" || return 1; rm -f "$d.rice-update"; rec_sum "$d" || return 1; done
   # shell.qml last, swapped in whole as well (Quickshell must never read it half written)
   if [ -f "$src/shell.qml" ] && [ "$DRY_RUN" != 1 ]; then
     d="$dst/shell.qml"
     if [ -e "$d" ]; then
-      put "$src/shell.qml" "$d.rice-new"
-      if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new"; rec_sum "$d"
-      elif user_edited "$src/shell.qml" "$d"; then rm -f "$d.rice-new"; keep_edit "$src/shell.qml" "$d"
+      put "$src/shell.qml" "$d.rice-new" || return 1
+      if cmp -s "$d.rice-new" "$d"; then rm -f "$d.rice-new"; rec_sum "$d" || return 1
+      elif user_edited "$src/shell.qml" "$d"; then rm -f "$d.rice-new"; keep_edit "$src/shell.qml" "$d" || return 1
       else
-        rel2="${d#"$HOME"/}"; mkdir -p "$BK/$(dirname "$rel2")"; cp -aL "$d" "$BK/$rel2" 2>/dev/null || warn "could not back up ~/$rel2 (it is replaced anyway)"
-        [ -L "$d" ] && rm -f "$d"
-        mv -f "$d.rice-new" "$d"; rec_sum "$d"
+        rel2="${d#"$HOME"/}"; mkdir -p "$BK/$(dirname "$rel2")" || return 1; cp -aL "$d" "$BK/$rel2" || { fail "Could not back up ~/$rel2"; return 1; }
+        mv -fT "$d.rice-new" "$d" || return 1; rec_sum "$d" || return 1
       fi
     else
-      put "$src/shell.qml" "$d"; rec_sum "$d"
+      put "$src/shell.qml" "$d" || return 1; rec_sum "$d" || return 1
     fi
   fi
   return 0
@@ -251,9 +260,9 @@ reboot_now() {
 config_dirs() { local d; for d in "$ROOT"/config/*/; do [ -d "$d" ] && basename "$d"; done; }
 pretty_dir() {
   case "$1" in
-    hypr) echo "Hyprland" ;; waybar) echo "Waybar" ;; swaync) echo "Notifications (swaync)" ;;
+    hypr) echo "Hyprland" ;; waybar) echo "Shared color palette" ;; swaync) echo "Notifications (swaync)" ;;
     rofi) echo "Rofi" ;; matugen) echo "Matugen colors" ;; kitty) echo "Kitty terminal" ;;
-    fastfetch) echo "Fastfetch" ;; btop) echo "btop theme (transparent)" ;; fish) echo "Fish shell" ;; waybar-presets) echo "Waybar presets" ;; *) echo "$1" ;;
+    fastfetch) echo "Fastfetch" ;; btop) echo "btop theme (transparent)" ;; fish) echo "Fish shell" ;; *) echo "$1" ;;
   esac
 }
 
@@ -803,11 +812,11 @@ step_configs() {
     fi
   fi
 }
-copy_lua() { local f; for f in "$ROOT"/lua/*.lua; do [ -f "$f" ] && put "$f" "$HOME/.config/hypr/$(basename "$f")"; done; return 0; }
+copy_lua() { local f; for f in "$ROOT"/lua/*.lua; do [ -f "$f" ] || continue; put "$f" "$HOME/.config/hypr/$(basename "$f")" || return 1; done; return 0; }
 
 # ------------------------------------------------------------------ your saved settings
-# settings/ holds what you chose in Settings on the computer that ran ./sync.sh: the Waybar look
-# (ui.json), dashboard, widgets, notifications, lock screen, rofi, fonts, cursor, effects.
+# settings/ holds what you chose in Settings on the computer that ran ./sync.sh: the bar layout
+# (bar.json), dashboard, widgets, notifications, lock screen, rofi, fonts, cursor, effects.
 # A file is put in place when you do not have it yet, or when you did not change it since the
 # installer put it there last time. Files you changed on this computer are kept, unless you said
 # "use the saved settings" (then yours are backed up first, like every other file).
@@ -817,7 +826,6 @@ settings_dst() {
   local rel="${1#"$ROOT/settings/"}"
   case "$rel" in
     rice/*) echo "$HOME/.config/rice/${rel#rice/}" ;;
-    waybar/*) echo "$HOME/.config/waybar/${rel#waybar/}" ;;
   esac
 }
 settings_sum() { sed -e "s|@HOME@|$HOME|g" -e "s|@USER@|$USER|g" "$1" | sha256sum | cut -c1-16; }
@@ -837,8 +845,8 @@ apply_settings() { # apply_settings RES: puts the saved settings in place, write
       if [ "$have" = "$new" ]; then echo "$new" >"$key"; continue; fi
       if [ "$have" != "$last" ] && [ "$TAKE_SETTINGS" != 1 ]; then echo "kept $rel" >>"$res"; continue; fi
     fi
-    put "$f" "$dst"
-    echo "$new" >"$key"
+    put "$f" "$dst" || return 1
+    echo "$new" >"$key" || return 1
     echo "set $rel" >>"$res"
   done < <(find "$ROOT/settings" -type f ! -name '.gitkeep' -print0 2>/dev/null)
   # the widget editor never comes back open
@@ -854,7 +862,7 @@ PY
 }
 step_settings() {
   local sf; sf="$(mktemp)"
-  task "Your saved settings: bar, widgets, lock screen..." apply_settings "$sf"
+  task "Your saved settings: bar, widgets, lock screen..." apply_settings "$sf" || { rm -f "$sf"; return 1; }
   local n_set n_kept
   n_set="$(grep -c '^set ' "$sf" 2>/dev/null || true)"; n_kept="$(grep -c '^kept ' "$sf" 2>/dev/null || true)"
   [ "${n_set:-0}" -gt 0 ] && note "$n_set settings files updated"
@@ -863,7 +871,6 @@ step_settings() {
     note "To take the saved ones too:  ./install.sh --update --use-saved-settings"
   fi
   if [ "${n_set:-0}" -gt 0 ] && [ "$DRY_RUN" != 1 ]; then
-    [ -f "$HOME/.config/waybar/config.jsonc" ] && task "Waybar: your look" t "$BIN/waybar-set" reapply
     [ -x "$BIN/rice-cursor" ] && task "Cursor" t "$BIN/rice-cursor" restore
   fi
   rm -f "$sf"
@@ -901,7 +908,7 @@ step_apps() {
     warn "\$HOME/.local/bin is not in your PATH. Add it in your shell config (fish: fish_add_path \$HOME/.local/bin)"
   fi
 }
-copy_bins() { local f; for f in "$ROOT"/bin/*; do [ -f "$f" ] && put "$f" "$BIN/$(basename "$f")"; done; return 0; }
+copy_bins() { local f; for f in "$ROOT"/bin/*; do [ -f "$f" ] || continue; put "$f" "$BIN/$(basename "$f")" || return 1; done; return 0; }
 
 # NVIDIA alone: Hyprland draws the cursor itself (a hardware cursor is often invisible there). Nothing else is set:
 # V3.43 also set LIBVA_DRIVER_NAME=nvidia, __GLX_VENDOR_LIBRARY_NAME=nvidia and NVD_BACKEND=direct, and those broke
@@ -1030,7 +1037,15 @@ fixup() { [ "$DRY_RUN" = 1 ] && return 0; RICE_BK="$BK" python3 "$ROOT/install/l
 # extra cursor themes from GitHub into ~/.local/share/icons (skips the ones you have; offline is fine)
 cursor_packs() { t "$BIN/rice-cursor" get all --missing >"$1" 2>&1; }
 remember_repo() { mkdir -p "$HOME/.config/rice"; echo "$ROOT" >"$HOME/.config/rice/repo"; }
-remember_version() { mkdir -p "$HOME/.config/rice"; echo "$RICE_VERSION" >"$HOME/.config/rice/version"; }
+remember_version() {
+  local dir="$HOME/.config/rice" revision
+  mkdir -p "$dir" || return 1
+  revision="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null)" || revision=""
+  printf '%s\n' "$revision" >"$dir/version-revision.tmp" &&
+    mv -f "$dir/version-revision.tmp" "$dir/version-revision" &&
+    printf '%s\n' "$RICE_VERSION" >"$dir/version.tmp" &&
+    mv -f "$dir/version.tmp" "$dir/version"
+}
 first_backup() { mkdir -p "$HOME/.config/rice" "$HOME/.cache/rice"; [ -f "$HOME/.config/rice/.first-backup" ] || echo "$BK" >"$HOME/.config/rice/.first-backup"; }
 
 # old backups pile up with every update (a slow, big ~/.config): keep the first one and the newest two
@@ -1063,13 +1078,11 @@ remove_old_parts() {
 }
 # the quiet version of those tasks, for updates
 refresh_look() {
-  [ -f "$HOME/.config/waybar/config.jsonc" ] && t "$BIN/waybar-set" distro-icon on
   [ -x "$BIN/desktop-set" ] && t "$BIN/desktop-set" state
   [ -x "$BIN/rice-cc" ] && t "$BIN/rice-cc" migrate
   t "$BIN/rice-notify" apply
   command -v hyprlock >/dev/null 2>&1 && t "$BIN/rice-lock" apply
   t "$BIN/rice-rofi" apply
-  [ -x "$BIN/rice-bar" ] && t bash -c "\"$BIN/rice-bar\" migrate && \"$BIN/rice-bar\" start"
   t "$BIN/rice-hotcorner" apply     # takes the old hot corner blur rule out of your Hyprland config
   remove_old_parts
   [ -x "$BIN/desktop-set" ] && t "$BIN/desktop-set" dock-blur
@@ -1081,7 +1094,6 @@ step_finish() {
   task "Remembering your backup folder" first_backup
   task "Removing old backups (keeps the first and the newest two)" prune_backups
   task "Remembering where this copy lives (for updates)" remember_repo
-  task "Version V$RICE_VERSION" remember_version
   { [ "$FAMILY" = arch ] || [ "$FAMILY" = fedora ] || [ "$FAMILY" = gentoo ]; } && task "Power modes (power-profiles-daemon)" ensure_power_modes
   task "Window manager: $(wm_name)" remember_wm
   task "Graphics card (NVIDIA cursor)" write_gpu
@@ -1096,13 +1108,11 @@ step_finish() {
     # an update re-applies your settings quietly: one line instead of ten
     task "Refreshing your settings (bar, dock, blur, notifications, lock screen)" refresh_look
   else
-    [ -f "$HOME/.config/waybar/config.jsonc" ] && task "Waybar: ${DISTRO_NAME} logo" t "$BIN/waybar-set" distro-icon on
     [ -x "$BIN/desktop-set" ] && task "Desktop widgets settings" t "$BIN/desktop-set" state
     [ -x "$BIN/rice-cc" ] && task "Notifications shown by the shell (Google-style pop-ups and control center)" t "$BIN/rice-cc" migrate
     task "Notifications style and blur" t "$BIN/rice-notify" apply
     command -v hyprlock >/dev/null 2>&1 && task "Lock screen and idle timers" t "$BIN/rice-lock" apply
     task "Launcher and bar blur" t "$BIN/rice-rofi" apply
-    [ -x "$BIN/rice-bar" ] && task "DarkShadow bar (Waybar stays off)" t bash -c "\"$BIN/rice-bar\" migrate && \"$BIN/rice-bar\" start"
     task "Remove the old hot corner rule" t "$BIN/rice-hotcorner" apply
     remove_old_parts
     [ -x "$BIN/desktop-set" ] && task "Dock and widget blur" t "$BIN/desktop-set" dock-blur
@@ -1183,14 +1193,9 @@ step_finish() {
     note "No systemd ($INIT_SYS): on the login screen pick \"Hyprland (DarkShadow)\" or \"niri (DarkShadow)\" (they bring D-Bus)."
     note "From a text console:  rice-session Hyprland   (or: rice-session niri --session)"
   fi
+  task "Version V$RICE_VERSION" remember_version
 }
 restart_shell() {
-  if [ -x "$BIN/rice-bar" ] && "$BIN/rice-bar" enabled 2>/dev/null; then
-    "$BIN/rice-bar" start
-  else
-    pkill -x waybar 2>/dev/null; pkill -x .waybar-wrapped 2>/dev/null; sleep 0.3
-    command -v waybar >/dev/null 2>&1 && detach waybar
-  fi
   [ -x "$BIN/rice-desktop" ] && T=10 t "$BIN/rice-desktop" restart
   return 0
 }
@@ -1244,49 +1249,33 @@ if [ "$MODE" = update ]; then
   title "Update"
   if [ "$PULLED" = 1 ]; then ok "Got the newest version"
   elif [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
-    old="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)"
-    export RICE_PREV_REV="${RICE_PREV_REV:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)}"
-    if [ "$DRY_RUN" = 1 ]; then info "would run: git pull"
-    elif ! { u="$(git -C "$ROOT" remote get-url origin 2>/dev/null)"
-             # the project's old name first (GitHub sends it on), then: only this project or a fork of it
-             case "$u" in *shadowww-dev/shadows-shell*) git -C "$ROOT" remote set-url origin https://github.com/shadowww-dev/DarkShadowShell.git ;; esac
-             update_remote_ok; }; then
-      fail "The update remote is not this project: $(git -C "$ROOT" remote get-url origin 2>/dev/null). Not updating."
+    export RICE_PREV_REV="${RICE_PREV_REV:-$(git -C "$ROOT" rev-parse --verify HEAD)}"
+    if [ "$DRY_RUN" = 1 ]; then info "would fetch and apply the selected published release tag"
+    elif ! update_remote_ok; then
+      fail "The update remote is not this project. Not updating."
       exit 1
-    elif ! update_precheck; then
-      exit 1
-    elif GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" pull --ff-only >>"$LOG" 2>&1; then
-      new="$(git -C "$ROOT" rev-parse --short HEAD)"
-      if [ "$old" != "$new" ]; then
-        # new files from GitHub, maybe a new installer too (asked about before the pull): start the new one
-        exec "$ROOT/install.sh" --update --pulled "$@"
-      fi
     else
-      # the pull did not go (files changed in the repo, or its history went another way). It used to carry on with
-      # the old files and say it was done, so the version never moved (Settings > Update Center looked like it
-      # updated and nothing changed). Now: what you changed is kept (a stash and a branch), and the repo is set to
-      # GitHub's newest version
-      info "git pull did not go through; keeping your changes aside and taking GitHub's version"
-      gq() { GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" "$@" >>"$LOG" 2>&1; }
-      up="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)"
-      if gq fetch origin; then
-        prev="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
-        target="$(git -C "$ROOT" rev-parse "$up" 2>/dev/null || true)"
-        # asked already before the pull, unless GitHub moved on since
-        [ "$target" = "${GUARD_CHECKED:-}" ] || update_guard "$prev" "$target" || exit 1
-        stamp="$(date +%Y%m%d-%H%M%S)"
-        gq branch "rice-before-update-$stamp" HEAD || true
-        # only reset when the stash really kept the changes (a failed stash + reset --hard would lose them)
-        if gq stash push -u -m "rice: your changes before the update of $stamp" && gq reset --hard "$up"; then
-          ok "Took the newest version (your old state: branch rice-before-update-$stamp, and git stash list)"
-          exec "$ROOT/install.sh" --update --pulled "$@"
-        fi
+      tag="${RICE_UPDATE_TAG:-}"
+      unset RICE_UPDATE_TAG
+      if [ -z "$tag" ]; then
+        tag="$(python3 "$ROOT/bin/rice-update" release-target "$ROOT")" || exit 1
       fi
-      if [ -n "${RICE_GUI:-}" ]; then
-        fail "Could not get the newest version from GitHub (offline?). Nothing was changed."
+      if [ -z "$tag" ]; then
+        ok "There is no newer published release for your channel."
+        exit 0
+      fi
+      if ! git -C "$ROOT" diff --quiet HEAD --; then
+        fail "Save your local Git changes before installing a release."
         exit 1
       fi
-      warn "Could not get the newest version from GitHub (offline, or your changes could not be set aside). Continuing with the files you have."
+      update_release_precheck "$tag" || exit 1
+      if [ "$RICE_PREV_REV" != "$RELEASE_REVISION" ]; then
+        git -C "$ROOT" checkout --detach --no-overwrite-ignore "$RELEASE_REVISION" >>"$LOG" 2>&1 || {
+          fail "Could not check out release $tag. See $LOG."
+          exit 1
+        }
+        RICE_UPDATE_LOCK=1 exec "$ROOT/install.sh" --update --pulled "$@"
+      fi
     fi
   else
     # a ZIP from a GitHub release: no .git, so nothing to pull; it reinstalled the same old version again and again
@@ -1338,7 +1327,7 @@ WM="${WM_ARG:-$(wm_guess)}"
 wm_packages
 if [ "$MENU_CHOICE" = 2 ]; then
   menu_multi "Choose what to install" \
-    "Packages|$(wm_name), Quickshell, Waybar, tools|${WANT[0]}" \
+    "Packages|$(wm_name), Quickshell, tools|${WANT[0]}" \
     "Fonts|Inter, Rubik, Nerd Font icons and clock fonts|1" \
     "Config files|Hyprland, bar, notifications, launcher|1" \
     "Apps and scripts|Settings app, widgets, dock|1" \

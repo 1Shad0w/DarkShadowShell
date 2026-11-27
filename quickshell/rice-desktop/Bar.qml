@@ -24,19 +24,21 @@ PanelWindow {
     property var scr: null
     readonly property bool extra: scr !== null
     screen: scr ? scr : Mon.screen
-    // one rice-services and one rice-weather for every bar (BarSvc.qml): a copy for another screen only reads them
-    onOnChanged: if (!bar.extra) BarSvc.shown = bar.on || bar.ghostOnly
-    onGhostOnlyChanged: if (!bar.extra) BarSvc.shown = bar.on || bar.ghostOnly
-    Component.onCompleted: if (!bar.extra) BarSvc.shown = bar.on || bar.ghostOnly
+    Binding {
+        when: !bar.extra
+        target: BarSvc
+        property: "shown"
+        value: bar.on && (bar.hasMod("network") || bar.hasMod("bluetooth") || bar.hasMod("notifications"))
+    }
 
     // ---------- settings (~/.config/rice/bar.json) ----------
-    property var bc: ({})
+    readonly property var bc: BarConfig.values
     // no bar.json yet (a fresh install or an update) = on. On the left or right edge VBar.qml is the bar instead
     readonly property bool vertical: bc.position === "left" || bc.position === "right"
-    readonly property bool on: bc.enabled !== false && !vertical
+    readonly property bool on: !vertical
     // the bar on the left or right edge (VBar.qml): this window stays for the island's cards only (the clock on the
     // side bar opens the island's Today card here, at the top), without the bar itself
-    readonly property bool ghostOnly: bc.enabled !== false && vertical
+    readonly property bool ghostOnly: vertical
     // the bar itself: 1 shown .. 0 gone (it fades when the bar moves to a side edge, and back)
     property real barK: on ? 1 : 0
     Behavior on barK { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
@@ -91,10 +93,13 @@ PanelWindow {
     readonly property var gpal: gp
     readonly property bool hideOn: bc.autohide === true
     readonly property bool shadowOn: bc.shadow !== false && Look.shadows && Look.shadowBar
-    // auto-hide: shown while the pointer is on it (and a moment after it leaves)
+    // Keep the bar in place while a menu is open or playing its closing animation.
+    property bool panelMenuVisible: false
+    readonly property bool menuVisible: sticky || trayMenu.visible || barPop.visible || panelMenuVisible
+    // Auto-hide also gives the pointer a short grace period after leaving.
     property bool peek: false
     // Infinite Desktop: it gets out of the way while you move the canvas (SUPER + ALT + mouse)
-    readonly property bool shownBar: (!hideOn || peek || !on) && !(on && Infinite.hideUi)
+    readonly property bool shownBar: (!hideOn || peek || menuVisible || !on) && !(on && Infinite.hideUi)
     Timer { id: leaveT; interval: 700; onTriggered: bar.peek = false }
     readonly property bool island: sty === "island"
     readonly property bool floating: sty !== "flat" && sty !== "frame"
@@ -146,19 +151,12 @@ PanelWindow {
         if (P[k]) return P[k]
         return kind === "moon" ? ["#ffffff", "#b9bfd8", "#8a93d8", "#cfd6ff"] : ["#fff6e4", "#ffb35c", "#a46bff", "#ff9d4d"]
     }
-    property var osIds: []
-    Process {
-        id: osProc
-        running: true
-        command: ["bash", "-c", ". /etc/os-release 2>/dev/null; echo \"$ID $ID_LIKE\""]
-        stdout: StdioCollector { onStreamFinished: bar.osIds = text.trim().toLowerCase().split(/\s+/) }
-    }
     readonly property string logoKey: {
         const k = bc.logo || "auto"
         if (k === "apps" || k === "blackhole" || k === "moon") return k
         if (k !== "auto") return logos[k] !== undefined ? k : "apps"
-        for (let i = 0; i < osIds.length; i++) {
-            const id = osIds[i] === "opensuse-tumbleweed" || osIds[i] === "opensuse-leap" ? "opensuse" : osIds[i]
+        for (let i = 0; i < BarConfig.osIds.length; i++) {
+            const id = BarConfig.osIds[i] === "opensuse-tumbleweed" || BarConfig.osIds[i] === "opensuse-leap" ? "opensuse" : BarConfig.osIds[i]
             if (logos[id] !== undefined) return id
         }
         return "tux"
@@ -169,21 +167,8 @@ PanelWindow {
     readonly property real alpha: Look.flat ? 1 : (bc.opacity !== undefined ? bc.opacity : 0.72)
     readonly property color bg: Look.sq ? gp.minSurface : (goo ? gp.surface : Qt.rgba(0.05, 0.05, 0.05, alpha))
     readonly property real gap: hug ? 3 : (floating ? 8 : 0)
-    property string cfgText: ""
-    property bool cfgReady: false
+    readonly property bool cfgReady: BarConfig.ready
     readonly property string home: Quickshell.env("HOME")
-
-    Trigger {
-        path: bar.home + "/.config/rice/bar.json"
-        every: 2000
-        onContent: function(t) {
-            const x = t.trim()
-            if (x === bar.cfgText && bar.cfgReady) return
-            bar.cfgText = x
-            try { bar.bc = x === "" ? ({}) : JSON.parse(x) } catch (e) { }
-            bar.cfgReady = true
-        }
-    }
 
     // ---------- the window ----------
     visible: on || ghostOnly || barK > 0.01
@@ -308,7 +293,7 @@ PanelWindow {
     readonly property int focusedId: Wm.focusedId
     function occupied(id) { return Wm.occupied(id) }
     function maxWs() { return Wm.maxWs(bar.nws) }
-    // ws-go: Hyprland (its Lua dispatchers) or niri (focus-workspace)
+    // rice-wm workspace: Hyprland (its Lua dispatchers) or niri (focus-workspace)
     function goWs(id) { Wm.goWs(id) }
     function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
 
@@ -601,8 +586,7 @@ PanelWindow {
 
     // ---------- Weather, System, Date: small modules that open a card under them (BarPop.qml) ----------
     readonly property var wx: BarSvc.wx
-    // every 30 minutes, as before; the process itself is shared (BarSvc.qml) and refuses to run twice
-    Timer { interval: 1800000; running: (bar.on || bar.ghostOnly) && (bar.hasMod("weather") || barPop.open); repeat: true; triggeredOnStart: true; onTriggered: BarSvc.refreshWx() }
+    WeatherHold { on: (bar.on && bar.hasMod("weather")) || (barPop.open && barPop.kind === "weather") }
     // one rice-stats for the whole shell (Stats.qml)
     readonly property var st: Stats.st
     StatsHold { on: (bar.on || bar.ghostOnly) && (bar.hasMod("sysmon") || (barPop.open && barPop.kind === "system")) }

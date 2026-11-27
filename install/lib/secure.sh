@@ -51,6 +51,17 @@ extract_verified() { # extract_verified ARCHIVE DEST: unpack only into DEST, and
   mkdir -p "$dst" || return 1
   tar -xf "$arc" -C "$dst" 2>/dev/null
 }
+run_with_update_lock() {
+  local lock="$HOME/.cache/rice/update.lock" status=0
+  mkdir -p "${lock%/*}" || return 1
+  flock --nonblock --close --conflict-exit-code 75 "$lock" env RICE_UPDATE_LOCK=1 "$@" || status=$?
+  if [ "$status" = 75 ]; then
+    fail "Another update is already running. Wait for it to finish."
+    return 1
+  fi
+  return "$status"
+}
+
 # an update is code from the network: it may only come from this project (any fork of it), never from an address
 # that was edited into the repo
 update_remote_ok() {
@@ -58,16 +69,28 @@ update_remote_ok() {
   [[ "$u" =~ ^(https://|git@|ssh://(git@)?)(www\.)?github\.com[:/][^/]+/(DarkShadowShell|dotfiles)(\.git)?/?$ ]]
 }
 
-# update_precheck: before the pull moves anything, fetch and ask about a changed installer (an answer after the pull
-# came too late: the new files were already there, and the next run started them without asking)
-update_precheck() {
-  local up t
-  GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" fetch origin >>"${LOG:-/dev/null}" 2>&1 || return 0
-  up="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)"
-  t="$(git -C "$ROOT" rev-parse "$up" 2>/dev/null || true)"
-  update_guard "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" "$t" || return 1
-  # shellcheck disable=SC2034  # read by install.sh, which sources this file
-  GUARD_CHECKED="$t"
+update_release_precheck() {
+  local tag="$1" ref old
+  ref="refs/tags/$tag"
+  git -C "$ROOT" check-ref-format "$ref" >/dev/null || return 1
+  if ! GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git -c credential.helper= -C "$ROOT" fetch --no-tags origin "$ref:$ref" >>"$LOG" 2>&1; then
+    fail "Could not fetch the selected release tag: $tag"
+    return 1
+  fi
+  RELEASE_REVISION="$(git -C "$ROOT" rev-parse --verify "$ref^{commit}" 2>/dev/null)" || return 1
+  old="$(git -C "$ROOT" rev-parse --verify HEAD)" || return 1
+  # A known older commit must stay blocked even if its tag was absent during the check.
+  local installed_rev
+  installed_rev="$(cat "$HOME/.config/rice/version-revision" 2>/dev/null || true)"
+  if [ -z "$installed_rev" ] && [ -n "${HAVE_VERSION:-}" ] && [ "$HAVE_VERSION" = "${RICE_VERSION:-}" ]; then
+    installed_rev="$old"
+  fi
+  if [[ "$installed_rev" =~ ^[0-9a-f]{40,64}$ ]] && [ "$RELEASE_REVISION" != "$installed_rev" ] &&
+    git -C "$ROOT" merge-base --is-ancestor "$RELEASE_REVISION" "$installed_rev"; then
+    fail "Release $tag is older than the installed revision."
+    return 1
+  fi
+  update_guard "$old" "$RELEASE_REVISION"
 }
 
 # update_guard OLD NEW: an update can bring a new install.sh, or scripts it runs, and that code runs with your
@@ -76,14 +99,14 @@ update_precheck() {
 update_guard() {
   local old="$1" new="$2" a=""
   [ -n "$old" ] && [ -n "$new" ] && [ "$old" != "$new" ] || return 0
-  # install/patches and bin are run by the installer it just pulled, so they are code too
-  git -C "$ROOT" diff --quiet "$old" "$new" -- install.sh install/lib install/patches bin 2>/dev/null && return 0
+  # The installer loads helper code from install/ and bin/.
+  git -C "$ROOT" diff --quiet "$old" "$new" -- install.sh install bin 2>/dev/null && return 0
   if [ "${RICE_TRUST_UPDATE:-0}" = 1 ]; then
     warn "new installer started because RICE_TRUST_UPDATE=1"
     return 0
   fi
   warn "This update changes install.sh or the scripts it runs, with your files and maybe sudo:"
-  git -C "$ROOT" diff --stat "$old" "$new" -- install.sh install/lib install/patches bin 2>/dev/null | sed 's/^/      /'
+  git -C "$ROOT" diff --stat "$old" "$new" -- install.sh install bin 2>/dev/null | sed 's/^/      /'
   if [ ! -t 0 ] || [ -n "${RICE_GUI:-}" ]; then
     # from Settings > Update Center: a terminal opens with rice-update, which shows this and asks (nothing moves here)
     local mark="$HOME/.cache/rice/update-terminal" now last=0

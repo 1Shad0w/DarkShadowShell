@@ -806,7 +806,6 @@ def startup(f, s):
         b + "rice-walls awww",
         b + "rice-notifyd",
         "hypridle",
-        b + "rice-bar start",
         b + "rice-desktop start",
         b + "rice-cursor restore",
         # Infinite Desktop: hold your keys (SUPER + ALT) and move the mouse; new windows float while it is on

@@ -17,6 +17,7 @@
                             ("show": true the first time Settings opens after an update)
   rice-update whatsnew-seen        Settings showed it: not again for this version
 """
+from collections import deque
 import fcntl
 import json
 import os
@@ -25,19 +26,21 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 
 HOME = os.path.expanduser("~")
 DIR = HOME + "/.config/rice"
 INSTALLED = DIR + "/version"
+INSTALLED_REV = DIR + "/version-revision"
 CACHE = HOME + "/.cache/rice"
 STATE = CACHE + "/update.json"
+RELEASES = CACHE + "/published-releases.json"
 NOTIFIED = CACHE + "/update-notified"
 LIVE_LOG = CACHE + "/update-live.log"
 LIVE = CACHE + "/update-live.json"
-RAW = "https://raw.githubusercontent.com/shadowww-dev/DarkShadowShell/main/VERSION"
 FIRST_WAIT = 45            # seconds after login
 UPDATE_CFG = DIR + "/update.json"
-DEFAULTS = {"watch": True, "every_minutes": 1440}   # one ask a day: enough for updates, a smaller trail at GitHub
+DEFAULTS = {"watch": True, "every_minutes": 1440, "channel": "stable"}
 TICK = 30                  # a check from the About tab of the dashboard is noticed within this many seconds
 APP = "DarkShadow's Shell"
 ICON = HOME + "/.local/share/rice/icon.png"
@@ -53,7 +56,16 @@ def cfg():
         c["every_minutes"] = max(60, min(10080, int(c["every_minutes"])))
     except Exception:
         pass
+    c["channel"] = "dev" if c.get("channel") == "dev" else "stable"
     return c
+
+
+def channel():
+    return cfg().get("channel", "stable")
+
+
+def branch():
+    return "dev" if channel() == "dev" else "main"
 
 
 def save_cfg(c):
@@ -92,7 +104,7 @@ def make_git(r):
     stamp = time.strftime("%Y%m%d-%H%M%S")
     tmp = target + ".new-" + stamp
     print("Downloading the project with git ...")
-    c = subprocess.call(["git", "-c", "credential.helper=", "clone", "--quiet", NEW_URL, tmp],
+    c = subprocess.call(["git", "-c", "credential.helper=", "clone", "--quiet", FORK_URL, tmp],
                         env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never"))
     if c != 0 or not os.path.exists(tmp + "/install.sh"):
         shutil.rmtree(tmp, ignore_errors=True)
@@ -108,25 +120,65 @@ def make_git(r):
     return target
 
 
-def key(v):
-    """'2.02' < '2.1' == '2.10' < '3.0' (the part after the dot reads like decimals)"""
-    try:
-        major, _, minor = v.strip().lstrip("vV").partition(".")
-        return (int(major), float("0." + (minor or "0")))
-    except ValueError:
-        return (0, 0.0)
+VERSION_TAG = re.compile(r"(?:dotfiles-)?v?\.?([0-9]+\.[0-9]+(?:-v?[0-9]+(?:\.[0-9]+)*|-[a-z][a-z0-9.-]*)?)", re.I)
+TAG_PATTERNS = ("[vV][0-9]*", "[vV].[0-9]*", "Dotfiles-[vV][0-9]*", "[0-9]*.[0-9]*")
 
 
 def clean(v):
-    v = (v or "").strip().lstrip("vV")
-    return v if v and key(v) > (0, 0.0) else ""
+    match = VERSION_TAG.fullmatch((v or "").strip())
+    return re.sub(r"-v(?=[0-9])", "-", match.group(1).lower(), count=1) if match else ""
 
 
-def installed():
+def key(v):
+    """Keep the project's decimal base version ordering and compare numeric fork suffixes numerically."""
+    base, _, suffix = clean(v).partition("-")
+    major, _, minor = base.partition(".")
+    suffix_key = tuple((0, int(p)) if p.isdecimal() else (1, p) for p in suffix.split("."))
+    return (int(major or 0), minor.rstrip("0"), not suffix, suffix_key)
+
+
+def installed_base():
     try:
-        return clean(open(INSTALLED).read()) or "2.01"
+        with open(INSTALLED) as f:
+            return clean(f.read()) or "2.01"
     except OSError:
-        return "2.01"   # installs from before versions existed
+        return "2.01"
+
+
+def installed_revision(r):
+    if not r or not os.path.exists(r + "/.git"):
+        return ""
+    try:
+        with open(INSTALLED_REV) as f:
+            revision = f.read().strip()
+        return revision if re.fullmatch(r"[0-9a-f]{40,64}", revision) else ""
+    except OSError:
+        # Older installs recorded only VERSION. Infer the label from the checkout
+        # when its base version still matches the version that was installed.
+        v = git(r, "show", "HEAD:VERSION", timeout=5)
+        return "HEAD" if v.returncode == 0 and clean(v.stdout) == installed_base() else ""
+
+
+def release_tag(r, revision):
+    if not revision:
+        return ""
+    matches = [arg for pattern in TAG_PATTERNS for arg in ("--match", pattern)]
+    result = git(r, "describe", "--tags", "--first-parent", "--abbrev=0", *matches, revision, timeout=5)
+    tag = result.stdout.strip()
+    return tag if result.returncode == 0 and clean(tag) else ""
+
+
+def installed(r=None, revision=None):
+    base = installed_base()
+    try:
+        r = r or repo()
+        if r:
+            tag = release_tag(r, installed_revision(r) if revision is None else revision)
+            if tag:
+                return clean(tag)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return base
 
 
 def git(r, *a, timeout=25):
@@ -137,7 +189,9 @@ def git(r, *a, timeout=25):
                           timeout=timeout, env=env)
 
 
-NEW_URL = "https://github.com/shadowww-dev/DarkShadowShell.git"
+FORK_SLUG = "1Shad0w/DarkShadowShell"
+FORK_URL = "https://github.com/" + FORK_SLUG + ".git"
+UPSTREAM_URL = "https://github.com/shadowww-dev/DarkShadowShell.git"
 
 
 # the installer's rule (install/lib/secure.sh update_remote_ok): an update may only come from this project, or a
@@ -159,103 +213,122 @@ def fix_remote(r):
     try:
         u = git(r, "remote", "get-url", "origin", timeout=5).stdout.strip()
         if "shadowww-dev/shadows-shell" in u:
-            git(r, "remote", "set-url", "origin", NEW_URL, timeout=5)
+            git(r, "remote", "set-url", "origin", UPSTREAM_URL, timeout=5)
     except Exception:
         pass
 
 
-def news(text, version):
-    """first lines of the CHANGELOG entry for this version"""
-    out, on = [], False
-    for ln in (text or "").splitlines():
-        h = ln.strip()
-        if h.startswith("## "):
-            if on:
-                break
-            on = h[3:].strip().lstrip("vV").startswith(version)
-            continue
-        if on and h.startswith(("- ", "* ")):
-            out.append(h[2:].strip())
-    return out
-
-
-def latest(offline=False):
-    """newest version: GitHub (through your repo's git remote), else the raw file, else your repo.
-    Also: how many new commits GitHub has that this computer does not (an update without a new number)."""
-    r = repo()
-    found, err = [], ""
-    latest.ahead, latest.sha, latest.log = 0, "", ""
-    if r and os.path.isdir(r + "/.git") and shutil.which("git"):
+def repo_slug(r):
+    """Extract 'owner/repo' from origin remote if it matches REPO_ORIGIN, else default."""
+    if r and os.path.exists(r + "/.git"):
         try:
-            if not offline:
-                fix_remote(r)
-            if not offline and origin_ok(r):
-                f = git(r, "fetch", "--quiet")
-                if f.returncode != 0:
-                    err = (f.stderr.strip().splitlines() or ["git fetch failed"])[-1]
-            elif not offline:
-                err = "the update remote is not this project"
-            refs = []
-            u = git(r, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}", timeout=5)
-            if u.returncode == 0 and u.stdout.strip():
-                refs.append(u.stdout.strip())
-            refs += ["origin/main", "origin/master"]
-            for ref in refs:
-                s = git(r, "show", ref + ":VERSION", timeout=5)
-                if s.returncode == 0 and clean(s.stdout):
-                    found.append(clean(s.stdout))
-                    a = git(r, "rev-list", "--count", "HEAD.." + ref, timeout=5)
-                    latest.ahead = int(a.stdout.strip() or 0) if a.returncode == 0 else 0
-                    h = git(r, "rev-parse", "--short", ref, timeout=5)
-                    latest.sha = h.stdout.strip() if h.returncode == 0 else ""
-                    cl = git(r, "show", ref + ":CHANGELOG.md", timeout=5)
-                    latest.log = cl.stdout if cl.returncode == 0 else ""
-                    break
-        except Exception as e:
-            err = str(e)
-    if not found and not offline and shutil.which("curl"):
-        try:
-            c = subprocess.run(["curl", "-fsSL", "--max-time", "15", RAW], capture_output=True, text=True, timeout=20)
-            if c.returncode == 0 and clean(c.stdout):
-                found.append(clean(c.stdout))
-                err = ""
-        except Exception as e:
-            err = err or str(e)
-    if r:
-        try:
-            found.append(clean(open(r + "/VERSION").read()))   # pulled but not installed yet
-        except OSError:
+            u = git(r, "remote", "get-url", "origin", timeout=5).stdout.strip()
+            m = re.search(r"github\.com[:/]([^/]+/(?:DarkShadowShell|dotfiles))(?:\.git)?/?$", u)
+            if m:
+                return m.group(1)
+        except Exception:
             pass
-        if not latest.log:
-            try:
-                latest.log = open(r + "/CHANGELOG.md").read()
-            except OSError:
-                pass
-    found = [v for v in found if v]
-    return (max(found, key=key) if found else ""), err
+    return FORK_SLUG
 
 
-def check(offline=False):
-    have = installed()
-    new, err = latest(offline)
-    newer = bool(new) and key(new) > key(have)
-    ahead = getattr(latest, "ahead", 0)
-    out = {"installed": have, "latest": new or have, "update": newer or ahead > 0,
-           "changes": ahead, "commit": getattr(latest, "sha", ""),
-           "news": news(getattr(latest, "log", ""), new or have)[:4],
-           "checked": int(time.time()), "error": err if not new else ""}
-    if is_zip(repo()):
-        out["update"] = True
+def published_releases(r, offline=False):
+    slug = repo_slug(r)
+    if offline:
+        try:
+            with open(RELEASES) as f:
+                cached = json.load(f)
+            return (cached["items"] if cached["repo"] == slug else []), ""
+        except (OSError, ValueError, KeyError, TypeError):
+            return [], ""
+    items = []
+    page = 1
+    try:
+        while True:
+            url = "https://api.github.com/repos/%s/releases?per_page=100&page=%d" % (slug, page)
+            req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "rice-update"})
+            with urllib.request.urlopen(req, timeout=6) as response:
+                releases = json.load(response)
+                if not isinstance(releases, list):
+                    raise ValueError("unexpected GitHub release response")
+                for rel in releases:
+                    if (not isinstance(rel, dict) or rel.get("draft") or not isinstance(rel.get("published_at"), str)
+                            or not isinstance(rel.get("tag_name"), str) or not clean(rel["tag_name"])):
+                        continue
+                    items.append({"tag_name": rel["tag_name"], "published_at": rel["published_at"],
+                                  "prerelease": bool(rel.get("prerelease")), "body": rel.get("body") or ""})
+                if 'rel="next"' not in response.headers.get("Link", ""):
+                    break
+                page += 1
+    except (OSError, ValueError, TypeError) as e:
+        return published_releases(r, offline=True)[0], str(e)
+    os.makedirs(CACHE, exist_ok=True)
+    try:
+        with open(RELEASES, "w") as f:
+            json.dump({"repo": slug, "items": items}, f)
+    except OSError:
+        pass
+    return items, ""
+
+
+def published_at(release):
+    return release["published_at"], key(release["tag_name"])
+
+
+def release_is_older(r, tag):
+    if not r or not os.path.exists(r + "/.git"):
+        return False
+    try:
+        revision = installed_revision(r)
+        if not revision:
+            return False
+        current = git(r, "rev-parse", "--verify", revision + "^{commit}", timeout=5)
+        candidate = git(r, "rev-parse", "--verify", "refs/tags/" + tag + "^{commit}", timeout=5)
+        if current.returncode != 0 or candidate.returncode != 0 or current.stdout == candidate.stdout:
+            return False
+        return git(r, "merge-base", "--is-ancestor", candidate.stdout.strip(), current.stdout.strip(),
+                   timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def check(offline=False, r=None):
+    r = r or repo()
+    have = installed(r)
+    selected_channel = channel()
+    releases, error = published_releases(r, offline)
+    eligible = [rel for rel in releases if selected_channel == "dev" or not rel.get("prerelease")]
+    latest = max(eligible, key=published_at, default=None)
+    installed_release = max((rel for rel in releases if clean(rel["tag_name"]) == have), key=published_at, default=None)
+    target = clean(latest["tag_name"]) if latest else have
+    # Compare publications, not branch tips or the upstream VERSION fallback.
+    update = bool(latest and target != have and
+                  (installed_release is None or published_at(latest) > published_at(installed_release))
+                  and not release_is_older(r, latest["tag_name"]))
+    notes = [line.strip()[2:].strip() for line in ((latest or {}).get("body") or "").splitlines()
+             if line.strip().startswith(("- ", "* "))]
+    out = {"installed": have, "latest": target, "update": update, "changes": 0, "commit": "",
+           "channel": selected_channel, "branch": branch(), "release": target if latest else "",
+           "tag": latest["tag_name"] if latest else "", "news": notes[:4] if update or target == have else [],
+           "checked": int(time.time()), "error": error}
+    if is_zip(r) and update:
         out["error"] = ZIP_MSG
     os.makedirs(CACHE, exist_ok=True)
     try:
-        json.dump(out, open(STATE, "w"))
+        with open(STATE, "w") as state:
+            json.dump(out, state)
     except OSError:
         pass
     return out
 
 
-def terminal_update():
+def release_target(r):
+    st = check(r=r)
+    if st["error"] and st["error"] != ZIP_MSG:
+        raise OSError(st["error"])
+    return st["tag"] if st["update"] else ""
+
+
+def terminal_update(tag=""):
     """ONE terminal with rice-update in it (at most one a minute), without the background update's settings: an old
     installer (before V4.56) that saw RICE_GUI in its terminal opened another terminal instead of asking, endlessly"""
     mark = CACHE + "/update-terminal"
@@ -269,34 +342,36 @@ def terminal_update():
     env = dict(os.environ)
     for k in ("RICE_GUI", "NO_COLOR", "GIT_TERMINAL_PROMPT", "GCM_INTERACTIVE"):
         env.pop(k, None)
+    env.pop("RICE_UPDATE_TAG", None)
+    if tag:
+        env["RICE_UPDATE_TAG"] = tag
     t = os.environ.get("TERMINAL") or "kitty"
     if not shutil.which(t):
         t = next((x for x in ("kitty", "foot", "alacritty", "wezterm", "konsole", "gnome-terminal") if shutil.which(x)), t)
     cmd = [t, "-e", HOME + "/.local/bin/rice-update"]
     if os.access(HOME + "/.local/bin/rice-term", os.X_OK):        # your terminal (Settings > Look & Feel)
         cmd = [HOME + "/.local/bin/rice-term", "-e", HOME + "/.local/bin/rice-update"]
-    subprocess.Popen(cmd, start_new_session=True, env=env,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-
-def installer_changes(r):
-    """does the newest version change the installer (install.sh, install/lib)? Then the update must be asked about in a
-    terminal. Checked here, before the installer runs: an installer from before V4.56 got this wrong from Settings and
-    opened terminals without end"""
-    q = dict(cwd=r, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-             env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never"))
+    started = int(time.time())
+    was = installed()
+    put_live(state="terminal", started=started, pid=0, was=was, terminal=True)
     try:
-        fix_remote(r)
-        if not origin_ok(r):
-            return False
-        if subprocess.call(["git", "-c", "credential.helper=", "fetch", "--quiet", "origin"], timeout=60, **q) != 0:
-            return False
-        up = subprocess.run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=r,
-                            capture_output=True, text=True).stdout.strip() or "origin/main"
-        return subprocess.call(["git", "diff", "--quiet", "HEAD", up, "--", "install.sh", "install/lib",
-                                "install/patches", "bin"], timeout=30, **q) == 1
-    except Exception:
+        subprocess.Popen(cmd, start_new_session=True, env=env,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as e:
+        with open(LIVE_LOG, "w") as log:
+            log.write("    ✘ Could not open the update terminal: %s\n" % e)
+        put_live(state="failed", code=1, started=started, ended=int(time.time()), pid=0, was=was, terminal=True)
+
+
+def installer_changes(r, tag):
+    if not origin_ok(r):
         return False
+    ref = "refs/tags/" + tag
+    f = git(r, "fetch", "--quiet", "--no-tags", "origin", ref + ":" + ref, timeout=60)
+    if f.returncode != 0:
+        raise OSError(f.stderr.strip() or "could not fetch release tag")
+    result = git(r, "diff", "--quiet", "HEAD", ref + "^{commit}", "--", "install.sh", "install", "bin")
+    return result.returncode == 1
 
 
 def open_center():
@@ -310,14 +385,19 @@ def open_center():
 
 def live():
     try:
-        return json.load(open(LIVE))
+        with open(LIVE) as f:
+            state = json.load(f)
+        return state if isinstance(state, dict) else {}
     except (OSError, ValueError):
         return {}
 
 
 def alive(pid):
     try:
-        os.kill(int(pid), 0)
+        pid = int(pid)
+        if pid <= 0:
+            return False
+        os.kill(pid, 0)
         return True
     except (OSError, ValueError, TypeError):
         return False
@@ -332,7 +412,7 @@ def ours(pid, started):
         age = time.time() - float(started)
     except (TypeError, ValueError):
         age = 1e9
-    if age < 0 or age > 3600:          # an update takes minutes; an hour is long dead
+    if age < 0:
         return False
     try:
         with open("/proc/%d/stat" % int(pid)) as f:
@@ -343,6 +423,23 @@ def ours(pid, started):
         return abs(boot + born - float(started)) < 120        # not a reused number: the same second we started it
     except Exception:
         return True                   # no /proc (another OS): trust the age alone
+
+
+def live_status(with_log=False):
+    state = live()
+    interrupted = state.get("state") == "running" and not ours(state.get("pid"), state.get("started"))
+    if interrupted:
+        state.update(state="failed", pid=0, code=1, ended=int(time.time()))
+    print(json.dumps(state))
+    if with_log:
+        print("\x1e")
+        try:
+            with open(LIVE_LOG, errors="replace") as f:
+                sys.stdout.writelines(deque(f, maxlen=400))
+        except OSError:
+            pass
+        if interrupted:
+            print("\n    ✘ Update process ended before reporting its result")
 
 
 def put_live(**kw):
@@ -371,12 +468,12 @@ def gui(args):
     r = repo()
     if not r:
         open(LIVE_LOG, "w").write("    \u2718 Could not find your copy of the repo (~/shadows-shell). Clone it again:\n"
-                                  "      git clone https://github.com/shadowww-dev/DarkShadowShell ~/shadows-shell\n")
+                                  "      git clone " + FORK_URL + " ~/shadows-shell\n")
         put_live(state="failed", code=1, started=int(time.time()), ended=int(time.time()), pid=0)
         return 1
     if is_zip(r):
         open(LIVE_LOG, "w").write("    \u2718 " + ZIP_MSG + "\n")
-        put_live(state="failed", code=1, started=int(time.time()), ended=int(time.time()), pid=0)
+        fcntl.flock(lk, fcntl.LOCK_UN)
         terminal_update()
         return 1
     if os.fork() != 0:
@@ -386,14 +483,24 @@ def gui(args):
         os._exit(0)
     log = open(LIVE_LOG, "w", buffering=1)
     t0 = int(time.time())
-    if installer_changes(r):
+    try:
+        tag = release_target(r)
+        needs_terminal = bool(tag and installer_changes(r, tag))
+    except (OSError, subprocess.SubprocessError) as e:
+        log.write("    ✘ %s\n" % e)
+        put_live(state="failed", code=1, started=t0, ended=int(time.time()), pid=0, was=installed())
+        os._exit(1)
+    if not tag:
+        put_live(state="done", code=0, started=t0, ended=int(time.time()), pid=0, now=installed())
+        os._exit(0)
+    if needs_terminal:
         log.write("    \u2139 This update changes the installer, so it is asked about in a terminal: one opened now.\n"
                   "      Answer y there (it may ask for your password). Nothing was changed yet.\n")
-        put_live(state="failed", code=1, started=t0, ended=int(time.time()), pid=0, was=installed())
-        terminal_update()
+        fcntl.flock(lk, fcntl.LOCK_UN)
+        terminal_update(tag)
         os._exit(0)
     put_live(state="running", code=-1, started=t0, ended=0, pid=os.getpid(), was=installed())
-    env = dict(os.environ, RICE_GUI="1", RICE_UPDATE_LOCK="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
+    env = dict(os.environ, RICE_UPDATE_TAG=tag, RICE_GUI="1", RICE_UPDATE_LOCK="1", NO_COLOR="1", GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
     env.pop("SUDO_ASKPASS", None)
     want = ["--update", "--yes"] + (args if args else ["--no-packages"])
     try:
@@ -431,8 +538,14 @@ def packages_pending():
 def update_all(args):
     """one action for both places that show updates: a terminal when packages wait, else the quiet GUI update"""
     if packages_pending() > 0:
-        terminal_update()
-        return 0
+        try:
+            tag = release_target(repo())
+        except (OSError, subprocess.SubprocessError):
+            tag = ""
+        if tag:
+            terminal_update(tag)
+            return 0
+        return subprocess.call([HOME + "/.local/bin/rice-care", "update"])
     return gui(args)
 
 
@@ -530,31 +643,45 @@ def watch():
         time.sleep(TICK)
 
 
-def run(args):
+def run_installer(args):
     r = repo()
     if not r:
         print("Could not find your copy of the repo. Clone it again:")
-        print("  git clone https://github.com/shadowww-dev/DarkShadowShell ~/shadows-shell")
-        input("Press Enter to close")
-        sys.exit(1)
+        print("  git clone " + FORK_URL + " ~/shadows-shell")
+        return 1
     if is_zip(r):
         print(ZIP_MSG.replace(" Run rice-update in a terminal: it turns", " This turns"))
         try:
-            a = input("Make it a git copy now? [Y/n] ").strip().lower()
+            answer = input("Make it a git copy now? [Y/n] ").strip().lower()
         except EOFError:
-            a = "y"
-        r = make_git(r) if a in ("", "y", "yes") else None
+            answer = "n"
+        r = make_git(r) if answer in ("", "y", "yes") else None
         if not r:
-            try:
-                input("Press Enter to close")
-            except EOFError:
-                pass
-            sys.exit(1)
-    os.chdir(r)
+            return 1
     env = dict(os.environ)
     for k in ("RICE_GUI", "NO_COLOR", "GIT_TERMINAL_PROMPT", "GCM_INTERACTIVE"):
-        env.pop(k, None)   # a terminal the Update Center opened must ask, not act like the background update
-    code = subprocess.call(["./install.sh", "--update"] + args, env=env)
+        env.pop(k, None)
+    return subprocess.call(["./install.sh", "--update"] + args, cwd=r, env=env)
+
+
+def run(args):
+    started = int(time.time())
+    was = installed()
+    put_live(state="running", started=started, pid=os.getpid(), was=was, terminal=True)
+    try:
+        code = run_installer(args)
+    except KeyboardInterrupt:
+        code = 130
+    except OSError as e:
+        print(e, file=sys.stderr)
+        code = 1
+    if code == 0:
+        try:
+            check(offline=True)
+        except Exception:
+            pass
+    put_live(state="done" if code == 0 else "failed", code=code, started=started,
+             ended=int(time.time()), pid=0, was=was, now=installed(), terminal=True)
     print()
     try:
         input("Press Enter to close")
@@ -588,19 +715,26 @@ def whatsnew(ver=None):
         inst = open(INSTALLED).read().strip()
     except OSError:
         pass
-    ver = ver or inst
+    current = installed()
+    ver = ver or current
     title, items, found = "", [], False
-    for line in text.splitlines():
-        m = re.match(r"^##\s+V([\d.]+)\s*:?\s*(.*)$", line)
-        if m:
-            if found:
-                break
-            found = m.group(1) == ver
-            title = m.group(2).strip() if found else ""
-            title = title[:1].upper() + title[1:]
-            continue
-        if found and line.startswith("- "):
-            items.append(md_line(line[2:].strip()))
+    if r and ver == current and current != clean(inst):
+        releases, _ = published_releases(r, offline=True)
+        release = next((rel for rel in releases if clean(rel["tag_name"]) == current), {})
+        items = [md_line(line.strip()[2:].strip()) for line in (release.get("body") or "").splitlines()
+                 if line.strip().startswith(("- ", "* "))]
+    else:
+        for line in text.splitlines():
+            m = re.match(r"^##\s+V([\d.]+)\s*:?\s*(.*)$", line)
+            if m:
+                if found:
+                    break
+                found = m.group(1) == ver
+                title = m.group(2).strip() if found else ""
+                title = title[:1].upper() + title[1:]
+                continue
+            if found and line.startswith("- "):
+                items.append(md_line(line[2:].strip()))
     try:
         seen = open(SEEN).read().strip()
     except OSError:
@@ -609,21 +743,31 @@ def whatsnew(ver=None):
     first = not os.path.exists(DIR + "/welcome-seen") and not seen
     if first and inst:
         try:
-            open(SEEN, "w").write(inst + "\n")
+            open(SEEN, "w").write(ver + "\n")
         except OSError:
             pass
     print(json.dumps({"version": ver, "title": title, "items": items[:16], "more": max(0, len(items) - 16),
-                      "show": bool(items) and not first and seen != ver and ver == inst}))
+                      "show": bool(items) and not first and seen != ver and ver == current}))
 
 
 def main(a):
     cmd = a[1] if len(a) > 1 else ""
+    if cmd == "live-status":
+        live_status("--log" in a)
+        return
+    if cmd == "release-target":
+        try:
+            print(release_target(a[2] if len(a) > 2 else repo()))
+        except (OSError, subprocess.SubprocessError) as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
+        return
     if cmd == "whatsnew":
         whatsnew(a[2] if len(a) > 2 else None)
         return
     if cmd == "whatsnew-seen":
         try:
-            open(SEEN, "w").write(open(INSTALLED).read().strip() + "\n")
+            open(SEEN, "w").write(installed() + "\n")
         except OSError:
             pass
         return
@@ -638,6 +782,20 @@ def main(a):
                 print("  - " + n)
         else:
             print("Up to date: V%s%s" % (st["installed"], ("  (could not check: %s)" % st["error"]) if st["error"] else ""))
+    elif cmd == "channel":
+        if len(a) > 2 and a[2] in ("stable", "dev"):
+            c = cfg()
+            c["channel"] = a[2]
+            save_cfg(c)
+            try:
+                os.remove(NOTIFIED)
+            except OSError:
+                pass
+            print(json.dumps({"channel": c["channel"], "branch": branch()}))
+        elif len(a) > 2 and a[2] in ("state", "get"):
+            print(json.dumps({"channel": channel(), "branch": branch()}))
+        else:
+            print(channel())
     elif cmd == "watch":
         if len(a) > 2 and a[2] == "state":
             c = cfg()

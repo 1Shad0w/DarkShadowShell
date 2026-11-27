@@ -84,7 +84,7 @@ def settings():
     th = jread(DIR + "/theme.json")
     fx = jread(DIR + "/effects.json")
     rows = [
-        ("Bar", "%s, %s%s" % (bar.get("style", "?"), bar.get("position", "top"), "" if bar.get("enabled", True) is not False else " (off: Waybar)")),
+        ("Bar", "%s, %s" % (bar.get("style", "?"), bar.get("position", "top"))),
         ("Minimal mode", "on (%s)" % mn.get("frame", "double") if mn.get("on") else "off"),
         ("Notifications", "%s, theme %s" % (cc.get("engine", "swaync"), nt.get("colors", "shell"))),
         ("Lock screen", "%s%s" % (lk.get("style", "cards"), ", fingerprint" if lk.get("fingerprint") else "")),

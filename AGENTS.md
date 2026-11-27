@@ -1,17 +1,21 @@
-# Normas para Agentes de IA (`AGENTS.md`)
+# AI Agent Guidelines (`AGENTS.md`)
 
-Estas normas aplican a cualquier agente de código que trabaje en este repositorio.
+These rules apply to any coding agent working in this repository.
 
-## 1. Remotos, ramas y versiones
+## 1. Remotes, Branches & Releases
 
-- **Nunca** hagas `push` ni abras Pull Requests contra `upstream` (`shadowww-dev/DarkShadowShell`). Trabaja únicamente sobre `origin` (el repo puede llamarse `DarkShadowShell` o `dotfiles`).
-- **Todos los cambios van a `dev`**: crea siempre ramas desde `dev` y abre Pull Requests con base `dev`.
-- **No toques `main` directamente** ni hagas merge de `dev` → `main` por tu cuenta.
-- **No decidas números de versión ni crees tags/releases** salvo instrucción explícita del usuario: el usuario controla las PR de `dev` → `main`, el `Version tag` y cuándo se publica una release mediante `.github/workflows/release.yml`.
+- **Never** push to or open Pull Requests against `upstream` (`shadowww-dev/DarkShadowShell`). Operate only on `origin` (the repo may be named `DarkShadowShell` or `dotfiles`).
+- **All changes target `dev`**: always create branches from `dev` and open Pull Requests with base `dev`.
+- **Do not touch `main` directly** or merge `dev` → `main` on your own.
+- **Do not pick version numbers or create tags/releases** unless explicitly instructed by the user: the user controls `dev` → `main` PRs, the `Version tag`, and when releases are published via `.github/workflows/release.yml`.
 
-## 2. Verificación obligatoria antes de commit o PR
+## 2. Language
 
-Ejecuta la suite completa y asegúrate de que todo pase sin errores:
+- Keep all repository code, comments, documentation, commit messages, PR templates, and workflows in **English** by default (excluding localized i18n/translation files).
+
+## 3. Mandatory Verification Before Commit or PR
+
+Run the full test suite and verify everything passes without errors:
 
 ```bash
 bash tests/security.sh
@@ -24,19 +28,19 @@ bash tests/sddm.sh
 python3 tests/hotcorner.py
 ```
 
-Y valida sintaxis de los archivos tocados:
-- Python: `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile <archivo>`
-- Bash: `bash -n <archivo>`
-- Lua: `luac -p <archivo>`
+And validate syntax on touched files:
+- Python: `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile <file>`
+- Bash: `bash -n <file>`
+- Lua: `luac -p <file>`
 
-**Prohibido** eliminar, relajar o saltarse checks de `tests/security.sh`, `tests/qml-shared.sh` o `.github/workflows/ci.yml` para hacer pasar cambios.
+**Forbidden**: deleting, relaxing, or skipping checks in `tests/security.sh`, `tests/qml-shared.sh`, or `.github/workflows/ci.yml` to make changes pass.
 
-## 3. Reglas técnicas del proyecto
+## 4. Technical Invariants
 
-- **Descargas fijadas por hash**: toda URL externa en scripts (`bin/*`, `install.sh`, `install/lib/*`) debe apuntar a un tag o commit fijo y tener su SHA-256 verificado contra `install/checksums.txt`.
-- **Orígenes permitidos**: los checks de remoto (`install/lib/secure.sh`, `bin/rice-update`) aceptan repositorios en GitHub llamados `DarkShadowShell` o `dotfiles`.
-- **Escrituras atómicas**: las configuraciones y archivos de estado se escriben en un `.tmp` y se reemplazan con `os.replace` (manteniendo permisos y tomando `~/.config/rice/.hypr.lock` cuando aplique).
-- **QML y objetos vivos (Issue #21)**: en modelos/listas QML no guardes referencias vivas a `Toplevel` ni `DesktopEntry`; guarda IDs/strings/booleanos y busca el objeto en el momento de usarlo (`DesktopEntries.heuristicLookup(...)`, `ToplevelManager.toplevels.values`).
-- **Componentes QML compartidos**: si modificas `Sfx.qml`, `SfxBank.qml`, `SfxTap.qml` o `Fonts.qml` en `quickshell/rice-desktop/`, sincroniza las copias de los demás `quickshell/rice-*/` para que `tests/qml-shared.sh` pase.
-- **Páginas en Settings**: en `quickshell/rice-settings/shell.qml` no reutilices índices ya asignados; usa siempre el siguiente índice libre.
-- **Sin secretos**: no añadas tokens, contraseñas ni rutas locales privadas en código, commits o PRs.
+- **Hash-pinned downloads**: every external URL in scripts (`bin/*`, `install.sh`, `install/lib/*`) must point to a fixed tag or commit and have its SHA-256 verified against `install/checksums.txt`.
+- **Allowed origins**: remote checks (`install/lib/secure.sh`, `bin/rice-update`) accept GitHub repositories named `DarkShadowShell` or `dotfiles`.
+- **Atomic writes**: configuration and state files must be written to a `.tmp` file and replaced with `os.replace` (preserving permissions and holding `~/.config/rice/.hypr.lock` when applicable).
+- **QML live object safety (Issue #21)**: do not store live `Toplevel` or `DesktopEntry` object references in QML models/lists; store IDs/strings/booleans and look up the object at use time (`DesktopEntries.heuristicLookup(...)`, `ToplevelManager.toplevels.values`).
+- **Shared QML components**: if you modify `Sfx.qml`, `SfxBank.qml`, `SfxTap.qml`, or `Fonts.qml` in `quickshell/rice-desktop/`, sync the copies in the other `quickshell/rice-*/` folders so `tests/qml-shared.sh` passes.
+- **Settings page indices**: in `quickshell/rice-settings/shell.qml`, never reuse an already assigned page index; always use the next free index.
+- **No secrets**: never commit tokens, passwords, or private local paths in code, commits, or PRs.

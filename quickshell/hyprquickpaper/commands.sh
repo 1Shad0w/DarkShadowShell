@@ -75,22 +75,18 @@ esac
 
 if [ -n "$scheme" ]; then
   # named color scheme from Settings > Home > Colors: "<matugen type> <seed> <workspace marker>"
-  read -r stype seed ws <<<"$scheme"
+  read -r stype seed _ <<<"$scheme"
   cmd=(matugen color hex "$seed" --type "$stype")
 elif [ -n "$navy" ]; then
-  ws='#8a8a8a'
   cmd=(matugen color hex "#1a2a5e")
 elif awk "BEGIN{exit !($sat < 7)}"; then
   # black, white or grey: everything in grey too (no made-up color), the same for dark and light pictures
-  ws='#8a8a8a'
   cmd=(matugen color hex "#808080" --type scheme-monochrome)
   say "a grey wallpaper (chroma $sat): monochrome colors"
 else
-  ws='@on_accent'
   cmd=(matugen image "$src" --source-color-index 0)
 fi
 
-printf '@define-color ws_active %s;\n' "$ws" > "$HOME/.config/waybar/ws-active.css"
 
 mat="$(command -v matugen 2>/dev/null)"
 [ -z "$mat" ] && [ -x "$HOME/.local/bin/matugen" ] && mat="$HOME/.local/bin/matugen"

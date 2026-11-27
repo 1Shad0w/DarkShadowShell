@@ -20,23 +20,12 @@ PanelWindow {
     screen: Mon.screen
 
     // ---------- settings (~/.config/rice/bar.json, the same file as the top bar) ----------
-    property var bc: ({})
-    property string cfgText: ""
+    readonly property var bc: BarConfig.values
     readonly property string home: Quickshell.env("HOME")
-    Trigger {
-        path: vb.home + "/.config/rice/bar.json"
-        every: 2000
-        onContent: function(t) {
-            const x = t.trim()
-            if (x === vb.cfgText) return
-            vb.cfgText = x
-            try { vb.bc = x === "" ? ({}) : JSON.parse(x) } catch (e) { }
-        }
-    }
     // the edge it sits on now. A move to the other edge (or a new style) plays out: it slides away, changes, slides back
     readonly property bool wantRight: bc.position === "right"
     property bool atRight: false
-    readonly property bool on: bc.enabled !== false && (bc.position === "left" || bc.position === "right")
+    readonly property bool on: (bc.position === "left" || bc.position === "right")
     // styles, like the top bar: flat (the whole edge), island (one pill), islands (a pill for each zone: top, middle,
     // bottom), pills (a pill for each module), dynamic (islands in the Material colors of your theme). notch has no
     // edge to grow out of standing up: islands
@@ -72,7 +61,12 @@ PanelWindow {
     property bool ready: false
     Behavior on t { enabled: vb.ready && !moveAnim.running; NumberAnimation { duration: vb.on ? 460 : 220; easing.type: Easing.Linear } }
     onOnChanged: t = on ? 1 : 0
-    Timer { running: true; interval: 1200; onTriggered: { vb.atRight = vb.wantRight; vb.sty = vb.want; vb.ready = true; vb.t = vb.on ? 1 : 0 } }
+    Component.onCompleted: {
+        atRight = wantRight
+        sty = want
+        t = on ? 1 : 0
+        ready = true
+    }
     onWantRightChanged: if (ready && wantRight !== atRight) moveAnim.restart()
     onWantChanged: if (ready && want !== sty) moveAnim.restart()
     SequentialAnimation {
@@ -104,18 +98,12 @@ PanelWindow {
         if (P[k]) return P[k]
         return kind === "moon" ? ["#ffffff", "#b9bfd8", "#8a93d8", "#cfd6ff"] : ["#fff6e4", "#ffb35c", "#a46bff", "#ff9d4d"]
     }
-    property var osIds: []
-    Process {
-        running: true
-        command: ["bash", "-c", ". /etc/os-release 2>/dev/null; echo \"$ID $ID_LIKE\""]
-        stdout: StdioCollector { onStreamFinished: vb.osIds = text.trim().toLowerCase().split(/\s+/) }
-    }
     readonly property string logoKey: {
         const k = bc.logo || "auto"
         if (k === "apps" || k === "blackhole" || k === "moon") return k
         if (k !== "auto") return logos[k] !== undefined ? k : "apps"
-        for (let i = 0; i < osIds.length; i++) {
-            const id = osIds[i] === "opensuse-tumbleweed" || osIds[i] === "opensuse-leap" ? "opensuse" : osIds[i]
+        for (let i = 0; i < BarConfig.osIds.length; i++) {
+            const id = BarConfig.osIds[i] === "opensuse-tumbleweed" || BarConfig.osIds[i] === "opensuse-leap" ? "opensuse" : BarConfig.osIds[i]
             if (logos[id] !== undefined) return id
         }
         return "tux"
@@ -161,7 +149,7 @@ PanelWindow {
     readonly property bool charging: batt && (batt.state === UPowerDeviceState.Charging || batt.state === UPowerDeviceState.FullyCharged)
     readonly property bool plugged: hasBatt && !UPower.onBattery
     readonly property var svc: BarSvc.state
-    Binding { target: BarSvc; property: "sideShown"; value: vb.on }
+    Binding { target: BarSvc; property: "sideShown"; value: vb.on && (vb.hasMod("network") || vb.hasMod("bluetooth") || vb.hasMod("notifications")) }
     property var now: new Date()
     Timer { interval: 15000; running: vb.on; repeat: true; triggeredOnStart: true; onTriggered: vb.now = new Date() }
     property bool h12: false
@@ -417,8 +405,8 @@ PanelWindow {
     }
     // Weather, System, Date: their cards open at the top of the screen, beside this bar (Bar.qml shows them)
     function pop(k) { run("mkdir -p \"$HOME/.cache/rice\"; printf '%s %s %s\\n' \"$(date +%s.%N)\" " + k + " " + (atRight ? (vb.screen ? vb.screen.width - 420 : 1500) : 230) + " > \"$HOME/.cache/rice/barpop-open\"") }
-    property var wx: null
-    Trigger { path: vb.home + "/.cache/rice/weather.json"; every: 60000; onContent: function(t) { try { vb.wx = JSON.parse(t) } catch (e) { } } }
+    readonly property var wx: BarSvc.wx
+    WeatherHold { on: vb.on && vb.hasMod("weather") }
     Component { id: cWeather
         Item { width: vb.barW - 10; height: wc.implicitHeight + 6
             Column { id: wc; anchors.centerIn: parent; spacing: 0
