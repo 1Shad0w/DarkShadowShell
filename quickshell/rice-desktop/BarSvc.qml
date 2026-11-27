@@ -26,7 +26,9 @@ Singleton {
         command: [Quickshell.env("HOME") + "/.local/bin/rice-services", "bar"]
         stdout: StdioCollector { onStreamFinished: { try { svc.state = JSON.parse(text) } catch (e) { } } }
     }
-    Timer { interval: 10000; running: svc.shown || svc.sideShown || svc.dockShown; repeat: true; triggeredOnStart: true; onTriggered: svc.refresh() }
+    // the switches change rarely from outside the shell (a click refreshes in 700 ms, below): 30 s is plenty and
+    // keeps this from starting rice-services (a Python process and several subprocesses) so often
+    Timer { interval: 30000; running: svc.shown || svc.sideShown || svc.dockShown; repeat: true; triggeredOnStart: true; onTriggered: svc.refresh() }
     Timer { id: soon; interval: 700; onTriggered: svc.refresh() }
     Process {
         id: wxProc

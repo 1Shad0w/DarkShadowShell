@@ -21,8 +21,10 @@ QtObject {
         }
         onPlayingChanged: { if (playing) heard = true; else warming = false }
     }
-    // V4.95: a sound that still "plays" is stopped first; one that does not start means this way is broken here:
-    // from then on every sound plays through pw-play (Sfx.qml), so none is silent after the first one or two
+    // V4.95: on some systems (PipeWire, Qt's FFmpeg sound) a sound played once or twice and then never again: it
+    // still said "playing", so play() did nothing. Now a sound that still plays is stopped first, and a sound that
+    // did not start within a moment means this way of playing is broken: from then on every sound plays through
+    // pw-play (Sfx.qml), so none is ever silent
     property bool broken: false
     property var pend: null
     property string pendEv: ""
@@ -38,8 +40,12 @@ QtObject {
     property SoundEffect switchOff: Snd { source: bank.src("switch-off") }
     property SoundEffect slide: Snd { source: bank.src("slide") }
     property SoundEffect type: Snd { source: bank.src("type") }
+    property SoundEffect pageNext: Snd { source: bank.src("page-next") }
+    property SoundEffect pagePrev: Snd { source: bank.src("page-prev") }
+    property SoundEffect addSnd: Snd { source: bank.src("add") }
+    property SoundEffect removeSnd: Snd { source: bank.src("remove") }
     readonly property var map: ({ click: click, select: select, done: done, "switch-on": switchOn, "switch-off": switchOff,
-                                  slide: slide, type: type })
+                                  slide: slide, type: type, "page-next": pageNext, "page-prev": pagePrev, add: addSnd, remove: removeSnd })
     // false: not ready here (the caller plays it another way)
     function play(ev) {
         if (broken) return false

@@ -645,7 +645,7 @@ def cmd_autostart_toggle(line):
     if not os.path.exists(bak):
         shutil.copy(MAIN, bak)
     lines[n - 1] = m.group(1) + (m.group(3) if m.group(2) else "-- " + m.group(3))
-    open(MAIN, "w").write("\n".join(lines))
+    write_atomic(MAIN, "\n".join(lines))
 
 
 def monitors_json():
@@ -1181,7 +1181,7 @@ def cmd_regen():
     if os.path.exists(ST):
         s = load()
         os.makedirs(os.path.dirname(OUT), exist_ok=True)
-        open(OUT, "w").write(generate(s))
+        write_atomic(OUT, generate(s))
 
 
 def cmd_kbd_options(opts):

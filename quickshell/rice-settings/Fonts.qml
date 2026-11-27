@@ -51,7 +51,7 @@ Singleton {
         f.rMain = j.main || ""; f.rNumbers = j.numbers || ""; f.rTitle = j.title || ""
         f.rReading = j.reading || ""; f.rMono = j.mono || ""; f.rIcons = j.icons || ""
     }
-    // V4.95: the file is watched (inotify) instead of a bash + cat started every 4000 ms for as long as the shell ran
+    // V4.95: the file is watched (inotify) instead of a bash + cat started every 1500 ms for as long as the shell ran
     FileView {
         id: fv
         path: Quickshell.env("HOME") + "/.config/rice/fonts.json"
@@ -62,5 +62,5 @@ Singleton {
         onLoadFailed: f.apply("")
     }
     // font-set writes a new file in its place: the slow re-read catches that too
-    Timer { interval: 5000; running: Prefs.shown; repeat: true; onTriggered: fv.reload() }
+    Timer { interval: 30000; running: true; repeat: true; onTriggered: fv.reload() }
 }

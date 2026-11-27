@@ -152,7 +152,7 @@ Item {
                             AppIcon {
                                 anchors.horizontalCenter: parent.horizontalCenter; y: 8
                                 size: 56
-                                name: fq.modelData.entry ? (fq.modelData.entry.icon || "") : ""
+                                name: fq.modelData.icon || ""
                                 keys: [fq.modelData.id, fq.modelData.name]
                                 look: ln.iLook; shape: ln.iShape !== "" ? ln.iShape : "cookie"
                                 colors: m3.pal
@@ -247,7 +247,7 @@ Item {
                     AppIcon {
                         anchors.horizontalCenter: parent.horizontalCenter; y: 12
                         size: 48
-                        name: cell.modelData.entry ? (cell.modelData.entry.icon || "") : ""
+                        name: cell.modelData.icon || ""
                         keys: [cell.modelData.id, cell.modelData.name]
                         look: ln.iLook; shape: ln.iShape
                         colors: m3.pal
@@ -335,7 +335,7 @@ Item {
                         visible: !row.sum && !row.emo && ln.icons
                         anchors.centerIn: parent
                         size: 40
-                        name: row.modelData.kind === "app" ? (row.modelData.entry ? (row.modelData.entry.icon || "") : "")
+                        name: row.modelData.kind === "app" ? (row.modelData.icon || "")
                               : (row.modelData.kind === "web" ? "web-browser" : (row.modelData.dir ? "folder" : ln.fileIcon(row.modelData)))
                         keys: row.modelData.kind === "app" ? [row.modelData.id, row.modelData.name] : []
                         look: row.modelData.kind === "app" ? ln.iLook : "original"

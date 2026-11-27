@@ -97,30 +97,30 @@ PanelWindow {
                 AppIcon {
                     x: 8; anchors.verticalCenter: parent.verticalCenter
                     size: 36
-                    name: de.it && de.it.entry ? (de.it.entry.icon || "") : (de.it ? de.it.key : "")
-                    keys: de.it ? [de.it.key, de.it.entry ? de.it.entry.id : ""] : []
+                    name: de.it ? (de.it.icon || de.it.tlId || de.it.key) : ""
+                    keys: de.it ? [de.it.key, de.it.entryId] : []
                     look: de.dock ? de.dock.look : "original"
                     shape: de.dock ? de.dock.shape : ""
                     colors: pal
                 }
                 Column {
                     x: 54; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 62
-                    Text { width: parent.width; elide: Text.ElideRight; text: de.it && de.it.entry ? de.it.entry.name : (de.it ? de.it.key : "")
+                    Text { width: parent.width; elide: Text.ElideRight; text: de.it ? (de.it.entryName || de.it.key) : ""
                         color: pal.fg; font.family: Fonts.main; font.pixelSize: 14; font.weight: Font.DemiBold }
                     Text { width: parent.width; elide: Text.ElideRight; color: pal.dim; font.family: Fonts.main; font.pixelSize: 11
-                        text: de.it ? ((de.it.tl ? Tr.t("Open") : Tr.t("Not open")) + (de.dock.isPinned(de.it) ? "  ·  " + Tr.t("Pinned") : "")) : "" }
+                        text: de.it ? ((de.it.running ? Tr.t("Open") : Tr.t("Not open")) + (de.dock.isPinned(de.it) ? "  ·  " + Tr.t("Pinned") : "")) : "" }
                 }
             }
-            MItem { idx: 1; visible: !!(de.it && de.it.entry); sym: "open_in_new"; glyph: "\uf35d"; text: de.it && de.it.tl ? Tr.t("New window") : Tr.t("Open")
-                onPicked: { de.it.entry.execute(); de.close() } }
+            MItem { idx: 1; visible: !!(de.it && de.it.hasEntry); sym: "open_in_new"; glyph: "\uf35d"; text: de.it && de.it.running ? Tr.t("New window") : Tr.t("Open")
+                onPicked: { const e = de.dock.findEntry(de.it); if (e) e.execute(); de.close() } }
             MItem { idx: 2; visible: !!de.it; sym: "keep"; glyph: "\uf08d"; text: de.it && de.dock.isPinned(de.it) ? Tr.t("Unpin from the dock") : Tr.t("Pin to the dock")
                 onPicked: { de.dock.pin(de.it, !de.dock.isPinned(de.it)); de.close() } }
             MItem { idx: 3; visible: !!de.it && de.dock.isPinned(de.it); sym: de.vert ? "arrow_upward" : "arrow_back"; glyph: de.vert ? "\uf062" : "\uf060"
                 text: de.vert ? Tr.t("Move up") : Tr.t("Move left"); onPicked: de.dock.move(de.it, -1) }
             MItem { idx: 4; visible: !!de.it && de.dock.isPinned(de.it); sym: de.vert ? "arrow_downward" : "arrow_forward"; glyph: de.vert ? "\uf063" : "\uf061"
                 text: de.vert ? Tr.t("Move down") : Tr.t("Move right"); onPicked: de.dock.move(de.it, 1) }
-            MItem { idx: 5; visible: !!(de.it && de.it.tl); sym: "close"; glyph: "\uf00d"; text: Tr.t("Close"); danger: true
-                onPicked: { de.it.tl.close(); de.close() } }
+            MItem { idx: 5; visible: !!(de.it && de.it.running); sym: "close"; glyph: "\uf00d"; text: Tr.t("Close"); danger: true
+                onPicked: { const t = de.dock.findToplevel(de.it); if (t) t.close(); de.close() } }
             Item { visible: !!de.it; width: parent.width; height: 9
                 Rectangle { anchors.centerIn: parent; width: parent.width - 16; height: 1; color: pal.line } }
             MItem { idx: 6; sym: "add_circle"; glyph: "\uf055"; text: Tr.t("Add apps ..."); onPicked: de.edit("dock-add") }
