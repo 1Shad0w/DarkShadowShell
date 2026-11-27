@@ -140,7 +140,7 @@ Item {
 
     Process {
         id: liveP
-        command: ["bash", "-c", "cat \"$HOME/.cache/rice/update-live.json\" 2>/dev/null; printf '\\n\\x1e\\n'; tail -n 400 \"$HOME/.cache/rice/update-live.log\" 2>/dev/null"]
+        command: [page.bin, "live-status", "--log"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
