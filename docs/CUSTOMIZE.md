@@ -1,3 +1,5 @@
+**English** · [Español](es/CUSTOMIZE.md) · [Português](pt/CUSTOMIZE.md) · [← Docs Home](README.md)
+
 # Customize
 
 Everything is in **Settings** (`SUPER+U`). The same actions exist as commands:
