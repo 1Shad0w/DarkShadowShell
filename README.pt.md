@@ -9,7 +9,7 @@
 <p align="center">
   <b>Um rice para Hyprland e niri com seu próprio app de Configurações em Quickshell, barra, lançador, widgets de desktop e dock.</b><br>
   Tudo é configurado com controles deslizantes e interruptores em um só app. Sem editar arquivos manualmente.<br>
-  Projeto original de <a href="https://github.com/shadowww-dev/DarkShadowShell">shadowww-dev</a> (<a href="https://www.tiktok.com/@shadoww.dev">@shadoww.dev</a>) · Fork mantido: <a href="https://github.com/1Shad0w/DarkShadowShell">1Shad0w/DarkShadowShell</a>
+  Projeto original de <a href="https://github.com/shadowww-dev/DarkShadowShell">shadowww-dev</a> · Fork mantido: <a href="https://github.com/1Shad0w/DarkShadowShell">1Shad0w/DarkShadowShell</a>
 </p>
 
 <p align="center">
@@ -26,10 +26,9 @@
   <img src="https://img.shields.io/badge/Quickshell-QML-8B7BFF?style=for-the-badge&labelColor=11111b&logo=qt&logoColor=8B7BFF&color=1a1b26" alt="Quickshell">
 </p>
 <p align="center">
-  <a href="https://github.com/1Shad0w/DarkShadowShell/releases/latest"><img src="https://img.shields.io/github/v/release/1Shad0w/DarkShadowShell?style=for-the-badge&labelColor=11111b&logo=github&logoColor=white&color=8B7BFF&label=release" alt="Última release"></a>
+  <a href="https://github.com/1Shad0w/DarkShadowShell/releases/latest"><img src="https://img.shields.io/github/v/release/1Shad0w/DarkShadowShell?style=for-the-badge&labelColor=11111b&logo=github&logoColor=white&color=8B7BFF&label=stable" alt="Stable release"></a>
+  <a href="https://github.com/1Shad0w/DarkShadowShell/releases"><img src="https://img.shields.io/github/v/release/1Shad0w/DarkShadowShell?include_prereleases&sort=date&style=for-the-badge&labelColor=11111b&logo=github&logoColor=white&color=8B7BFF&label=dev" alt="Latest development release"></a>
   <a href="https://github.com/1Shad0w/DarkShadowShell/stargazers"><img src="https://img.shields.io/github/stars/1Shad0w/DarkShadowShell?style=for-the-badge&labelColor=11111b&logo=starship&logoColor=f5c542&color=f5c542" alt="Estrelas"></a>
-  <a href="https://github.com/1Shad0w/DarkShadowShell/commits"><img src="https://img.shields.io/github/last-commit/1Shad0w/DarkShadowShell?style=for-the-badge&labelColor=11111b&logo=git&logoColor=white&color=4c566a&label=updated" alt="Último commit"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2ea043?style=for-the-badge&labelColor=11111b&logo=opensourceinitiative&logoColor=white" alt="Licença MIT"></a>
 </p>
 
 <p align="center">
