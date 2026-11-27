@@ -51,6 +51,17 @@ extract_verified() { # extract_verified ARCHIVE DEST: unpack only into DEST, and
   mkdir -p "$dst" || return 1
   tar -xf "$arc" -C "$dst" 2>/dev/null
 }
+run_with_update_lock() {
+  local lock="$HOME/.cache/rice/update.lock" status=0
+  mkdir -p "${lock%/*}" || return 1
+  flock --nonblock --close --conflict-exit-code 75 "$lock" env RICE_UPDATE_LOCK=1 "$@" || status=$?
+  if [ "$status" = 75 ]; then
+    fail "Another update is already running. Wait for it to finish."
+    return 1
+  fi
+  return "$status"
+}
+
 # an update is code from the network: it may only come from this project (any fork of it), never from an address
 # that was edited into the repo
 update_remote_ok() {

@@ -496,6 +496,7 @@ def gui(args):
         return 1
     if is_zip(r):
         open(LIVE_LOG, "w").write("    \u2718 " + ZIP_MSG + "\n")
+        fcntl.flock(lk, fcntl.LOCK_UN)
         terminal_update()
         return 1
     if os.fork() != 0:
@@ -508,6 +509,7 @@ def gui(args):
     if installer_changes(r):
         log.write("    \u2139 This update changes the installer, so it is asked about in a terminal: one opened now.\n"
                   "      Answer y there (it may ask for your password). Nothing was changed yet.\n")
+        fcntl.flock(lk, fcntl.LOCK_UN)
         terminal_update()
         os._exit(0)
     put_live(state="running", code=-1, started=t0, ended=0, pid=os.getpid(), was=installed())

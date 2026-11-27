@@ -81,6 +81,14 @@ for c in find sort tar; do
   break
 done
 
+# The flock supervisor owns the lock. The installer and session services do not inherit its descriptor.
+update_lock_held="${RICE_UPDATE_LOCK:-0}"
+unset RICE_UPDATE_LOCK
+if [ "$DRY_RUN" != 1 ] && [ "$update_lock_held" != 1 ]; then
+  run_with_update_lock bash "$ROOT/install.sh" "$@"
+  exit $?
+fi
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BK="$HOME/.config/darkshadows-shell-backup-$STAMP"
 LOG="$(mktemp "${TMPDIR:-/tmp}/darkshadows-shell-install-XXXXXX.log")"
@@ -90,14 +98,6 @@ BIN="$HOME/.local/bin"
 SUDO_PID=""
 cleanup() { [ -n "$SUDO_PID" ] && kill "$SUDO_PID" 2>/dev/null; rm -f "${PKG_SPLIT:-}"; show_cursor; }
 trap cleanup EXIT
-# one installer at a time: two of them write the same staging files, checksums and backups.
-# A GUI update holds rice-update's lock and passes RICE_UPDATE_LOCK=1, so its child is not stopped by this one.
-if [ "$DRY_RUN" != 1 ] && [ "${RICE_UPDATE_LOCK:-0}" != 1 ]; then
-  mkdir -p "$HOME/.cache/rice"
-  exec 9>"$HOME/.cache/rice/update.lock"
-  flock -n 9 || { fail "Another update is already running. Wait for it to finish."; exit 1; }
-fi
-
 # ------------------------------------------------------------------ helpers
 # ver_newer A B: true when version A is newer than B ("2.1" == "2.10" > "2.02")
 ver_newer() {
@@ -1259,7 +1259,7 @@ if [ "$MODE" = update ]; then
       fi
       if [ "$old" != "$new" ]; then
         # new files from GitHub, maybe a new installer too (asked about before the pull): start the new one
-        exec "$ROOT/install.sh" --update --pulled "$@"
+        RICE_UPDATE_LOCK=1 exec "$ROOT/install.sh" --update --pulled "$@"
       fi
     else
       # the fast-forward did not go (files changed in the repo, or its history went another way). It used to carry on with
@@ -1273,7 +1273,7 @@ if [ "$MODE" = update ]; then
       # Only reset after saving local changes, and use the exact commit that passed the guard.
       if gq stash push -u -m "rice: your changes before the update of $stamp" && gq reset --hard "$GUARD_CHECKED"; then
         ok "Took the newest version (your old state: branch rice-before-update-$stamp, and git stash list)"
-        exec "$ROOT/install.sh" --update --pulled "$@"
+        RICE_UPDATE_LOCK=1 exec "$ROOT/install.sh" --update --pulled "$@"
       fi
       if [ -n "${RICE_GUI:-}" ]; then
         fail "Could not get the newest version from GitHub (offline?). Nothing was changed."
