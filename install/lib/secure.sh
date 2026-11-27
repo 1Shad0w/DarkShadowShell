@@ -71,6 +71,7 @@ update_precheck() {
   t="$(git -C "$ROOT" rev-parse --verify "$up^{commit}" 2>/dev/null)" || return 1
   old="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null)" || return 1
   update_guard "$old" "$t" || return 1
+  # shellcheck disable=SC2034  # install.sh reads this variable after sourcing this file
   GUARD_CHECKED="$t"
 }
 
