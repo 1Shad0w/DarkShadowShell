@@ -2,7 +2,8 @@
 """rice-clip: the clipboard history of DarkShadow's Shell (cliphist underneath). SUPER + V opens it.
 
   rice-clip open | toggle | close   show the clipboard panel
-  rice-clip list [N]                JSON: the newest N entries (text, or images with a small picture)
+  rice-clip list [N]                JSON: metadata for the newest N entries
+  rice-clip thumbnail ID PREVIEW   print the path to a small preview if available
   rice-clip copy ID                 put an entry back on the clipboard (and paste it, when Paste is on)
   rice-clip delete ID               remove one entry
   rice-clip pin ID | unpin TEXT     keep a text at the top (pins live in clipboard.json, wiping leaves them)
@@ -14,8 +15,10 @@
 import hashlib
 import json
 import os
+import resource
 import shutil
 import subprocess
+from tempfile import TemporaryDirectory
 import sys
 import time
 
@@ -78,27 +81,44 @@ def entry_line(cid):
     return ""
 
 
-def thumb(cid, preview, line=""):
-    """a small picture for an image entry (made once, kept in ~/.cache/rice/clip)"""
-    os.makedirs(THUMBS, exist_ok=True)
-    key = hashlib.sha1(("%s|%s" % (cid, preview)).encode()).hexdigest()[:16]
-    p = THUMBS + "/" + key + ".png"
-    if os.path.exists(p):
+def thumb_path(cid, preview):
+    key = hashlib.sha1(("v2|%s|%s" % (cid, preview)).encode()).hexdigest()[:16]
+    return THUMBS + "/" + key + ".png"
+
+
+MAX_THUMB_INPUT = 32 * 1024 * 1024
+
+
+def limit_thumbnail_output():
+    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_THUMB_INPUT, MAX_THUMB_INPUT))
+
+
+def thumb(cid, preview):
+    """Generate a preview without buffering the original image in Python."""
+    p = thumb_path(cid, preview)
+    if os.path.isfile(p):
         return p
-    code, data = cliphist("decode", inp=(line or entry_line(cid)) + "\n", text=False)
-    if code != 0 or not data:
+    converter = shutil.which("magick") or shutil.which("convert")
+    if not converter:
         return ""
-    raw = THUMBS + "/" + key + ".raw"
-    open(raw, "wb").write(data)
-    if have("magick"):
-        run(["magick", raw, "-thumbnail", "480x480>", p], timeout=8)
-    elif have("convert"):
-        run(["convert", raw, "-thumbnail", "480x480>", p], timeout=8)
-    if not os.path.exists(p):
-        os.replace(raw, p)       # Qt reads png / jpg / webp itself; a full size picture is fine too
-    else:
-        os.remove(raw)
-    return p
+    os.makedirs(THUMBS, mode=0o700, exist_ok=True)
+    with TemporaryDirectory(prefix=".thumb-", dir=THUMBS) as temp:
+        raw = temp + "/original"
+        small = temp + "/small.png"
+        try:
+            with open(raw, "wb") as dst:
+                result = subprocess.run(["cliphist", "decode"], input=(str(cid) + "\t" + preview + "\n").encode(),
+                                        stdout=dst, stderr=subprocess.DEVNULL, timeout=4, preexec_fn=limit_thumbnail_output)
+            if result.returncode or not 0 < os.path.getsize(raw) <= MAX_THUMB_INPUT:
+                return ""
+            result, _ = run([converter, "-limit", "memory", "32MiB", "-limit", "map", "64MiB", "-limit", "disk", "128MiB",
+                             raw + "[0]", "-thumbnail", "480x480>", small], timeout=8)
+            if result or not os.path.isfile(small):
+                return ""
+            os.replace(small, p)
+            return p
+        except (OSError, subprocess.SubprocessError):
+            return ""
 
 
 def cmd_list(n=60):
@@ -108,7 +128,6 @@ def cmd_list(n=60):
         print(json.dumps(out))
         return
     code, txt = cliphist("list")
-    imgs = 0
     for line in txt.splitlines()[:max(1, n)]:
         cid, _, prev = line.partition("\t")
         if not cid.isdigit():
@@ -116,16 +135,13 @@ def cmd_list(n=60):
         if prev.startswith("[[ binary data") and prev.rstrip().endswith("]]"):
             if not c["images"]:
                 continue
-            e = {"id": int(cid), "kind": "image", "text": prev.strip("[] ").replace("binary data ", "")}
-            if imgs < 24:
-                e["img"] = thumb(cid, prev, line)
-                imgs += 1
-            out["items"].append(e)
+            out["items"].append({"id": int(cid), "kind": "image", "preview": prev,
+                                 "text": prev.strip("[] ").replace("binary data ", "")})
         else:
             out["items"].append({"id": int(cid), "kind": "text", "text": prev[:600]})
     # old pictures nobody shows any more go
     try:
-        keep = {os.path.basename(e.get("img", "")) for e in out["items"]}
+        keep = {os.path.basename(thumb_path(e["id"], e["preview"])) for e in out["items"] if e["kind"] == "image"}
         for f in os.listdir(THUMBS):
             if f not in keep and time.time() - os.path.getmtime(THUMBS + "/" + f) > 3600:
                 os.remove(THUMBS + "/" + f)
@@ -214,6 +230,8 @@ def main(a):
         cmd_open(cmd)
     elif cmd == "list":
         cmd_list(int(a[2]) if len(a) > 2 and a[2].isdigit() else 60)
+    elif cmd == "thumbnail" and len(a) == 4 and a[2].isdigit():
+        print(thumb(a[2], a[3]))
     elif cmd == "copy" and len(a) > 2:
         cmd_copy(a[2])
     elif cmd == "copy-text" and len(a) > 2:

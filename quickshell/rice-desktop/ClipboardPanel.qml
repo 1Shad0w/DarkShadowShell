@@ -272,11 +272,31 @@ PanelWindow {
                     wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight
                     textFormat: Text.PlainText
                 }
+                readonly property string imageKey: row.img ? String(modelData.id) + "\t" + modelData.preview : ""
+                property string thumbnail: ""
+                property string requestedKey: ""
+                readonly property bool onScreen: row.y < list.contentY + list.height && row.y + row.height > list.contentY
+                onImageKeyChanged: thumbnail = ""
+                Process {
+                    id: previewProcess
+                    command: [Quickshell.env("HOME") + "/.local/bin/rice-clip", "thumbnail",
+                              String(row.modelData.id || ""), row.modelData.preview || ""]
+                    running: cb.open && row.onScreen && row.imageKey !== "" && row.requestedKey !== row.imageKey
+                    stdout: StdioCollector {
+                        onStreamFinished: {
+                            const key = previewProcess.command[2] + "\t" + previewProcess.command[3]
+                            if (cb.open && row.onScreen && row.imageKey === key) {
+                                row.thumbnail = text.trim()
+                                row.requestedKey = key
+                            }
+                        }
+                    }
+                }
                 ShapeImage {
                     visible: row.img
                     x: 54; y: 10; width: parent.height - 20; height: parent.height - 20
                     kind: "square"; empty: pal.container; fallbackIcon: "image"; fallbackColor: cb.dim
-                    source: row.modelData.img ? "file://" + row.modelData.img : ""
+                    source: row.thumbnail ? "file://" + row.thumbnail : ""
                 }
                 Text { visible: row.img; anchors.right: acts.left; anchors.rightMargin: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                     text: row.modelData.text || ""; color: cb.dim; font.family: Fonts.main; font.pixelSize: 10 }
