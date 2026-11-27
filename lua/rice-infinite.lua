@@ -187,6 +187,23 @@ function RI.zoom(dir)
     RI.zoom_to(dir > 0 and RI.z * f or RI.z / f)
 end
 
+function RI.zoom_factor(factor, live, cx, cy)
+    if not here() or not factor or factor <= 0 then return end
+    local nz = math.max(RI.cfg.min, math.min(RI.cfg.max, RI.z * factor))
+    if math.abs(nz - RI.z) < 0.0005 then return end
+    local list = wins()
+    for _, w in ipairs(list) do canvas(w) end
+    if not cx then
+        local c = hl.get_cursor_pos()
+        cx, cy = c.x, c.y
+    end
+    local wx, wy = (cx - RI.ox) / RI.z, (cy - RI.oy) / RI.z
+    RI.z = nz
+    RI.ox, RI.oy = cx - wx * nz, cy - wy * nz
+    for _, w in ipairs(list) do place(w, RI.world[w.address], true) end
+    if not live then save() end
+end
+
 -- live: many small moves in a row (SUPER + ALT + mouse); the place is written down once at the end (RI.save)
 function RI.pan(dx, dy, live)
     if not here() then return end
@@ -595,22 +612,44 @@ bind_keys = function()
     local p = function() return RI.cfg.pan end
     local K = RI.keys
     local hold, go, zoom = K.mod_hold, K.mod_go, K.mod_zoom
-    KEYS = { k(zoom, "mouse_down"), k(zoom, "mouse_up"), "SUPER + SHIFT + mouse_down", "SUPER + SHIFT + mouse_up",
+    KEYS = {
+        k(zoom, "mouse_down"), k(zoom, "mouse_up"),
+        k(zoom, "mouse_left"), k(zoom, "mouse_right"),
+        "SUPER + mouse_left", "SUPER + mouse_right",
+        "SUPER + SHIFT + mouse_down", "SUPER + SHIFT + mouse_up",
+        "SUPER + SHIFT + mouse_left", "SUPER + SHIFT + mouse_right",
         k(hold, "left"), k(hold, "right"), k(hold, "up"), k(hold, "down"), k(hold, "0"),
-        k(go, "left"), k(go, "right"), k(go, "up"), k(go, "down") }
+        k(hold, "mouse:272"), k(hold, "mouse:273"), k(hold, "mouse:274"),
+        k(hold, "mouse_down"), k(hold, "mouse_up"),
+        k(hold, "mouse_left"), k(hold, "mouse_right"),
+        k(go, "left"), k(go, "right"), k(go, "up"), k(go, "down")
+    }
     pcall(hl.unbind, "SUPER + mouse_down")
     pcall(hl.unbind, "SUPER + mouse_up")
     pcall(hl.bind, k(zoom, "mouse_down"), function() RI.zoom(-1) end)
     pcall(hl.bind, k(zoom, "mouse_up"), function() RI.zoom(1) end)
+    pcall(hl.bind, k(zoom, "mouse_left"), function() RI.zoom(-1) end)
+    pcall(hl.bind, k(zoom, "mouse_right"), function() RI.zoom(1) end)
     pcall(hl.bind, "SUPER + mouse_down", function() RI.pan(0, -p()) end)
     pcall(hl.bind, "SUPER + mouse_up", function() RI.pan(0, p()) end)
+    pcall(hl.bind, "SUPER + mouse_left", function() RI.pan(p(), 0) end)
+    pcall(hl.bind, "SUPER + mouse_right", function() RI.pan(-p(), 0) end)
     pcall(hl.bind, "SUPER + SHIFT + mouse_down", function() RI.pan(-p(), 0) end)
     pcall(hl.bind, "SUPER + SHIFT + mouse_up", function() RI.pan(p(), 0) end)
+    pcall(hl.bind, "SUPER + SHIFT + mouse_left", function() RI.pan(p(), 0) end)
+    pcall(hl.bind, "SUPER + SHIFT + mouse_right", function() RI.pan(-p(), 0) end)
     pcall(hl.bind, k(hold, "left"), function() RI.pan(p(), 0) end, { repeating = true })
     pcall(hl.bind, k(hold, "right"), function() RI.pan(-p(), 0) end, { repeating = true })
     pcall(hl.bind, k(hold, "up"), function() RI.pan(0, p()) end, { repeating = true })
     pcall(hl.bind, k(hold, "down"), function() RI.pan(0, -p()) end, { repeating = true })
     pcall(hl.bind, k(hold, "0"), function() RI.zoom_to(1.0) end)
+    pcall(hl.bind, k(hold, "mouse:272"), function() end)
+    pcall(hl.bind, k(hold, "mouse:273"), function() end)
+    pcall(hl.bind, k(hold, "mouse:274"), function() end)
+    pcall(hl.bind, k(hold, "mouse_down"), function() RI.pan(0, -p()) end)
+    pcall(hl.bind, k(hold, "mouse_up"), function() RI.pan(0, p()) end)
+    pcall(hl.bind, k(hold, "mouse_left"), function() RI.pan(p(), 0) end)
+    pcall(hl.bind, k(hold, "mouse_right"), function() RI.pan(-p(), 0) end)
     pcall(hl.bind, k(go, "left"), function() RI.go("left") end)
     pcall(hl.bind, k(go, "right"), function() RI.go("right") end)
     pcall(hl.bind, k(go, "up"), function() RI.go("up") end)
@@ -621,6 +660,10 @@ unbind_keys = function()
     for _, key in ipairs(KEYS) do pcall(hl.unbind, key) end
     pcall(hl.unbind, "SUPER + mouse_down")
     pcall(hl.unbind, "SUPER + mouse_up")
+    pcall(hl.unbind, "SUPER + mouse_left")
+    pcall(hl.unbind, "SUPER + mouse_right")
+    pcall(hl.unbind, "SUPER + SHIFT + mouse_left")
+    pcall(hl.unbind, "SUPER + SHIFT + mouse_right")
     -- the normal SUPER + wheel: next / previous workspace
     pcall(hl.bind, "SUPER + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
     pcall(hl.bind, "SUPER + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
@@ -787,7 +830,7 @@ function RI.set(on)
         RI.last = a and a.address or nil
         bind_keys()
         daemon()
-        notify("On: hold " .. RI.keys.mod_hold .. " and move the mouse, " .. RI.keys.mod_zoom .. " + wheel to zoom")
+        notify("On: hold " .. RI.keys.mod_hold .. " and move mouse or touchpad, " .. RI.keys.mod_zoom .. " + wheel or pinch to zoom")
         -- before 0.56 SUPER + ALT + mouse reads the mouse itself and cannot yet: say what the one step is
         if not CAN_POLL then run(hl.dsp.exec_cmd(HOME .. "/.local/bin/rice-canvasd --tell")) end
     else

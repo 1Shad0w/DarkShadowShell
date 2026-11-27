@@ -81,7 +81,7 @@ case "$1" in
       echo "then run:  sudo nixos-rebuild switch   and log out and back in."
       exit 0
     fi
-    echo "SUPER + ALT + mouse reads the mouse and the keyboard directly. For that your user joins the 'input' group."
+    echo "SUPER + ALT + mouse / touchpad reads the input devices directly. For that your user joins the 'input' group."
     echo
     echo "This is a real permission, not a setting of this shell: every program you run (including one that got"
     echo "in through something else) can read every keyboard on this computer, not only this shell's keys."
