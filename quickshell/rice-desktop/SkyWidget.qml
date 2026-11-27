@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Io
 import QtQuick
 
 // Desktop widget "Sky": the weather as a tilted pill: a big sun, moon or cloud and the temperature.
@@ -9,8 +8,9 @@ Item {
     property var pal: null
     property real bg: 1
     property bool running: true
-    property string cond: ""
-    property string temp: "--"
+    readonly property var weather: BarSvc.weather
+    readonly property string cond: weather ? weather.cond : ""
+    readonly property string temp: weather ? weather.temperature.replace(/°[CF]/, "°") : "--"
     property var now: new Date()
     readonly property bool night: now.getHours() >= 19 || now.getHours() < 6
     function icon(c) {
@@ -22,17 +22,8 @@ Item {
         if (s.indexOf("cloud") >= 0 || s.indexOf("overcast") >= 0) return [night ? "nights_stay" : "partly_cloudy_day", ""]
         return night ? ["bedtime", ""] : ["sunny", ""]
     }
-    Process {
-        id: fetch
-        command: [Quickshell.env("HOME") + "/.local/bin/rice-weather"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const p = text.trim().split("|")
-                if (p.length >= 2) { sk.cond = p[0]; sk.temp = p[1].replace("+", "").replace(/°[CF]/, "°") }
-            }
-        }
-    }
-    Timer { interval: 1200000; running: sk.running; repeat: true; triggeredOnStart: true; onTriggered: { sk.now = new Date(); fetch.running = true } }
+    WeatherHold { forecast: false; on: sk.running }
+    Timer { interval: 1200000; running: sk.running; repeat: true; triggeredOnStart: true; onTriggered: sk.now = new Date() }
     Rectangle {
         id: pill
         anchors.centerIn: parent

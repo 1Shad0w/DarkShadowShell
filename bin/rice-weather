@@ -41,9 +41,13 @@ print(json.dumps({"place": p}))' "$CFG" ;;
     grep -q '"units": *"f"' "$HOME/.config/rice/region.json" 2>/dev/null && unit="u"
     url_place=""
     [ -n "$loc" ] && url_place="$(python3 -c 'import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))' "$loc")"
+    cache="$HOME/.cache/rice"
+    mkdir -p "$cache" || exit 1
+    exec 9>"$cache/weather.lock" || exit 1
+    flock -w 40 9 || exit 1
+    # Check freshness after taking the lock: another caller may have filled the cache.
     if [ "${1:-}" = json ]; then
       f="$HOME/.cache/rice/weather.json"
-      mkdir -p "$HOME/.cache/rice"
       if [ -s "$f" ] && [ -n "$(find "$f" -mmin -30 2>/dev/null)" ]; then cat "$f"; exit 0; fi
       # no place: no request, only what was already cached
       [ -n "$url_place" ] || { [ -s "$f" ] && cat "$f"; exit 1; }
@@ -103,15 +107,18 @@ out = {"temp": t(c, "temp_"), "feels": t(c, "FeelsLike"), "cond": (c.get("weathe
                  "c": ((x.get("hourly") or [{}]*5)[4].get("weatherDesc") or [{}])[0].get("value", "").strip()} for x in days[:3]]}
 print(json.dumps(out))
 ' "$unit")" || { [ -s "$f" ] && cat "$f"; exit 1; }
-      printf '%s\n' "$j" > "$f"
+      tmp="$(mktemp "$f.XXXXXX")" || exit 1
+      if ! { printf '%s\n' "$j" >"$tmp" && mv -f "$tmp" "$f"; }; then rm -f "$tmp"; exit 1; fi
       printf '%s\n' "$j"
       exit 0
     fi
-    [ -n "$url_place" ] || { [ -s "$HOME/.cache/rice/weather.txt" ] && cat "$HOME/.cache/rice/weather.txt"; exit 1; }
-    out="$(curl -fsS -m 10 "https://wttr.in/$url_place?format=%C|%t|%l&${unit}&lang=en")" || exit 1
+    f="$cache/weather.txt"
+    if [ -s "$f" ] && [ -n "$(find "$f" -mmin -20 2>/dev/null)" ]; then cat "$f"; exit 0; fi
+    [ -n "$url_place" ] || { [ -s "$f" ] && cat "$f"; exit 1; }
+    out="$(curl -fsS -m 10 "https://wttr.in/$url_place?format=%C|%t|%l&${unit}&lang=en")" || { [ -s "$f" ] && cat "$f"; exit 1; }
     case "$out" in ""|*Unknown*|*"<"*) exit 1 ;; esac
     [ "$(printf '%s' "$out" | tr -cd '|' | wc -c | tr -d ' ')" = 2 ] || exit 1
-    mkdir -p "$HOME/.cache/rice"
-    printf '%s\n' "$out" > "$HOME/.cache/rice/weather.txt"
+    tmp="$(mktemp "$f.XXXXXX")" || exit 1
+    if ! { printf '%s\n' "$out" >"$tmp" && mv -f "$tmp" "$f"; }; then rm -f "$tmp"; exit 1; fi
     printf '%s\n' "$out" ;;
 esac

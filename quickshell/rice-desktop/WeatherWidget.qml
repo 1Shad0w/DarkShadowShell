@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Io
 import QtQuick
 
 Item {
@@ -7,10 +6,11 @@ Item {
     property real bg: 1   // card background opacity (widget editor)
     property var pal: null
     property bool running: true
-    property string cond: ""
-    property string temp: "--"
-    property string place: ""
-    property string error: ""
+    readonly property var weather: BarSvc.weather
+    readonly property string cond: weather ? weather.cond : ""
+    readonly property string temp: weather ? weather.temperature : "--"
+    readonly property string place: weather ? weather.place : ""
+    readonly property string error: weather ? "" : "No weather data"
 
     function glyph(c) {
         const s = c.toLowerCase()
@@ -22,31 +22,7 @@ Item {
         return ""
     }
 
-    Process {
-        id: fetch
-        command: [Quickshell.env("HOME") + "/.local/bin/rice-weather"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const p = text.trim().split("|")
-                if (p.length >= 3) {
-                    we.cond = p[0]
-                    we.temp = p[1].replace("+", "")
-                    we.place = p[2]
-                    we.error = ""
-                } else {
-                    we.error = "No weather data"
-                }
-            }
-        }
-    }
-    Timer {
-        interval: 1200000
-        running: we.running
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: fetch.running = true
-    }
-    onRunningChanged: if (running) fetch.running = true
+    WeatherHold { forecast: false; on: we.running }
 
     Card { anchors.fill: parent; k: we.bg; pal: we.pal }
 

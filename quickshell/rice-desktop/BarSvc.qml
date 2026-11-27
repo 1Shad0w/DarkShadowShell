@@ -50,8 +50,7 @@ Singleton {
     Process {
         id: wxProc
         property bool forecast: false
-        command: forecast ? [Quickshell.env("HOME") + "/.local/bin/rice-weather", "json"]
-            : ["bash", "-c", "f=\"$HOME/.cache/rice/weather.txt\"; [ -n \"$(find \"$f\" -mmin -30 2>/dev/null)\" ] || \"$HOME/.local/bin/rice-weather\" >/dev/null 2>&1; cat \"$f\" 2>/dev/null"]
+        command: [Quickshell.env("HOME") + "/.local/bin/rice-weather"].concat(forecast ? ["json"] : [])
         stdout: StdioCollector {
             onStreamFinished: {
                 if (wxProc.forecast) {

@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Io
 import QtQuick
 
 // Desktop widget Weather, style "Pills" (V4.95): the weather as a stack of pills of different widths, the
@@ -9,7 +8,7 @@ Item {
     property var pal: null
     property real bg: 1
     property bool running: true
-    property var w: null
+    readonly property var w: BarSvc.wx
     readonly property color fg: pal ? pal.fg : "#F6F5F4"
     readonly property color fg3: pal ? pal.fg3 : "#8a8a8f"
     readonly property color acc: pal ? pal.primary : "#9ec9bd"
@@ -17,12 +16,7 @@ Item {
     readonly property bool night: { const h = new Date().getHours(); return h < 6 || h >= 19 }
     readonly property real u: width / 260
 
-    Process {
-        id: fetch
-        command: [Quickshell.env("HOME") + "/.local/bin/rice-weather", "json"]
-        stdout: StdioCollector { onStreamFinished: { try { const j = JSON.parse(text.trim().split("\n").pop()); if (j && j.temp !== undefined) wp.w = j } catch (e) { } } }
-    }
-    Timer { interval: 1800000; running: wp.running; repeat: true; triggeredOnStart: true; onTriggered: if (!fetch.running) fetch.running = true }
+    WeatherHold { on: wp.running }
 
     // a pill comes in from the left, one after another
     component Pill: Rectangle {
