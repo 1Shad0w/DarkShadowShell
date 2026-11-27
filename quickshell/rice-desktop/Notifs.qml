@@ -118,18 +118,15 @@ Scope {
                     const old = pops[i].n, p = pops.slice()
                     p[i] = { key: pops[i].key, n: n }
                     pops = p
-                    try { n.closed.connect(function() { nfy.leave(p[i].key) }) } catch (x) { }
+                    watchClose(p[i])
                     try { old.dismiss() } catch (x) { }
                     return
                 }
             }
             if (nfy.dnd) { try { n.dismiss() } catch (x) { } return }
             const e = { key: ++nfy.seq, n: n }
-            const p = pops.slice(); p.unshift(e)
-            pops = p
-            if (p.length > 4) leave(p[p.length - 1].key)
             drops = drops.concat([e.key])      // gone for good when it times out
-            try { n.closed.connect(function() { nfy.leave(e.key) }) } catch (x) { }
+            showPopup(e)
             return
         }
         if (nfy.dnd && !urgent(n)) return
@@ -139,11 +136,23 @@ Scope {
             return
         }
         const e = { key: ++nfy.seq, n: n }
-        const p = pops.slice(); p.unshift(e)
-        pops = p
-        if (p.length > 4) leave(p[p.length - 1].key)
-        try { n.closed.connect(function() { nfy.leave(e.key) }) } catch (x) { }
+        showPopup(e)
         Quickshell.execDetached(["bash", "-c", "SWAYNC_APP_NAME=\"$1\" \"$HOME/.local/bin/rice-sound\" notify", "_", n.appName || ""])
+    }
+    function watchClose(entry) {
+        try {
+            entry.n.closed.connect(function() {
+                if (nfy.find(entry.key) === entry) nfy.leave(entry.key)
+            })
+        } catch (error) { }
+    }
+    function showPopup(entry) {
+        // Reserve one slot for the outgoing animation and keep at most four active pop-ups.
+        if (pops.length >= 5) removePopups([pops[pops.length - 1].key])
+        pops = [entry].concat(pops)
+        const active = pops.filter(function(p) { return leaving.indexOf(p.key) < 0 })
+        if (active.length > 4) leave(active[active.length - 1].key)
+        watchClose(entry)
     }
     function find(key) { for (let i = 0; i < pops.length; i++) if (pops[i].key === key) return pops[i]; return null }
     // a pop-up first plays its way out, then leaves the list (and only then is the notification let go)
@@ -155,18 +164,15 @@ Scope {
         leaving = leaving.concat([key])
         goneT.restart()
     }
-    Timer {
-        id: goneT; interval: 280
-        onTriggered: {
-            const l = nfy.leaving
-            const gone = nfy.pops.filter(function(x) { return l.indexOf(x.key) >= 0 })
-            nfy.pops = nfy.pops.filter(function(x) { return l.indexOf(x.key) < 0 })
-            nfy.leaving = []
-            const d = nfy.drops
-            nfy.drops = d.filter(function(k) { return l.indexOf(k) < 0 })
-            gone.forEach(function(x) { if (d.indexOf(x.key) >= 0) { try { x.n.dismiss() } catch (e) { } } })
-        }
+    function removePopups(keys) {
+        const gone = pops.filter(function(p) { return keys.indexOf(p.key) >= 0 })
+        const dismiss = drops
+        pops = pops.filter(function(p) { return keys.indexOf(p.key) < 0 })
+        leaving = leaving.filter(function(key) { return keys.indexOf(key) < 0 })
+        drops = drops.filter(function(key) { return keys.indexOf(key) < 0 })
+        gone.forEach(function(p) { if (dismiss.indexOf(p.key) >= 0) { try { p.n.dismiss() } catch (error) { } } })
     }
+    Timer { id: goneT; interval: 280; onTriggered: nfy.removePopups(nfy.leaving) }
     function unpop(key) { leave(key, false) }
     function dismissPop(key) { leave(key, true) }
     // from the control center's list
